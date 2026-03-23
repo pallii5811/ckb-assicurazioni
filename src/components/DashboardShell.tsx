@@ -183,12 +183,7 @@ export default function DashboardShell() {
 
 
 
-  const [query, setQuery] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('ckb_query') || ''
-    }
-    return ''
-  })
+  const [query, setQuery] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [maxLeads, setMaxLeads] = useState(10)
 
@@ -196,35 +191,25 @@ export default function DashboardShell() {
 
   const [error, setError] = useState<string | null>(null)
 
-  const [results, setResults] = useState<unknown[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = sessionStorage.getItem('ckb_results')
-        return saved ? JSON.parse(saved) : []
-      } catch { return [] }
-    }
-    return []
-  })
+  const [results, setResults] = useState<unknown[]>([])
 
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown> | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = sessionStorage.getItem('ckb_filters')
-        return saved ? JSON.parse(saved) : null
-      } catch { return null }
-    }
-    return null
-  })
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown> | null>(null)
 
-  const [aiDebug, setAiDebug] = useState<unknown>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = sessionStorage.getItem('ckb_aiDebug')
-        return saved ? JSON.parse(saved) : null
-      } catch { return null }
-    }
-    return null
-  })
+  const [aiDebug, setAiDebug] = useState<unknown>(null)
+
+  // Restore from sessionStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    try {
+      const savedQuery = sessionStorage.getItem('ckb_query')
+      if (savedQuery) setQuery(savedQuery)
+      const savedResults = sessionStorage.getItem('ckb_results')
+      if (savedResults) setResults(JSON.parse(savedResults))
+      const savedFilters = sessionStorage.getItem('ckb_filters')
+      if (savedFilters) setActiveFilters(JSON.parse(savedFilters))
+      const savedAiDebug = sessionStorage.getItem('ckb_aiDebug')
+      if (savedAiDebug) setAiDebug(JSON.parse(savedAiDebug))
+    } catch {}
+  }, [])
 
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
 
