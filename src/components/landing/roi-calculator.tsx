@@ -83,15 +83,14 @@ export function ROICalculator() {
         }}>
           Ogni ora persa a cercare lead manualmente
           è un'ora che non stai chiudendo contratti.
-          ONLID te ne risparmia almeno 2 al giorno.
+          MIRAX te ne risparmia almeno 2 al giorno.
         </p>
 
         {/* Confronto card */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 12, marginBottom: 48,
-        }} className="grid-cols-2 sm:grid-cols-4">
+          marginBottom: 48,
+        }} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {comparisons.map((item) => (
             <div key={item.label} style={{
               background: 'rgba(255,255,255,0.04)',

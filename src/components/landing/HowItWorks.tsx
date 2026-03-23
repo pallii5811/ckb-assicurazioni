@@ -90,9 +90,8 @@ export default function HowItWorks() {
         {/* Content */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 64, alignItems: 'center',
-        }} className="grid-cols-1 lg:grid-cols-2">
+          alignItems: 'center',
+        }} className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
 
           {/* Steps */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

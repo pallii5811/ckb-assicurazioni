@@ -93,9 +93,8 @@ export function Guarantee() {
           {/* 3 card garanzie */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 16, marginBottom: 40,
-          }} className="grid-cols-1 sm:grid-cols-3">
+            marginBottom: 40,
+          }} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {guarantees.map((g) => (
               <div key={g.title} style={{
                 background: '#F8FAFC',

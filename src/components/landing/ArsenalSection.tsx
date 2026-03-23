@@ -105,15 +105,12 @@ export default function ArsenalSection() {
         {/* Bento Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 16,
-        }} className="grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
           {cards.map((card, i) => (
             <div
               key={card.title}
               style={{
-                gridColumn: card.large ? 'span 2' : 'span 1',
                 background: 'white',
                 border: '1px solid #F1F5F9',
                 borderRadius: 16,
@@ -222,13 +219,12 @@ export default function ArsenalSection() {
 
           {/* CTA Card */}
           <div style={{
-            gridColumn: 'span 3',
             background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
             borderRadius: 16, padding: '32px 36px',
             display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', flexWrap: 'wrap',
             gap: 20,
-          }} className="col-span-1 lg:col-span-3">
+          }} className="col-span-1 md:col-span-2 lg:col-span-3">
             <div>
               <div style={{
                 fontSize: 20, fontWeight: 700,

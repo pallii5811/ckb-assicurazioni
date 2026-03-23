@@ -14,7 +14,7 @@ const testimonials = [
     accent: '#6366F1',
   },
   {
-    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con ONLID cerco "dentisti a Torino senza sito aggiornato" e mi escono 30 lead con email del titolare e pitch già pronto.',
+    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con MIRAX cerco "dentisti a Torino senza sito aggiornato" e mi escono 30 lead con email del titolare e pitch già pronto.',
     name: 'Sara B.',
     role: 'Consulente digitale · Torino',
     avatar: 'SB',
@@ -90,9 +90,8 @@ export function TestimonialSection() {
         {/* Stats */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 16, marginBottom: 48,
-        }} className="grid-cols-2 sm:grid-cols-4">
+          marginBottom: 48,
+        }} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {stats.map((s) => (
             <div key={s.label} style={{
               background: '#F8FAFC',
@@ -130,8 +129,7 @@ export function TestimonialSection() {
         }}>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '240px 1fr',
-          }} className="grid-cols-1 lg:grid-cols-[240px_1fr]">
+          }} className="grid grid-cols-1 lg:grid-cols-[240px_1fr]">
 
             {/* Left metric */}
             <div style={{

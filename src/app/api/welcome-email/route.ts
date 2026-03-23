@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       </div>
 
       <div style="text-align:center;margin:32px 0;">
-        <a href="https://onlid.it/dashboard" 
+        <a href="https://mirax.it/dashboard" 
            style="display:inline-block;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:white;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">
           Vai alla Dashboard →
         </a>
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
       <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0;border-top:1px solid #f1f5f9;padding-top:20px;">
         Hai domande? Rispondi direttamente a questa email o scrivi a 
-        <a href="mailto:supporto@onlid.it" style="color:#6366f1;">supporto@onlid.it</a>.
+        <a href="mailto:supporto@mirax.it" style="color:#6366f1;">supporto@mirax.it</a>.
       </p>
     </div>
 

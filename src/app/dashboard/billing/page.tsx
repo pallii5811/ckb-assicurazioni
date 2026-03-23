@@ -156,7 +156,7 @@ export default function BillingPage() {
                     }`}
                     onClick={() => {
                       // Stripe checkout will go here
-                      alert('L\'integrazione Stripe sarà disponibile a breve. Contatta supporto@onlid.it per upgrade manuali.')
+                      alert('L\'integrazione Stripe sarà disponibile a breve. Contatta supporto@mirax.it per upgrade manuali.')
                     }}
                   >
                     {plan.price === '€0' ? 'Downgrade' : 'Upgrade'}

@@ -343,7 +343,7 @@ img[alt="Mirax"] {
  .delay-600 { animation-delay: 600ms; }
 
 /* ============================================
-   ONLID DESIGN SYSTEM
+   MIRAX DESIGN SYSTEM
    Inspired by ZoomInfo + Lusha + WeTracked
    ============================================ */
 
@@ -351,39 +351,39 @@ img[alt="Mirax"] {
 
 :root {
   /* Brand Colors */
-  --onlid-black: #080B11;
-  --onlid-dark: #0D1117;
-  --onlid-card: #111827;
-  --onlid-card-hover: #1a2235;
-  --onlid-border: rgba(255,255,255,0.06);
-  --onlid-border-hover: rgba(255,255,255,0.12);
+  --mirax-black: #080B11;
+  --mirax-dark: #0D1117;
+  --mirax-card: #111827;
+  --mirax-card-hover: #1a2235;
+  --mirax-border: rgba(255,255,255,0.06);
+  --mirax-border-hover: rgba(255,255,255,0.12);
   
   /* Accent — Electric Blue come ZoomInfo */
-  --onlid-blue: #2563EB;
-  --onlid-blue-light: #3B82F6;
-  --onlid-blue-glow: rgba(37,99,235,0.15);
+  --mirax-blue: #2563EB;
+  --mirax-blue-light: #3B82F6;
+  --mirax-blue-glow: rgba(37,99,235,0.15);
   
   /* Secondary Accent */
-  --onlid-cyan: #06B6D4;
-  --onlid-cyan-glow: rgba(6,182,212,0.1);
+  --mirax-cyan: #06B6D4;
+  --mirax-cyan-glow: rgba(6,182,212,0.1);
 
   /* Text */
-  --onlid-text-primary: #F8FAFC;
-  --onlid-text-secondary: #94A3B8;
-  --onlid-text-muted: #475569;
+  --mirax-text-primary: #F8FAFC;
+  --mirax-text-secondary: #94A3B8;
+  --mirax-text-muted: #475569;
 
   /* Gradients */
-  --onlid-gradient-hero: radial-gradient(
+  --mirax-gradient-hero: radial-gradient(
     ellipse 80% 50% at 50% -10%,
     rgba(37,99,235,0.25) 0%,
     transparent 70%
   );
-  --onlid-gradient-card: linear-gradient(
+  --mirax-gradient-card: linear-gradient(
     135deg,
     rgba(255,255,255,0.05) 0%,
     rgba(255,255,255,0.02) 100%
   );
-  --onlid-gradient-button: linear-gradient(
+  --mirax-gradient-button: linear-gradient(
     135deg,
     #2563EB 0%,
     #1D4ED8 100%
@@ -392,8 +392,8 @@ img[alt="Mirax"] {
 
 /* Base */
 body {
-  background-color: var(--onlid-black) !important;
-  color: var(--onlid-text-primary) !important;
+  background-color: var(--mirax-black) !important;
+  color: var(--mirax-text-primary) !important;
   font-family: 'DM Sans', sans-serif !important;
 }
 
@@ -405,26 +405,26 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Hero gradient background */
 .hero-gradient {
-  background: var(--onlid-gradient-hero);
+  background: var(--mirax-gradient-hero);
 }
 
 /* Cards */
-.onlid-card {
-  background: var(--onlid-gradient-card);
-  border: 1px solid var(--onlid-border);
+.mirax-card {
+  background: var(--mirax-gradient-card);
+  border: 1px solid var(--mirax-border);
   backdrop-filter: blur(12px);
   transition: all 0.3s ease;
 }
-.onlid-card:hover {
-  border-color: var(--onlid-border-hover);
+.mirax-card:hover {
+  border-color: var(--mirax-border-hover);
   transform: translateY(-2px);
   box-shadow: 0 20px 40px rgba(0,0,0,0.3),
               0 0 0 1px rgba(37,99,235,0.1);
 }
 
 /* Buttons */
-.onlid-btn-primary {
-  background: var(--onlid-gradient-button) !important;
+.mirax-btn-primary {
+  background: var(--mirax-gradient-button) !important;
   color: white !important;
   border: none !important;
   font-family: 'DM Sans', sans-serif !important;
@@ -434,14 +434,14 @@ h1, h2, h3, h4, h5, h6 {
               inset 0 1px 0 rgba(255,255,255,0.1) !important;
   transition: all 0.2s ease !important;
 }
-.onlid-btn-primary:hover {
+.mirax-btn-primary:hover {
   box-shadow: 0 8px 25px rgba(37,99,235,0.5),
               inset 0 1px 0 rgba(255,255,255,0.15) !important;
   transform: translateY(-1px) !important;
 }
 
 /* Badges e tag */
-.onlid-badge {
+.mirax-badge {
   background: rgba(37,99,235,0.12);
   border: 1px solid rgba(37,99,235,0.25);
   color: #93C5FD;
@@ -453,12 +453,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Glow effects */
-.onlid-glow-blue {
+.mirax-glow-blue {
   box-shadow: 0 0 40px rgba(37,99,235,0.2);
 }
 
 /* Grid lines background come ZoomInfo */
-.onlid-grid-bg {
+.mirax-grid-bg {
   background-image: 
     linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
@@ -466,7 +466,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Animated gradient text */
-.onlid-gradient-text {
+.mirax-gradient-text {
   background: linear-gradient(135deg, #F8FAFC 0%, #93C5FD 50%, #06B6D4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -474,7 +474,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Noise texture overlay */
-.onlid-noise::after {
+.mirax-noise::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -484,33 +484,33 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Animazioni */
-@keyframes onlid-fade-up {
+@keyframes mirax-fade-up {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes onlid-glow-pulse {
+@keyframes mirax-glow-pulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
-@keyframes onlid-float {
+@keyframes mirax-float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }
 }
 
-.onlid-animate-fade-up {
-  animation: onlid-fade-up 0.6s ease forwards;
+.mirax-animate-fade-up {
+  animation: mirax-fade-up 0.6s ease forwards;
 }
-.onlid-animate-glow {
-  animation: onlid-glow-pulse 3s ease infinite;
+.mirax-animate-glow {
+  animation: mirax-glow-pulse 3s ease infinite;
 }
-.onlid-animate-float {
-  animation: onlid-float 4s ease infinite;
+.mirax-animate-float {
+  animation: mirax-float 4s ease infinite;
 }
 
 /* Scrollbar custom */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--onlid-dark); }
+::-webkit-scrollbar-track { background: var(--mirax-dark); }
 ::-webkit-scrollbar-thumb { 
-  background: var(--onlid-blue);
+  background: var(--mirax-blue);
   border-radius: 3px;
 }

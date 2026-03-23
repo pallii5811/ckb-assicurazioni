@@ -148,7 +148,7 @@ function SearchWidget({ snap }: { snap: typeof snapshots[0] }) {
         fontSize: 10, color: '#94A3B8',
         fontFamily: 'monospace',
       }}>
-        <span>onlid · ai-search</span>
+        <span>mirax · ai-search</span>
         <span style={{ color: '#10B981', fontWeight: 600 }}>● live</span>
       </div>
     </div>

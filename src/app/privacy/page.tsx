@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | ONLID',
-  description: 'Informativa sulla privacy di ONLID ai sensi del GDPR e del D.Lgs. 196/2003.',
+  title: 'Privacy Policy | MIRAX',
+  description: 'Informativa sulla privacy di MIRAX ai sensi del GDPR e del D.Lgs. 196/2003.',
 }
 
 export default function PrivacyPage() {
@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <nav className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-lg font-bold text-slate-900" style={{ fontFamily: 'Syne, sans-serif' }}>
-            ONLID
+            MIRAX
           </Link>
           <Link href="/" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
             ← Torna alla home
@@ -30,8 +30,8 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">1. Titolare del Trattamento</h2>
             <p>
-              Il Titolare del trattamento dei dati personali è <strong>ONLID</strong> (di seguito &quot;Titolare&quot;),
-              contattabile all&apos;indirizzo email: <a href="mailto:privacy@onlid.it" className="text-violet-600 hover:underline">privacy@onlid.it</a>.
+              Il Titolare del trattamento dei dati personali è <strong>MIRAX</strong> (di seguito &quot;Titolare&quot;),
+              contattabile all&apos;indirizzo email: <a href="mailto:privacy@mirax.it" className="text-violet-600 hover:underline">privacy@mirax.it</a>.
             </p>
           </section>
 
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-2">
               Per esercitare i tuoi diritti, scrivi a{' '}
-              <a href="mailto:privacy@onlid.it" className="text-violet-600 hover:underline">privacy@onlid.it</a>.
+              <a href="mailto:privacy@mirax.it" className="text-violet-600 hover:underline">privacy@mirax.it</a>.
               Risponderemo entro 30 giorni.
             </p>
           </section>
@@ -141,7 +141,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">11. Contatti e Reclami</h2>
             <p>
               Per qualsiasi domanda relativa alla privacy, contattaci a{' '}
-              <a href="mailto:privacy@onlid.it" className="text-violet-600 hover:underline">privacy@onlid.it</a>.
+              <a href="mailto:privacy@mirax.it" className="text-violet-600 hover:underline">privacy@mirax.it</a>.
             </p>
             <p className="mt-2">
               Hai inoltre diritto di proporre reclamo al <strong>Garante per la Protezione dei Dati Personali</strong>{' '}

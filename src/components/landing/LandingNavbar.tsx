@@ -41,7 +41,7 @@ export default function LandingNavbar() {
 
         {/* Nav */}
         <nav style={{
-          display: 'flex', alignItems: 'center', gap: 32,
+          alignItems: 'center', gap: 32,
         }} className="hidden md:flex">
           {[
             { label: 'Come funziona', href: '#how-it-works' },
@@ -74,21 +74,23 @@ export default function LandingNavbar() {
           >
             Accedi
           </Link>
-          <CtaLink>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#6366F1',
-              color: 'white', fontSize: 14, fontWeight: 600,
-              padding: '9px 20px', borderRadius: 8,
-              fontFamily: 'DM Sans, sans-serif',
-              boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
-              cursor: 'pointer', textDecoration: 'none',
-              transition: 'all 0.2s',
-            }}>
-              Inizia Gratis
-              <ArrowRight size={14} />
-            </span>
-          </CtaLink>
+          <span className="hidden sm:inline-block">
+            <CtaLink>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#6366F1',
+                color: 'white', fontSize: 14, fontWeight: 600,
+                padding: '9px 20px', borderRadius: 8,
+                fontFamily: 'DM Sans, sans-serif',
+                boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
+                cursor: 'pointer', textDecoration: 'none',
+                transition: 'all 0.2s',
+              }}>
+                Inizia Gratis
+                <ArrowRight size={14} />
+              </span>
+            </CtaLink>
+          </span>
 
           {/* Mobile menu button */}
           <button

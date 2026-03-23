@@ -31,6 +31,21 @@ export const metadata: Metadata = {
     'lead qualificati ricerca intelligente',
     'pitch ai vendita',
     'crm lead agency',
+    'lead generation b2b',
+    'trovare clienti online',
+    'software lead generation italiano',
+    'agenzia marketing trovare clienti',
+    'lead qualificati italia',
+    'generare contatti b2b',
+    'strumento prospecting italia',
+    'email marketing b2b italia',
+    'audit sito web automatico',
+    'trovare aziende senza sito',
+    'contatti aziende italiane',
+    'database aziende italia',
+    'ricerca lead freelance',
+    'consulente digitale lead',
+    'scraping lead legale gdpr',
   ],
   openGraph: {
     title: 'Mirax — Lead B2B Qualificati per Agency Italiane',
@@ -59,23 +74,64 @@ export default function Home() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Mirax',
+    name: 'MIRAX',
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'Web',
+    url: 'https://mirax.it',
     description:
-      "Mirax è il motore di ricerca intelligente per lead B2B italiani. Trova aziende con problemi digitali (SEO, pixel, DMARC), le profila in tempo reale e genera pitch AI personalizzati. Dal target al contatto qualificato in meno di 2 minuti.",
-    offers: {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'EUR',
-      description: 'Piano gratuito con 10 lead',
-    },
+      "MIRAX è il motore di ricerca intelligente per lead B2B italiani. Trova aziende con problemi digitali (SEO, pixel, DMARC), le profila in tempo reale e genera pitch AI personalizzati. Dal target al contatto qualificato in meno di 2 minuti.",
+    offers: [
+      {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'EUR',
+        name: 'Esplora',
+        description: 'Piano gratuito con 10 lead',
+      },
+      {
+        '@type': 'Offer',
+        price: '29',
+        priceCurrency: 'EUR',
+        name: 'Starter',
+        description: '500 crediti al mese per freelance e consulenti',
+      },
+      {
+        '@type': 'Offer',
+        price: '99',
+        priceCurrency: 'EUR',
+        name: 'PRO',
+        description: '3000 crediti al mese con Pitch AI e email decision maker',
+      },
+      {
+        '@type': 'Offer',
+        price: '249',
+        priceCurrency: 'EUR',
+        name: 'Agency',
+        description: '10000 crediti al mese con API e integrazioni CRM',
+      },
+    ],
     aggregateRating: {
       '@type': 'AggregateRating',
       ratingValue: '4.9',
       ratingCount: '200',
       bestRating: '5',
     },
+  }
+
+  const orgJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'MIRAX',
+    url: 'https://mirax.it',
+    logo: 'https://mirax.it/mirax-logo.svg',
+    description: 'Il motore di intelligence B2B più potente d\'Italia. Trova, analizza e chiudi clienti in 2 minuti.',
+    contactPoint: {
+      '@type': 'ContactPoint',
+      email: 'supporto@mirax.it',
+      contactType: 'customer service',
+      availableLanguage: 'Italian',
+    },
+    sameAs: [],
   }
 
   const faqJsonLd = {
@@ -133,6 +189,7 @@ export default function Home() {
         <main className="pb-24">
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
           <AnimateOnScroll>
             <HeroSection />
           </AnimateOnScroll>

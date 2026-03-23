@@ -16,7 +16,7 @@ const links = {
     { label: 'Cookie Policy', href: '/cookie-policy' },
   ],
   Supporto: [
-    { label: 'Contatti', href: 'mailto:supporto@onlid.it' },
+    { label: 'Contatti', href: 'mailto:supporto@mirax.it' },
     { label: 'Dashboard', href: '/dashboard' },
   ],
 }
@@ -33,9 +33,8 @@ export default function LandingFooter() {
         {/* Top row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr',
-          gap: 48, marginBottom: 56,
-        }} className="grid-cols-1 md:grid-cols-4">
+          marginBottom: 56,
+        }} className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-12">
 
           {/* Brand */}
           <div>

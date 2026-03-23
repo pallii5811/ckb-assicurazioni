@@ -106,9 +106,7 @@ export default function FaqComplianceSection() {
         {/* FAQ grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 12,
-        }} className="grid-cols-1 md:grid-cols-2">
+        }} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {faqs.map((item, i) => (
             <div key={item.q} style={{
               background: 'white',
