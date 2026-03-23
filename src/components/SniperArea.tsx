@@ -28,65 +28,71 @@ const SniperArea = ({ query, onQueryChange, onStart, isLoading, error, aiDebug, 
             e.preventDefault()
             onStart()
           }}
-          className="flex items-center gap-3 px-5 py-3"
+          className="px-4 sm:px-5 py-3"
         >
-          <div className="relative flex-shrink-0">
-            <div className="h-2.5 w-2.5 rounded-full bg-violet-500" />
-            {!isLoading ? (
-              <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-violet-400 animate-ping opacity-75" />
-            ) : null}
+          {/* Row 1: input field — always full width */}
+          <div className="flex items-center gap-3 mb-2 sm:mb-0">
+            <div className="relative flex-shrink-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-violet-500" />
+              {!isLoading ? (
+                <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-violet-400 animate-ping opacity-75" />
+              ) : null}
+            </div>
+
+            <input
+              type="text"
+              placeholder="Es. 'Agenzie a Milano senza Pixel'…"
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              className="flex-1 bg-transparent text-base text-slate-900 placeholder:text-slate-400 outline-none py-3 min-w-0"
+            />
           </div>
 
-          <input
-            type="text"
-            placeholder="Es. 'Agenzie a Milano senza Pixel' — trova i prossimi clienti in 10 secondi…"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            className="flex-1 bg-transparent text-base text-slate-900 placeholder:text-slate-400 outline-none py-4 min-w-0"
-          />
+          {/* Row 2: controls */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Lead limit selector */}
+            <div className="flex-shrink-0 flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={maxLeads}
+                onChange={(e) => onMaxLeadsChange(Number(e.target.value))}
+                disabled={isLoading}
+                className="bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 px-2 py-1.5 outline-none focus:border-violet-400 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {LEAD_OPTIONS.map((n) => (
+                  <option key={n} value={n} disabled={n > credits}>
+                    {n} lead{n > credits ? ` (servono ${n} crediti)` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Lead limit selector */}
-          <div className="flex-shrink-0 flex items-center gap-1.5">
-            <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={maxLeads}
-              onChange={(e) => onMaxLeadsChange(Number(e.target.value))}
-              disabled={isLoading}
-              className="bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 px-2 py-1.5 outline-none focus:border-violet-400 transition-colors cursor-pointer disabled:opacity-50"
+            <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+              <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] text-slate-400 font-mono">⌘</kbd>
+              <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] text-slate-400 font-mono">↵</kbd>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || credits <= 0}
+              className="ml-auto justify-center flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] disabled:scale-100"
             >
-              {LEAD_OPTIONS.map((n) => (
-                <option key={n} value={n} disabled={n > credits}>
-                  {n} lead{n > credits ? ` (servono ${n} crediti)` : ''}
-                </option>
-              ))}
-            </select>
+              {isLoading ? (
+                <>
+                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  <span>Ricerca...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  <span>Cerca</span>
+                </>
+              )}
+            </button>
           </div>
-
-          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
-            <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] text-slate-400 font-mono">⌘</kbd>
-            <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] text-slate-400 font-mono">↵</kbd>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading || credits <= 0}
-            className="flex-shrink-0 min-w-[120px] justify-center flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] disabled:scale-100"
-          >
-            {isLoading ? (
-              <>
-                <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                <span>Ricerca...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                <span>Cerca</span>
-              </>
-            )}
-          </button>
         </form>
 
-        <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-2 flex items-center gap-6">
+        <div className="border-t border-slate-100 bg-slate-50/50 px-4 sm:px-5 py-2 flex flex-wrap items-center gap-3 sm:gap-6">
           <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             Database live

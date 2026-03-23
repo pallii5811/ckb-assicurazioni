@@ -1316,17 +1316,17 @@ export default function DashboardShell() {
         credits={credits}
       />
 
-      <div className="flex gap-2 items-center mt-2 px-4">
+      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2 px-4">
         <input
           type="text"
           placeholder="Oppure incolla URL sito (es. https://crystalweb.it)"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
-          className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400"
+          className="flex-1 px-3 py-2.5 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-slate-400"
         />
         <button
           onClick={handleAnalyzeSite}
-          className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium whitespace-nowrap"
+          className="px-4 py-2.5 text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium whitespace-nowrap"
         >
           Analizza sito
         </button>
