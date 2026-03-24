@@ -50,6 +50,7 @@ const plans: Plan[] = [
       'Supporto email',
     ],
     cta: 'Inizia Ora',
+    href: '/dashboard/billing',
     note: '312 agency attive su questo piano',
     highlight: false,
     badge: '50% sconto lancio',
@@ -70,6 +71,7 @@ const plans: Plan[] = [
       'Priorità supporto',
     ],
     cta: 'Inizia Ora',
+    href: '/dashboard/billing',
     note: '189 agency chiudono clienti ogni giorno',
   },
   {
@@ -86,6 +88,7 @@ const plans: Plan[] = [
       'Account manager dedicato',
     ],
     cta: 'Parla con Noi',
+    href: '/dashboard/billing',
     note: '43 agency enterprise attive',
     highlight: false,
   },
