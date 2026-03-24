@@ -9,17 +9,25 @@ export async function GET(req: NextRequest) {
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: alerts, error } = await supabase
-    .from('lead_alerts')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('is_read', false)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  try {
+    const { data: alerts, error } = await supabase
+      .from('lead_alerts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+      .limit(50)
 
-  if (error) return NextResponse.json({ error }, { status: 500 })
+    if (error) {
+      // Table might not exist yet — return empty instead of 500
+      console.log('[alerts] query error (table may not exist):', error.message)
+      return NextResponse.json({ alerts: [] })
+    }
 
-  return NextResponse.json({ alerts: alerts || [] })
+    return NextResponse.json({ alerts: alerts || [] })
+  } catch (e) {
+    return NextResponse.json({ alerts: [] })
+  }
 }
 
 export async function PATCH(req: NextRequest) {

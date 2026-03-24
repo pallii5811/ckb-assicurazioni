@@ -25,8 +25,11 @@ import {
   TrendingUp,
   Building2,
   Video,
+  Check,
+  Loader2,
 } from 'lucide-react'
 import { calcOpportunityScore } from '@/components/ResultsTable'
+import { generatePitchAction } from '@/app/dashboard/actions'
 
 type LeadDetailClientProps = {
   lead: any | null
@@ -177,6 +180,13 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const [monitorStatus, setMonitorStatus] = useState<'idle' | 'saving' | 'monitored' | 'error'>('idle')
   const [monitorError, setMonitorError] = useState<string | null>(null)
 
+  const [pitchLoading, setPitchLoading] = useState(false)
+  const [pitchResult, setPitchResult] = useState<{ subject: string; body: string } | null>(null)
+  const [pitchError, setPitchError] = useState<string | null>(null)
+  const [showPitchModal, setShowPitchModal] = useState(false)
+
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
   const [coldEmail, setColdEmail] = useState('')
 
   useEffect(() => {
@@ -280,11 +290,60 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
     )
   }
 
-  const copyToClipboard = async () => {
+  const copyToClipboard = async (text?: string) => {
     try {
-      await navigator.clipboard.writeText(coldEmail)
+      await navigator.clipboard.writeText(text || coldEmail)
     } catch {
       // ignore
+    }
+  }
+
+  const onGeneraPitch = async () => {
+    setPitchLoading(true)
+    setPitchError(null)
+    try {
+      const result = await generatePitchAction({
+        nome: nome || '',
+        sito: sitoRaw || '',
+        citta: citta || '',
+        categoria: categoria || '',
+        email: email || '',
+        rating: lead?.rating ?? null,
+        tech_stack: techStack,
+        html_errors: seoErrors,
+        page_speed: loadSpeedSeconds,
+      })
+      setPitchResult(result)
+      setShowPitchModal(true)
+    } catch (e) {
+      setPitchError(e instanceof Error ? e.message : 'Errore generazione pitch')
+    } finally {
+      setPitchLoading(false)
+    }
+  }
+
+  const onContatta = () => {
+    if (email) {
+      const subject = pitchResult?.subject || `Proposta per ${nome}`
+      const body = pitchResult?.body || coldEmail
+      window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank')
+    } else if (telefono) {
+      window.open(`tel:${telefono.replace(/\s/g, '')}`, '_blank')
+    }
+  }
+
+  const onSalva = async () => {
+    setSaveStatus('saving')
+    try {
+      const existing = JSON.parse(sessionStorage.getItem('ckb_saved_leads') || '[]')
+      const alreadySaved = existing.some((l: any) => (l?.nome === nome && l?.sito === sitoRaw))
+      if (!alreadySaved) {
+        existing.push({ ...lead, saved_at: new Date().toISOString() })
+        sessionStorage.setItem('ckb_saved_leads', JSON.stringify(existing))
+      }
+      setSaveStatus('saved')
+    } catch {
+      setSaveStatus('error')
     }
   }
 
@@ -325,13 +384,10 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1280, margin: '0 auto' }}>
+    <div className="px-4 sm:px-6 py-6 max-w-[1280px] mx-auto">
 
       {/* Header */}
-      <div style={{
-        display: 'flex', flexDirection: 'column', gap: 16,
-        marginBottom: 24,
-      }} className="md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-start md:justify-between">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
             <h1 style={{
@@ -361,17 +417,20 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: '#6366F1', color: 'white',
-            fontSize: 13, fontWeight: 600,
-            padding: '9px 18px', borderRadius: 8,
-            border: 'none', cursor: 'pointer',
-            fontFamily: 'DM Sans, sans-serif',
-            boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
-          }}>
-            <Sparkles size={14} />
-            Genera Pitch
+          <button
+            onClick={onGeneraPitch}
+            disabled={pitchLoading}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: pitchLoading ? '#A5B4FC' : '#6366F1', color: 'white',
+              fontSize: 13, fontWeight: 600,
+              padding: '9px 18px', borderRadius: 8,
+              border: 'none', cursor: pitchLoading ? 'wait' : 'pointer',
+              fontFamily: 'DM Sans, sans-serif',
+              boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
+            }}>
+            {pitchLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {pitchLoading ? 'Generando...' : 'Genera Pitch'}
           </button>
 
           {monitorStatus === 'monitored' ? (
@@ -401,28 +460,36 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             </button>
           )}
 
-          <button style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: '#0F172A', color: 'white',
-            fontSize: 13, fontWeight: 600,
-            padding: '9px 18px', borderRadius: 8,
-            border: 'none', cursor: 'pointer',
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
+          <button
+            onClick={onContatta}
+            disabled={!email && !telefono}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: (!email && !telefono) ? '#94A3B8' : '#0F172A', color: 'white',
+              fontSize: 13, fontWeight: 600,
+              padding: '9px 18px', borderRadius: 8,
+              border: 'none', cursor: (!email && !telefono) ? 'not-allowed' : 'pointer',
+              fontFamily: 'DM Sans, sans-serif',
+            }}>
             <MessageCircle size={14} />
             Contatta
           </button>
 
-          <button style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'white', color: '#475569',
-            fontSize: 13, fontWeight: 600,
-            padding: '9px 18px', borderRadius: 8,
-            border: '1px solid #E2E8F0', cursor: 'pointer',
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
-            <BookmarkPlus size={14} />
-            Salva
+          <button
+            onClick={onSalva}
+            disabled={saveStatus === 'saving' || saveStatus === 'saved'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: saveStatus === 'saved' ? '#F0FDF4' : 'white',
+              color: saveStatus === 'saved' ? '#16A34A' : '#475569',
+              fontSize: 13, fontWeight: 600,
+              padding: '9px 18px', borderRadius: 8,
+              border: `1px solid ${saveStatus === 'saved' ? '#BBF7D0' : '#E2E8F0'}`,
+              cursor: saveStatus === 'saved' ? 'default' : 'pointer',
+              fontFamily: 'DM Sans, sans-serif',
+            }}>
+            {saveStatus === 'saved' ? <Check size={14} /> : <BookmarkPlus size={14} />}
+            {saveStatus === 'saved' ? 'Salvato' : saveStatus === 'saving' ? 'Salvataggio...' : 'Salva'}
           </button>
 
           <Link href="/dashboard" style={{
@@ -450,11 +517,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       )}
 
       {/* Top 3 card */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 16, marginBottom: 24,
-      }} className="grid-cols-1 lg:grid-cols-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
         {/* Contatti */}
         <div style={{
@@ -726,10 +789,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           </p>
         </div>
 
-        <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-        }} className="grid-cols-1 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Recensioni */}
           <div style={{
@@ -1110,10 +1170,22 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
       </div>
 
+      {pitchError && (
+        <div style={{
+          background: '#FEF2F2', border: '1px solid #FECACA',
+          borderRadius: 10, padding: '10px 16px',
+          fontSize: 13, color: '#DC2626',
+          fontFamily: 'DM Sans, sans-serif',
+          marginBottom: 16,
+        }}>
+          Errore pitch: {pitchError}
+        </div>
+      )}
+
       <Card className="p-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-sm font-semibold text-slate-900">Cold Email Generata</h2>
-          <Button size="sm" variant="secondary" onClick={copyToClipboard} className="gap-2">
+          <Button size="sm" variant="secondary" onClick={() => copyToClipboard()} className="gap-2">
             <Copy className="h-4 w-4" />
             Copia
           </Button>
@@ -1132,6 +1204,100 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           <span>Personalizza il testo prima di inviare.</span>
         </div>
       </Card>
+
+      {/* Pitch Modal */}
+      {showPitchModal && pitchResult && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }} onClick={() => setShowPitchModal(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white', borderRadius: 16,
+              maxWidth: 640, width: '100%',
+              maxHeight: '80vh', overflow: 'auto',
+              padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            }}>
+            <h3 style={{
+              fontSize: 16, fontWeight: 700, color: '#0F172A',
+              fontFamily: 'Syne, sans-serif', margin: '0 0 4px',
+            }}>
+              Pitch Commerciale
+            </h3>
+            <p style={{ fontSize: 12, color: '#94A3B8', margin: '0 0 16px', fontFamily: 'DM Sans, sans-serif' }}>
+              {nome} · {citta} · {categoria}
+            </p>
+
+            <div style={{
+              background: '#F8FAFC', borderRadius: 10,
+              padding: 16, marginBottom: 12,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Oggetto
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'DM Sans, sans-serif' }}>
+                {pitchResult.subject}
+              </div>
+            </div>
+
+            <div style={{
+              background: '#F8FAFC', borderRadius: 10,
+              padding: 16, marginBottom: 20,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Corpo
+              </div>
+              <div style={{ fontSize: 13, color: '#334155', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                {pitchResult.body}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowPitchModal(false)}
+                style={{
+                  padding: '10px 20px', borderRadius: 8,
+                  background: '#F1F5F9', color: '#475569',
+                  fontSize: 13, fontWeight: 600,
+                  border: '1px solid #E2E8F0', cursor: 'pointer',
+                  fontFamily: 'DM Sans, sans-serif',
+                }}>
+                Chiudi
+              </button>
+              <button
+                onClick={() => copyToClipboard(`${pitchResult.subject}\n\n${pitchResult.body}`)}
+                style={{
+                  padding: '10px 20px', borderRadius: 8,
+                  background: 'white', color: '#475569',
+                  fontSize: 13, fontWeight: 600,
+                  border: '1px solid #E2E8F0', cursor: 'pointer',
+                  fontFamily: 'DM Sans, sans-serif',
+                }}>
+                📋 Copia testo
+              </button>
+              {email && (
+                <button
+                  onClick={() => {
+                    window.open(`mailto:${email}?subject=${encodeURIComponent(pitchResult.subject)}&body=${encodeURIComponent(pitchResult.body)}`, '_blank')
+                  }}
+                  style={{
+                    padding: '10px 20px', borderRadius: 8,
+                    background: '#6366F1', color: 'white',
+                    fontSize: 13, fontWeight: 600,
+                    border: 'none', cursor: 'pointer',
+                    fontFamily: 'DM Sans, sans-serif',
+                    boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
+                  }}>
+                  ✉️ Apri nel client mail
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
