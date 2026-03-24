@@ -183,7 +183,7 @@ export default function DashboardShell() {
 
 
 
-  const hasMountedRef = useRef(false)
+  const [isRestored, setIsRestored] = useState(false)
 
   const [query, setQuery] = useState('')
   const [urlInput, setUrlInput] = useState('')
@@ -199,7 +199,7 @@ export default function DashboardShell() {
 
   const [aiDebug, setAiDebug] = useState<unknown>(null)
 
-  // Restore from sessionStorage after mount to avoid hydration mismatch
+  // Restore from sessionStorage after mount (batched with setIsRestored)
   useEffect(() => {
     try {
       const savedQuery = sessionStorage.getItem('ckb_query')
@@ -211,7 +211,7 @@ export default function DashboardShell() {
       const savedAiDebug = sessionStorage.getItem('ckb_aiDebug')
       if (savedAiDebug) setAiDebug(JSON.parse(savedAiDebug))
     } catch {}
-    hasMountedRef.current = true
+    setIsRestored(true)
   }, [])
 
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
@@ -224,26 +224,26 @@ export default function DashboardShell() {
 
   const [isScraping, setIsScraping] = useState(false)
 
-  // Persist search state to sessionStorage (skip until after restore)
+  // Persist search state to sessionStorage (only after restore is complete)
   useEffect(() => {
-    if (!hasMountedRef.current) return
+    if (!isRestored) return
     sessionStorage.setItem('ckb_query', query)
-  }, [query])
+  }, [query, isRestored])
 
   useEffect(() => {
-    if (!hasMountedRef.current) return
+    if (!isRestored) return
     try { sessionStorage.setItem('ckb_results', JSON.stringify(results)) } catch {}
-  }, [results])
+  }, [results, isRestored])
 
   useEffect(() => {
-    if (!hasMountedRef.current) return
+    if (!isRestored) return
     try { sessionStorage.setItem('ckb_filters', JSON.stringify(activeFilters)) } catch {}
-  }, [activeFilters])
+  }, [activeFilters, isRestored])
 
   useEffect(() => {
-    if (!hasMountedRef.current) return
+    if (!isRestored) return
     try { sessionStorage.setItem('ckb_aiDebug', JSON.stringify(aiDebug)) } catch {}
-  }, [aiDebug])
+  }, [aiDebug, isRestored])
 
   const [autoScrapeTriggered, setAutoScrapeTriggered] = useState(false)
   const [autoScrapeLoading, setAutoScrapeLoading] = useState(false)
