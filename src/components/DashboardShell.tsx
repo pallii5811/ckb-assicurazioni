@@ -600,8 +600,8 @@ export default function DashboardShell() {
                     const key = (r.sito || r.website || r.nome || r.azienda || r.name || '').toLowerCase()
                     return key && !existingKeys.has(key)
                   })
-                  // Apply has_website filter from activeFilters (e.g. "senza sito")
-                  if ((activeFilters as any)?.has_website === false) {
+                  // Apply "senza sito" filter — use isNoWebsiteQuery from query closure
+                  if (isNoWebsiteQuery) {
                     newLeads = newLeads.filter((r: any) => {
                       const s = (r.sito || r.website || '').trim()
                       return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d'
