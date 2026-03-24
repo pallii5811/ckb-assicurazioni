@@ -1536,7 +1536,7 @@ export default function DashboardShell() {
                       fontFamily: 'DM Sans, sans-serif',
                     }}
                   >
-                    Trovati {results.length} lead — Stiamo cercando altri lead per questa categoria. Ripeti la ricerca tra qualche minuto per vederne di più.
+                    Trovati {results.length} lead — Stiamo analizzando nuovi lead in tempo reale. Attendi 5-10 minuti per risultati più completi.
                   </span>
                 </div>
               )}
