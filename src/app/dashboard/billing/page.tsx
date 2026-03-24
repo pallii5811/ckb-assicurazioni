@@ -1,9 +1,13 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useDashboard, PLAN_CREDITS, PLAN_LABELS } from '@/components/DashboardContext'
-import { Check, Crown, Zap, Building2, Rocket } from 'lucide-react'
+import { Check, Crown, Zap, Building2, Rocket, CreditCard, Loader2, ExternalLink, Shield } from 'lucide-react'
+
+type PaymentMethod = 'stripe' | 'paypal'
 
 const plans = [
   {
@@ -23,7 +27,7 @@ const plans = [
     icon: Rocket,
     features: ['500 crediti / mese', 'Ricerca iper-localizzata', 'Cellulari verificati', 'Export CSV/Excel', 'Supporto email'],
     highlight: false,
-    badge: '🔥 Popolare',
+    badge: 'Popolare',
   },
   {
     id: 'pro' as const,
@@ -50,6 +54,109 @@ export default function BillingPage() {
   const { credits, planType } = useDashboard()
   const planCredits = PLAN_CREDITS[planType] || 100
   const planLabel = PLAN_LABELS[planType] || 'Free'
+  const searchParams = useSearchParams()
+
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe')
+  const [loading, setLoading] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  // Handle return from Stripe/PayPal
+  useEffect(() => {
+    if (searchParams.get('success') === 'true') {
+      setSuccessMsg('Pagamento completato! Il tuo piano è stato aggiornato.')
+    } else if (searchParams.get('canceled') === 'true') {
+      setErrorMsg('Pagamento annullato.')
+    }
+
+    // Handle PayPal return — capture the order
+    const paypalStatus = searchParams.get('paypal')
+    const token = searchParams.get('token') // PayPal order ID
+    if (paypalStatus === 'success' && token) {
+      capturePayPalOrder(token)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function capturePayPalOrder(orderId: string) {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const res = await fetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSuccessMsg(`Pagamento PayPal completato! Piano aggiornato a ${data.plan}.`)
+        window.history.replaceState({}, '', '/dashboard/billing')
+      } else {
+        setErrorMsg(data.error || 'Errore durante la cattura del pagamento PayPal.')
+      }
+    } catch {
+      setErrorMsg('Errore di rete durante la conferma del pagamento PayPal.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleUpgrade(planId: string) {
+    if (planId === 'free') return
+    setLoading(true)
+    setErrorMsg('')
+    setSuccessMsg('')
+
+    try {
+      if (paymentMethod === 'stripe') {
+        const res = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId }),
+        })
+        const data = await res.json()
+        if (data.url) {
+          window.location.href = data.url
+          return
+        }
+        setErrorMsg(data.error || 'Errore creazione checkout Stripe.')
+      } else {
+        const res = await fetch('/api/paypal/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId }),
+        })
+        const data = await res.json()
+        if (data.approvalUrl) {
+          window.location.href = data.approvalUrl
+          return
+        }
+        setErrorMsg(data.error || 'Errore creazione ordine PayPal.')
+      }
+    } catch {
+      setErrorMsg('Errore di rete. Riprova.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleManageSubscription() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        setErrorMsg(data.error || 'Impossibile aprire il portale di gestione.')
+      }
+    } catch {
+      setErrorMsg('Errore di rete.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -59,6 +166,18 @@ export default function BillingPage() {
         </h1>
         <p className="text-sm text-slate-500 mt-1">Gestisci il tuo piano e i crediti mensili</p>
       </div>
+
+      {/* Success / Error banners */}
+      {successMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2">
+          <Check className="w-4 h-4" /> {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm font-medium">
+          {errorMsg}
+        </div>
+      )}
 
       {/* Current plan summary */}
       <Card className="bg-gradient-to-r from-violet-600 to-blue-600 border-0 rounded-2xl p-6 text-white">
@@ -89,7 +208,69 @@ export default function BillingPage() {
                 {Math.round((credits / planCredits) * 100)}%
               </span>
             </div>
+            {planType !== 'free' && (
+              <Button
+                onClick={handleManageSubscription}
+                disabled={loading}
+                className="bg-white/15 hover:bg-white/25 text-white border border-white/20 rounded-xl text-xs px-3 py-2"
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Gestisci
+              </Button>
+            )}
           </div>
+        </div>
+      </Card>
+
+      {/* Payment method selector */}
+      <Card className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h2 className="text-sm font-bold text-slate-900 mb-3">Metodo di pagamento</h2>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setPaymentMethod('stripe')}
+            className={`flex-1 flex items-center justify-center gap-3 rounded-xl border-2 px-4 py-3 transition-all ${
+              paymentMethod === 'stripe'
+                ? 'border-violet-500 bg-violet-50 shadow-sm'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <CreditCard className={`w-5 h-5 ${paymentMethod === 'stripe' ? 'text-violet-600' : 'text-slate-400'}`} />
+            <div className="text-left">
+              <p className={`text-sm font-semibold ${paymentMethod === 'stripe' ? 'text-violet-700' : 'text-slate-700'}`}>
+                Carta di Credito / Debito
+              </p>
+              <p className="text-xs text-slate-400">Visa, Mastercard, Amex via Stripe</p>
+            </div>
+            {paymentMethod === 'stripe' && (
+              <div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center ml-auto">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </button>
+
+          <button
+            onClick={() => setPaymentMethod('paypal')}
+            className={`flex-1 flex items-center justify-center gap-3 rounded-xl border-2 px-4 py-3 transition-all ${
+              paymentMethod === 'paypal'
+                ? 'border-blue-500 bg-blue-50 shadow-sm'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <svg className={`w-5 h-5 ${paymentMethod === 'paypal' ? 'text-blue-600' : 'text-slate-400'}`} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c1.482-1.835 1.014-4.355-.508-5.843C18.75-.675 16.447 0 14.076 0h-.003c.003 0 .005.001.007.002-.002 0-.004-.002-.007-.002H6.654c-.528 0-.973.382-1.055.9L2.51 20.597a.643.643 0 0 0 .635.74h4.122l-.135.863a.572.572 0 0 0 .566.66h3.942c.46 0 .853-.335.925-.79l.038-.19.733-4.648.047-.256a.93.93 0 0 1 .919-.79h.578c3.762 0 6.706-1.528 7.565-5.946.36-1.847.174-3.388-.744-4.473z"/>
+            </svg>
+            <div className="text-left">
+              <p className={`text-sm font-semibold ${paymentMethod === 'paypal' ? 'text-blue-700' : 'text-slate-700'}`}>
+                PayPal
+              </p>
+              <p className="text-xs text-slate-400">Paga con il tuo account PayPal</p>
+            </div>
+            {paymentMethod === 'paypal' && (
+              <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center ml-auto">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </button>
         </div>
       </Card>
 
@@ -100,15 +281,18 @@ export default function BillingPage() {
           {plans.map((plan) => {
             const isCurrent = plan.id === planType
             const Icon = plan.icon
+            const isSelected = selectedPlan === plan.id
 
             return (
               <Card
                 key={plan.id}
-                className={`relative rounded-2xl p-5 transition-all ${
+                className={`relative rounded-2xl p-5 transition-all cursor-pointer ${
                   plan.highlight
                     ? 'border-2 border-violet-400 bg-violet-50/50 shadow-lg shadow-violet-100'
                     : 'border border-slate-200 bg-white'
-                } ${isCurrent ? 'ring-2 ring-violet-500 ring-offset-2' : ''}`}
+                } ${isCurrent ? 'ring-2 ring-violet-500 ring-offset-2' : ''}
+                ${isSelected && !isCurrent ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                onClick={() => !isCurrent && plan.id !== 'free' && setSelectedPlan(plan.id)}
               >
                 {plan.badge && (
                   <span className={`absolute -top-3 left-4 text-xs font-bold px-3 py-1 rounded-full ${
@@ -147,6 +331,10 @@ export default function BillingPage() {
                   <Button disabled className="w-full rounded-xl bg-slate-100 text-slate-500 cursor-default">
                     Piano attuale
                   </Button>
+                ) : plan.id === 'free' ? (
+                  <Button disabled className="w-full rounded-xl bg-slate-50 text-slate-400 cursor-default">
+                    Gratuito
+                  </Button>
                 ) : (
                   <Button
                     className={`w-full rounded-xl ${
@@ -154,18 +342,28 @@ export default function BillingPage() {
                         ? 'bg-violet-600 hover:bg-violet-700 text-white'
                         : 'bg-slate-900 hover:bg-slate-800 text-white'
                     }`}
-                    onClick={() => {
-                      // Stripe checkout will go here
-                      alert('L\'integrazione Stripe sarà disponibile a breve. Contatta supporto@mirax.it per upgrade manuali.')
+                    disabled={loading}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleUpgrade(plan.id)
                     }}
                   >
-                    {plan.price === '€0' ? 'Downgrade' : 'Upgrade'}
+                    {loading && selectedPlan === plan.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : null}
+                    {paymentMethod === 'stripe' ? 'Paga con Carta' : 'Paga con PayPal'}
                   </Button>
                 )}
               </Card>
             )
           })}
         </div>
+      </div>
+
+      {/* Security badge */}
+      <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-2">
+        <Shield className="w-4 h-4" />
+        <span>Pagamenti sicuri e criptati. Garanzia 14 giorni soddisfatti o rimborsati.</span>
       </div>
 
       {/* FAQ */}
@@ -183,6 +381,14 @@ export default function BillingPage() {
           <div>
             <p className="font-semibold text-slate-800">Cosa succede se finisco i crediti?</p>
             <p className="text-slate-500 mt-0.5">Le ricerche verranno bloccate fino al rinnovo o all&apos;upgrade del piano. I lead già trovati restano accessibili.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-800">Quali metodi di pagamento accettate?</p>
+            <p className="text-slate-500 mt-0.5">Accettiamo tutte le principali carte di credito/debito (Visa, Mastercard, American Express) tramite Stripe e PayPal.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-800">Come gestisco il mio abbonamento?</p>
+            <p className="text-slate-500 mt-0.5">Puoi gestire, cambiare piano o cancellare il tuo abbonamento in qualsiasi momento da questa pagina cliccando su &quot;Gestisci&quot;.</p>
           </div>
         </div>
       </Card>
