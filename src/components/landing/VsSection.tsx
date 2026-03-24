@@ -1,259 +1,148 @@
- 'use client'
- 
- import { ArrowRight } from 'lucide-react'
- import CtaLink from '@/components/CtaLink'
- 
- const rows = [
-   { label: 'Qualità dei lead', cold: 'Lista acquistata, dati vecchi', mirax: 'Profilati e auditati in tempo reale' },
-   { label: 'Tempo per 10 lead', cold: '3-4 ore di ricerca manuale', mirax: 'Meno di 2 minuti' },
-   { label: 'Conosci il problema?', cold: 'No — parli al buio', mirax: 'Sì — SEO, pixel, DMARC, velocità' },
-   { label: 'Pitch personalizzato', cold: 'Lo scrivi tu da zero', mirax: "Generato dall'AI in 1 click" },
-   { label: 'Contatto titolare', cold: 'Raramente, spesso centralino', mirax: 'Cellulare verificato + email diretta' },
-   { label: 'Tasso di risposta', cold: '1–3%', mirax: '10–20% (lead qualificato)' },
- ]
- 
- export function VsSection() {
-   return (
-     <section style={{
-       background: 'white',
-       padding: '96px 32px',
-       borderBottom: '1px solid #F1F5F9',
-     }}>
-       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
- 
-         {/* Header */}
-         <div style={{
-           display: 'grid',
-           marginBottom: 56,
-           alignItems: 'center',
-         }} className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-           <div>
-             <div style={{
-               display: 'inline-flex', alignItems: 'center',
-               background: '#F8FAFC', border: '1px solid #E2E8F0',
-               borderRadius: 999, padding: '6px 16px',
-               fontSize: 11, fontWeight: 600,
-               color: '#64748B', letterSpacing: '0.08em',
-               textTransform: 'uppercase', marginBottom: 20,
-               fontFamily: 'DM Sans, sans-serif',
-             }}>
-               Il Confronto
-             </div>
-             <h2 style={{
-               fontFamily: 'Syne, sans-serif',
-               fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)',
-               fontWeight: 600,
-               letterSpacing: '-0.025em',
-               color: '#0F172A',
-             }}>
-               MIRAX vs{' '}
-               <span style={{
-                 color: '#CBD5E1',
-                 textDecoration: 'line-through',
-                 textDecorationColor: '#EF4444',
-                 textDecorationThickness: 3,
-               }}>
-                 Lista Fredda
-               </span>
-             </h2>
-           </div>
-           <div>
-             <p style={{
-               fontSize: 16, color: '#64748B',
-               lineHeight: 1.7, fontFamily: 'DM Sans, sans-serif',
-               marginBottom: 24,
-             }}>
-               Non è una questione di strumenti. 
-               È una questione di chi chiami — e cosa gli dici.
-             </p>
-             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-               <div style={{ textAlign: 'center' }}>
-                 <div style={{
-                   fontSize: 28, fontWeight: 700,
-                   color: '#EF4444',
-                   fontFamily: 'Syne, sans-serif',
-                 }}>
-                   1-3%
-                 </div>
-                 <div style={{
-                   fontSize: 11, color: '#94A3B8',
-                   fontFamily: 'DM Sans, sans-serif',
-                 }}>
-                   Lista fredda
-                 </div>
-               </div>
-               <div style={{ fontSize: 20, color: '#CBD5E1' }}>→</div>
-               <div style={{ textAlign: 'center' }}>
-                 <div style={{
-                   fontSize: 28, fontWeight: 700,
-                   color: '#6366F1',
-                   fontFamily: 'Syne, sans-serif',
-                 }}>
-                   10-20%
-                 </div>
-                 <div style={{
-                   fontSize: 11, color: '#94A3B8',
-                   fontFamily: 'DM Sans, sans-serif',
-                 }}>
-                   Con MIRAX
-                 </div>
-               </div>
-             </div>
-           </div>
-         </div>
- 
-         {/* Table */}
-         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-           <div style={{
-             border: '1px solid #E2E8F0',
-             borderRadius: 16, overflow: 'hidden',
-             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-             marginBottom: 40,
-             minWidth: 600,
-           }}>
-             {/* Header */}
-             <div style={{
-               display: 'grid',
-               gridTemplateColumns: '2fr 1.5fr 1.5fr',
-               background: '#F8FAFC',
-               borderBottom: '1px solid #E2E8F0',
-             }}>
-               <div style={{ padding: '16px 20px' }}>
-                 <span style={{
-                   fontSize: 11, fontWeight: 700,
-                   color: '#94A3B8', textTransform: 'uppercase',
-                   letterSpacing: '0.08em',
-                   fontFamily: 'DM Sans, sans-serif',
-                 }}>
-                   Funzionalità
-                 </span>
-               </div>
-               <div style={{
-                 padding: '16px 20px',
-                 borderLeft: '1px solid #E2E8F0',
-                 textAlign: 'center',
-               }}>
-                 <span style={{
-                   fontSize: 12, fontWeight: 700,
-                   color: '#94A3B8',
-                   textDecoration: 'line-through',
-                   textDecorationColor: '#EF4444',
-                   fontFamily: 'DM Sans, sans-serif',
-                   textTransform: 'uppercase',
-                   letterSpacing: '0.06em',
-                 }}>
-                   Lista Fredda
-                 </span>
-               </div>
-               <div style={{
-                 padding: '16px 20px',
-                 borderLeft: '1px solid #6366F1',
-                 textAlign: 'center',
-                 background: '#6366F1',
-               }}>
-                 <span style={{
-                   fontSize: 12, fontWeight: 700,
-                   color: 'white', fontFamily: 'DM Sans, sans-serif',
-                   textTransform: 'uppercase',
-                   letterSpacing: '0.06em',
-                 }}>
-                   MIRAX ✓
-                 </span>
-               </div>
-             </div>
- 
-             {rows.map((row, i) => (
-               <div key={i} style={{
-                 display: 'grid',
-                 gridTemplateColumns: '2fr 1.5fr 1.5fr',
-                 borderTop: '1px solid #F1F5F9',
-                 background: i % 2 === 0 ? 'white' : '#FAFAFA',
-                 transition: 'background 0.15s',
-               }}>
-                 <div style={{ padding: '16px 20px' }}>
-                   <span style={{
-                     fontSize: 13, fontWeight: 600,
-                     color: '#334155',
-                     fontFamily: 'DM Sans, sans-serif',
-                   }}>
-                     {row.label}
-                   </span>
-                 </div>
-                 <div style={{
-                   padding: '16px 20px',
-                   borderLeft: '1px solid #F1F5F9',
-                   display: 'flex', alignItems: 'center', gap: 8,
-                 }}>
-                   <span style={{
-                     width: 18, height: 18, borderRadius: '50%',
-                     background: '#FEF2F2',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', flexShrink: 0,
-                     fontSize: 9, fontWeight: 700, color: '#EF4444',
-                   }}>
-                     ✗
-                   </span>
-                   <span style={{
-                     fontSize: 13, color: '#94A3B8',
-                     fontFamily: 'DM Sans, sans-serif',
-                   }}>
-                     {row.cold}
-                   </span>
-                 </div>
-                 <div style={{
-                   padding: '16px 20px',
-                   borderLeft: '1px solid #EEF2FF',
-                   background: '#FAFBFF',
-                   display: 'flex', alignItems: 'center', gap: 8,
-                 }}>
-                   <span style={{
-                     width: 18, height: 18, borderRadius: '50%',
-                     background: '#EEF2FF',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', flexShrink: 0,
-                     fontSize: 9, fontWeight: 700, color: '#6366F1',
-                   }}>
-                     ✓
-                   </span>
-                   <span style={{
-                     fontSize: 13, fontWeight: 600,
-                     color: '#334155',
-                     fontFamily: 'DM Sans, sans-serif',
-                   }}>
-                     {row.mirax}
-                   </span>
-                 </div>
-               </div>
-             ))}
-           </div>
-         </div>
+'use client'
 
-         {/* CTA */}
-         <div style={{ textAlign: 'center' }}>
-           <CtaLink>
-             <span style={{
-               display: 'inline-flex', alignItems: 'center', gap: 8,
-               background: '#6366F1', color: 'white',
-               fontSize: 15, fontWeight: 600,
-               padding: '14px 32px', borderRadius: 12,
-               fontFamily: 'DM Sans, sans-serif',
-               boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
-               cursor: 'pointer',
-             }}>
-               Prova MIRAX Gratis
-               <ArrowRight size={16} />
-             </span>
-           </CtaLink>
-           <p style={{
-             fontSize: 12, color: '#94A3B8',
-             fontFamily: 'DM Sans, sans-serif',
-             marginTop: 12,
-           }}>
-             Nessuna carta richiesta · 10 lead gratis
-           </p>
-         </div>
- 
-       </div>
-     </section>
-   )
- }
+import { ArrowRight, X, Check } from 'lucide-react'
+import { motion } from 'framer-motion'
+import CtaLink from '@/components/CtaLink'
+
+const comparisons = [
+  { label: 'Qualità dei lead', cold: 'Lista acquistata, dati vecchi', mirax: 'Profilati e auditati in tempo reale' },
+  { label: 'Tempo per 10 lead', cold: '3-4 ore di ricerca manuale', mirax: 'Meno di 2 minuti' },
+  { label: 'Conosci il problema?', cold: 'No — parli al buio', mirax: 'SEO, pixel, DMARC, velocità' },
+  { label: 'Pitch personalizzato', cold: 'Lo scrivi tu da zero', mirax: "Generato dall'AI in 1 click" },
+  { label: 'Contatto titolare', cold: 'Spesso centralino', mirax: 'Cellulare verificato + email' },
+  { label: 'Tasso di risposta', cold: '1-3%', mirax: '10-20%' },
+]
+
+export function VsSection() {
+  return (
+    <section className="py-24 lg:py-32 bg-white relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-indigo-50/30 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative max-w-6xl mx-auto px-6 sm:px-8">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-1.5 mb-6">
+            <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">Il confronto</span>
+          </div>
+          <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-5">
+            MIRAX vs{' '}
+            <span className="text-slate-300 line-through decoration-red-400 decoration-3">
+              Lista Fredda
+            </span>
+          </h2>
+          <p className="text-lg text-slate-500 font-['DM_Sans'] max-w-lg mx-auto">
+            Non è una questione di strumenti. È una questione di
+            <strong className="text-slate-700"> chi chiami</strong> — e <strong className="text-slate-700">cosa gli dici</strong>.
+          </p>
+        </div>
+
+        {/* Visual comparison: two side-by-side cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-16">
+          {/* Cold list card */}
+          <motion.div
+            className="bg-slate-50 rounded-2xl border border-slate-200 p-6 lg:p-8 relative overflow-hidden"
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-400 to-red-300" />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
+                <X size={18} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-['Syne'] text-lg font-bold text-slate-400 line-through decoration-red-400">Lista Fredda</h3>
+                <div className="text-xs text-red-400 font-bold font-['DM_Sans']">1-3% tasso risposta</div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {comparisons.map((c) => (
+                <div key={c.label} className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <X size={10} className="text-red-400" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-400 font-['DM_Sans'] mb-0.5">{c.label}</div>
+                    <div className="text-sm text-slate-400 font-['DM_Sans']">{c.cold}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* MIRAX card */}
+          <motion.div
+            className="bg-white rounded-2xl border-2 border-indigo-200 p-6 lg:p-8 relative overflow-hidden shadow-xl shadow-indigo-100/50"
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-violet-500" />
+            {/* Popular badge */}
+            <div className="absolute top-4 right-4 bg-indigo-500 text-white text-[10px] font-bold px-3 py-1 rounded-full font-['DM_Sans'] uppercase tracking-wider">
+              Consigliato
+            </div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg">
+                <Check size={18} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-['Syne'] text-lg font-bold text-slate-900">MIRAX</h3>
+                <div className="text-xs text-indigo-600 font-bold font-['DM_Sans']">10-20% tasso risposta</div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {comparisons.map((c) => (
+                <div key={c.label} className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Check size={10} className="text-indigo-600" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500 font-['DM_Sans'] mb-0.5">{c.label}</div>
+                    <div className="text-sm font-medium text-slate-800 font-['DM_Sans']">{c.mirax}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Big stat callout */}
+        <motion.div
+          className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-8 lg:p-10 text-center mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+        >
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12">
+            <div>
+              <div className="font-['Syne'] text-4xl lg:text-5xl font-bold text-white/30 line-through decoration-white/40">1-3%</div>
+              <div className="text-sm text-white/50 font-['DM_Sans']">Lista fredda</div>
+            </div>
+            <ArrowRight size={24} className="text-white/40 rotate-90 sm:rotate-0" />
+            <div>
+              <div className="font-['Syne'] text-4xl lg:text-5xl font-bold text-white">10-20%</div>
+              <div className="text-sm text-white/70 font-['DM_Sans'] font-semibold">Con MIRAX</div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* CTA */}
+        <div className="text-center">
+          <CtaLink>
+            <span className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-semibold px-8 py-3.5 rounded-xl font-['DM_Sans'] shadow-lg shadow-indigo-500/30 transition-all cursor-pointer hover:-translate-y-0.5">
+              Prova MIRAX Gratis
+              <ArrowRight size={16} />
+            </span>
+          </CtaLink>
+          <p className="text-xs text-slate-400 font-['DM_Sans'] mt-3">Nessuna carta richiesta · 10 lead gratis</p>
+        </div>
+      </div>
+    </section>
+  )
+}

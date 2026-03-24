@@ -1,7 +1,7 @@
-
 'use client'
 
-import { Check, Zap } from 'lucide-react'
+import { Check, Zap, Shield } from 'lucide-react'
+import { motion } from 'framer-motion'
 import CtaLink from '@/components/CtaLink'
 import Link from 'next/link'
 
@@ -52,7 +52,7 @@ const plans: Plan[] = [
     cta: 'Inizia Ora',
     note: '312 agency attive su questo piano',
     highlight: false,
-    badge: '🔥 50% sconto lancio',
+    badge: '50% sconto lancio',
   },
   {
     name: 'PRO',
@@ -93,239 +93,146 @@ const plans: Plan[] = [
 
 export default function PricingSection() {
   return (
-    <section id="pricing" style={{
-      background: '#F8FAFC',
-      padding: '96px 32px',
-      borderBottom: '1px solid #F1F5F9',
-    }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <section id="pricing" className="py-24 lg:py-32 bg-white relative overflow-hidden">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-50/30 rounded-full blur-3xl pointer-events-none" />
 
+      <div className="relative max-w-7xl mx-auto px-6 sm:px-8">
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 64 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'white', border: '1px solid #E2E8F0',
-            borderRadius: 999, padding: '6px 16px',
-            fontSize: 11, fontWeight: 600,
-            color: '#64748B', letterSpacing: '0.08em',
-            textTransform: 'uppercase', marginBottom: 20,
-            fontFamily: 'DM Sans, sans-serif',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            <Zap size={11} color="#6366F1" />
-            Prezzi
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-1.5 mb-6">
+            <Zap size={12} className="text-indigo-500" />
+            <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">Prezzi</span>
           </div>
-          <h2 style={{
-            fontFamily: 'Syne, sans-serif',
-            fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)',
-            fontWeight: 600,
-            letterSpacing: '-0.025em',
-            color: '#0F172A', marginBottom: 12,
-          }}>
+          <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-4">
             Scegli il tuo{' '}
-            <span style={{ color: '#6366F1' }}>piano di crescita</span>
+            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              piano di crescita.
+            </span>
           </h2>
-          <p style={{
-            fontSize: 17, color: '#64748B',
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
+          <p className="text-lg text-slate-500 font-['DM_Sans']">
             Parti gratis. Scala quando vuoi. Cancella in 1 click.
           </p>
         </div>
 
         {/* Plans grid */}
-        <div style={{
-          display: 'grid',
-          alignItems: 'stretch',
-          marginBottom: 32,
-        }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {plans.map((p) => (
-            <div key={p.name} style={{
-              background: 'white',
-              border: p.highlight ? '2px solid #6366F1' : '1px solid #E2E8F0',
-              borderRadius: 16,
-              padding: '28px 24px',
-              display: 'flex', flexDirection: 'column',
-              position: 'relative',
-              boxShadow: p.highlight
-                ? '0 8px 40px rgba(99,102,241,0.15)'
-                : '0 1px 8px rgba(0,0,0,0.04)',
-            }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+          {plans.map((p, idx) => (
+            <motion.div
+              key={p.name}
+              className={`bg-white rounded-2xl flex flex-col relative ${
+                p.highlight
+                  ? 'border-2 border-indigo-500 shadow-xl shadow-indigo-100/50'
+                  : 'border border-slate-200 shadow-sm hover:shadow-lg hover:shadow-slate-100/60'
+              } transition-all duration-300 hover:-translate-y-1`}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.08, duration: 0.5 }}
+            >
+              {/* Gradient top bar */}
+              {p.highlight && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-t-2xl" />
+              )}
 
               {/* Popular badge */}
               {p.highlight && (
-                <div style={{
-                  position: 'absolute', top: -12,
-                  left: '50%', transform: 'translateX(-50%)',
-                  background: '#6366F1', color: 'white',
-                  fontSize: 11, fontWeight: 700,
-                  padding: '4px 14px', borderRadius: 999,
-                  fontFamily: 'DM Sans, sans-serif',
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 4px 12px rgba(99,102,241,0.4)',
-                }}>
-                  ⭐ Più Scelto
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-4 py-1 rounded-full font-['DM_Sans'] shadow-lg shadow-indigo-500/30 whitespace-nowrap">
+                  Più Scelto
                 </div>
               )}
 
-              {/* Plan name */}
-              <div style={{
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'space-between', marginBottom: 16,
-              }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 700,
-                  color: p.highlight ? '#6366F1' : '#94A3B8',
-                  textTransform: 'uppercase', letterSpacing: '0.08em',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {p.name}
-                </span>
-                {p.badge && !p.highlight && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 600,
-                    padding: '3px 8px', borderRadius: 999,
-                    background: '#FFF7ED', color: '#EA580C',
-                    border: '1px solid #FED7AA',
-                    fontFamily: 'DM Sans, sans-serif',
-                  }}>
-                    {p.badge}
+              <div className="p-6 flex-1 flex flex-col">
+                {/* Plan name + badge */}
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`text-[11px] font-bold uppercase tracking-widest font-['DM_Sans'] ${
+                    p.highlight ? 'text-indigo-600' : 'text-slate-400'
+                  }`}>
+                    {p.name}
                   </span>
-                )}
-              </div>
+                  {p.badge && !p.highlight && (
+                    <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-100 px-2.5 py-0.5 rounded-full font-['DM_Sans']">
+                      {p.badge}
+                    </span>
+                  )}
+                </div>
 
-              {/* Price */}
-              <div style={{ marginBottom: 8 }}>
-                {p.originalPrice && (
-                  <span style={{
-                    fontSize: 14, color: '#CBD5E1',
-                    textDecoration: 'line-through',
-                    fontFamily: 'DM Sans, sans-serif',
-                    marginRight: 6,
-                  }}>
-                    {p.originalPrice}
+                {/* Price */}
+                <div className="mb-2">
+                  {p.originalPrice && (
+                    <span className="text-sm text-slate-300 line-through font-['DM_Sans'] mr-1.5">{p.originalPrice}</span>
+                  )}
+                  <span className={`font-['Syne'] text-4xl font-bold tracking-tight ${
+                    p.highlight ? 'text-indigo-600' : 'text-slate-900'
+                  }`}>
+                    {p.price}
                   </span>
-                )}
-                <span style={{
-                  fontFamily: 'Syne, sans-serif',
-                  fontSize: 36, fontWeight: 700,
-                  color: p.highlight ? '#6366F1' : '#0F172A',
-                  letterSpacing: '-0.03em',
-                }}>
-                  {p.price}
-                </span>
-                <span style={{
-                  fontSize: 13, color: '#94A3B8',
-                  fontFamily: 'DM Sans, sans-serif',
-                  marginLeft: 4,
-                }}>
-                  {p.period}
-                </span>
-              </div>
+                  <span className="text-sm text-slate-400 font-['DM_Sans'] ml-1">{p.period}</span>
+                </div>
 
-              <p style={{
-                fontSize: 13, color: '#64748B',
-                fontFamily: 'DM Sans, sans-serif',
-                marginBottom: 20,
-              }}>
-                {p.desc}
-              </p>
+                <p className="text-sm text-slate-500 font-['DM_Sans'] mb-5">{p.desc}</p>
 
-              {/* Divider */}
-              <div style={{
-                height: 1,
-                background: p.highlight ? '#EEF2FF' : '#F1F5F9',
-                marginBottom: 20,
-              }} />
+                <div className={`h-px mb-5 ${p.highlight ? 'bg-indigo-100' : 'bg-slate-100'}`} />
 
-              {/* Features */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {p.features.map((f) => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: p.highlight ? '#EEF2FF' : '#F0FDF4',
-                      display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', flexShrink: 0,
-                      marginTop: 1,
-                    }}>
-                      <Check size={10} color={p.highlight ? '#6366F1' : '#10B981'} strokeWidth={3} />
+                {/* Features */}
+                <div className="flex-1 space-y-2.5">
+                  {p.features.map((f) => (
+                    <div key={f} className="flex items-start gap-2.5">
+                      <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        p.highlight ? 'bg-indigo-50' : 'bg-emerald-50'
+                      }`}>
+                        <Check size={10} className={p.highlight ? 'text-indigo-600' : 'text-emerald-600'} strokeWidth={3} />
+                      </div>
+                      <span className="text-sm text-slate-600 font-['DM_Sans'] leading-relaxed">{f}</span>
                     </div>
-                    <span style={{
-                      fontSize: 13, color: '#475569',
-                      fontFamily: 'DM Sans, sans-serif',
-                      lineHeight: 1.5,
-                    }}>
-                      {f}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              {/* CTA */}
-              <div style={{ marginTop: 24 }}>
-                {p.href ? (
-                  <Link href={p.href} style={{
-                    display: 'block', textAlign: 'center',
-                    padding: '12px', borderRadius: 10,
-                    fontSize: 14, fontWeight: 600,
-                    fontFamily: 'DM Sans, sans-serif',
-                    textDecoration: 'none',
-                    background: p.highlight ? '#6366F1' : 'transparent',
-                    color: p.highlight ? 'white' : '#6366F1',
-                    border: p.highlight ? 'none' : '1.5px solid #E2E8F0',
-                    boxShadow: p.highlight ? '0 4px 12px rgba(99,102,241,0.3)' : 'none',
-                  }}>
-                    {p.cta}
-                  </Link>
-                ) : (
-                  <CtaLink>
-                    <span style={{
-                      display: 'block', textAlign: 'center',
-                      padding: '12px', borderRadius: 10,
-                      fontSize: 14, fontWeight: 600,
-                      fontFamily: 'DM Sans, sans-serif',
-                      cursor: 'pointer',
-                      background: p.highlight ? '#6366F1' : p.name === 'Agency' ? '#0F172A' : 'transparent',
-                      color: p.highlight || p.name === 'Agency' ? 'white' : '#6366F1',
-                      border: p.highlight || p.name === 'Agency' ? 'none' : '1.5px solid #E2E8F0',
-                      boxShadow: p.highlight ? '0 4px 12px rgba(99,102,241,0.3)' : 'none',
-                    }}>
+                {/* CTA */}
+                <div className="mt-6">
+                  {p.href ? (
+                    <Link
+                      href={p.href}
+                      className={`block text-center py-3 rounded-xl text-sm font-semibold font-['DM_Sans'] transition-all ${
+                        p.highlight
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700'
+                          : 'border border-slate-200 text-slate-700 hover:border-indigo-200 hover:text-indigo-600'
+                      }`}
+                    >
                       {p.cta}
-                    </span>
-                  </CtaLink>
-                )}
-                <p style={{
-                  fontSize: 11, color: '#94A3B8',
-                  textAlign: 'center', marginTop: 8,
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {p.note}
-                </p>
+                    </Link>
+                  ) : (
+                    <CtaLink>
+                      <span className={`block text-center py-3 rounded-xl text-sm font-semibold font-['DM_Sans'] cursor-pointer transition-all ${
+                        p.highlight
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700'
+                          : p.name === 'Agency'
+                            ? 'bg-slate-900 text-white hover:bg-slate-800'
+                            : 'border border-slate-200 text-slate-700 hover:border-indigo-200 hover:text-indigo-600'
+                      }`}>
+                        {p.cta}
+                      </span>
+                    </CtaLink>
+                  )}
+                  <p className="text-[11px] text-slate-400 text-center mt-2.5 font-['DM_Sans']">{p.note}</p>
+                </div>
               </div>
-
-            </div>
+            </motion.div>
           ))}
         </div>
 
-        {/* Guarantee */}
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'center', gap: 12,
-          background: '#F0FDF4', border: '1px solid #BBF7D0',
-          borderRadius: 12, padding: '16px 28px',
-          maxWidth: 520, margin: '0 auto',
-        }}>
-          <span style={{ fontSize: 20 }}>🛡️</span>
-          <span style={{
-            fontSize: 13, color: '#166534',
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
-            <strong>Garanzia 14 giorni</strong> soddisfatti o rimborsati.
-            Nessun vincolo contrattuale.
+        {/* Guarantee bar */}
+        <motion.div
+          className="flex items-center justify-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-6 py-4 max-w-lg mx-auto"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+        >
+          <Shield size={18} className="text-emerald-600 flex-shrink-0" />
+          <span className="text-sm text-emerald-800 font-['DM_Sans']">
+            <strong>Garanzia 14 giorni</strong> soddisfatti o rimborsati. Nessun vincolo contrattuale.
           </span>
-        </div>
-
+        </motion.div>
       </div>
     </section>
   )

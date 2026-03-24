@@ -23,48 +23,22 @@ const links = {
 
 export default function LandingFooter() {
   return (
-    <footer style={{
-      background: '#0F172A',
-      borderTop: '1px solid rgba(255,255,255,0.06)',
-      padding: '64px 32px 32px',
-    }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-
+    <footer className="bg-slate-950 border-t border-white/5 pt-16 pb-8 px-6 sm:px-8">
+      <div className="max-w-7xl mx-auto">
         {/* Top row */}
-        <div style={{
-          display: 'grid',
-          marginBottom: 56,
-        }} className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-12">
-
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-12 mb-14">
           {/* Brand */}
           <div>
-            {/* Logo */}
-           {/* Logo */}
-           {/* Logo */}
-            <div style={{ marginBottom: 16 }}>
-              <img src="/mirax-logo-white.svg" alt="MiraX" style={{ height: 40, width: 'auto' }} />
+            <div className="mb-5">
+              <img src="/mirax-logo-white.svg" alt="MiraX" className="h-9 w-auto" />
             </div>
-
-            <p style={{
-              fontSize: 14, color: 'rgba(255,255,255,0.4)',
-              fontFamily: 'DM Sans, sans-serif',
-              lineHeight: 1.65, maxWidth: 240, marginBottom: 24,
-            }}>
-              Il motore di intelligence B2B più potente d'Italia.
+            <p className="text-sm text-white/35 font-['DM_Sans'] leading-relaxed max-w-[240px] mb-6">
+              Il motore di intelligence B2B più potente d&apos;Italia.
               Trova, analizza e chiudi. In 2 minuti.
             </p>
-
-            {/* Trust badges mini */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {['🔒 GDPR', '🇪🇺 EU Server', '⚡ 99.9% uptime'].map((b) => (
-                <span key={b} style={{
-                  fontSize: 11, fontWeight: 500,
-                  color: 'rgba(255,255,255,0.35)',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 999, padding: '4px 10px',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
+            <div className="flex gap-2 flex-wrap">
+              {['GDPR', 'EU Server', '99.9% uptime'].map((b) => (
+                <span key={b} className="text-[11px] font-medium text-white/30 bg-white/5 border border-white/[0.08] rounded-full px-2.5 py-1 font-['DM_Sans']">
                   {b}
                 </span>
               ))}
@@ -74,28 +48,15 @@ export default function LandingFooter() {
           {/* Link columns */}
           {Object.entries(links).map(([group, items]) => (
             <div key={group}>
-              <div style={{
-                fontSize: 11, fontWeight: 700,
-                color: 'rgba(255,255,255,0.3)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                fontFamily: 'DM Sans, sans-serif',
-                marginBottom: 16,
-              }}>
+              <div className="text-[11px] font-bold text-white/25 uppercase tracking-widest font-['DM_Sans'] mb-4">
                 {group}
               </div>
-              <div style={{
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}>
+              <div className="flex flex-col gap-2.5">
                 {items.map((item) => (
-                  <Link key={item.label} href={item.href} style={{
-                    fontSize: 14, color: 'rgba(255,255,255,0.45)',
-                    textDecoration: 'none',
-                    fontFamily: 'DM Sans, sans-serif',
-                    transition: 'color 0.2s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.85)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.45)')}
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="text-sm text-white/40 hover:text-white/80 transition-colors font-['DM_Sans'] no-underline"
                   >
                     {item.label}
                   </Link>
@@ -106,40 +67,20 @@ export default function LandingFooter() {
         </div>
 
         {/* Divider */}
-        <div style={{
-          height: 1,
-          background: 'rgba(255,255,255,0.06)',
-          marginBottom: 24,
-        }} />
+        <div className="h-px bg-white/[0.06] mb-6" />
 
         {/* Bottom row */}
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
-        }}>
-          <span style={{
-            fontSize: 13, color: 'rgba(255,255,255,0.25)',
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <span className="text-xs text-white/20 font-['DM_Sans']">
             © {new Date().getFullYear()} MiraX. Tutti i diritti riservati.
           </span>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: '#10B981', display: 'inline-block',
-              boxShadow: '0 0 0 3px rgba(16,185,129,0.15)',
-            }} />
-            <span style={{
-              fontSize: 12, color: 'rgba(255,255,255,0.25)',
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" />
+            <span className="text-xs text-white/20 font-['DM_Sans']">
               Tutti i sistemi operativi
             </span>
           </div>
         </div>
-
       </div>
     </footer>
   )

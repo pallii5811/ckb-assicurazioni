@@ -1,197 +1,219 @@
-
 'use client'
 
-import { useRef } from 'react'
-import { Crosshair, Radar, BadgeCheck } from 'lucide-react'
+import { Search, Radar, Sparkles, ArrowRight, Phone, Mail, Zap } from 'lucide-react'
+import { motion } from 'framer-motion'
+import CtaLink from '@/components/CtaLink'
 
 const steps = [
   {
-    icon: Crosshair,
-    step: '01',
-    title: 'Descrivi il Tuo Target',
-    description: "Scrivi in italiano naturale: 'Dentisti a Milano con recensioni sotto il 4 e senza pixel Facebook'. Il motore AI interpreta, filtra e trova per te.",
+    number: '01',
+    title: 'Descrivi il tuo target in italiano',
+    description: "Scrivi quello che cerchi come lo diresti a un collega. \"Dentisti a Milano senza pixel\" — il nostro motore NLP capisce categoria, città e filtri tecnici in tempo reale.",
     tag: 'Natural Language AI',
-    color: '#6366F1',
-    bg: '#EEF2FF',
+    icon: Search,
+    gradient: 'from-indigo-500 to-violet-500',
+    light: 'bg-indigo-50',
+    textColor: 'text-indigo-600',
+    mockup: () => (
+      <div className="space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Search size={14} className="text-slate-400" />
+            <div className="text-sm text-slate-800 font-['DM_Sans']">
+              <span className="font-semibold">dentisti Milano senza pixel</span>
+              <span className="animate-pulse text-indigo-500 ml-0.5">|</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {[
+              { label: 'Dentisti', color: 'bg-indigo-100 text-indigo-700' },
+              { label: 'Milano', color: 'bg-blue-100 text-blue-700' },
+              { label: 'No Pixel', color: 'bg-red-100 text-red-700' },
+            ].map(c => (
+              <span key={c.label} className={`${c.color} text-[10px] font-bold px-2.5 py-1 rounded-full font-['DM_Sans']`}>{c.label}</span>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {['47 lead trovati', 'Score medio: 68', '12 HOT lead'].map((t, i) => (
+            <div key={t} className="bg-white/80 rounded-lg border border-slate-100 px-3 py-2.5 text-center">
+              <div className="text-sm font-bold text-slate-800 font-['Syne']">{t.split(':')[0].split(' ')[0]}</div>
+              <div className="text-[10px] text-slate-400 font-['DM_Sans']">{t.includes(':') ? t.split(':')[1].trim() : t.split(' ').slice(1).join(' ')}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
   },
   {
-    icon: Radar,
-    step: '02',
-    title: "L'AI Scansiona e Profila",
-    description: "In tempo reale analizziamo SEO, Pixel, SSL, DMARC, velocità e social. Ogni lead ha uno score da 0 a 100 che indica quanto è pronto ad ascoltarti.",
+    number: '02',
+    title: "L'AI scansiona e profila ogni azienda",
+    description: "In tempo reale analizziamo 12+ parametri tecnici: SEO, Meta Pixel, GTM, SSL, DMARC, velocità, Google Ads, Analytics e social. Ogni lead riceve uno score di priorità 0-100.",
     tag: 'Real-time Audit',
-    color: '#0EA5E9',
-    bg: '#F0F9FF',
+    icon: Radar,
+    gradient: 'from-cyan-500 to-blue-500',
+    light: 'bg-cyan-50',
+    textColor: 'text-cyan-600',
+    mockup: () => (
+      <div className="space-y-2">
+        <div className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 p-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white text-sm font-bold shadow-lg">72</div>
+          <div>
+            <div className="text-sm font-bold text-slate-800 font-['DM_Sans']">Studio Dentistico Rossi</div>
+            <div className="text-xs text-slate-400 font-['DM_Sans']">studiodentisticorossi.it · Milano</div>
+          </div>
+        </div>
+        {[
+          { label: 'Meta Pixel', ok: false },
+          { label: 'Google Analytics', ok: true },
+          { label: 'SSL Certificate', ok: true },
+          { label: 'GTM', ok: false },
+          { label: 'DMARC', ok: false },
+          { label: 'Page Speed', value: '4.2s' },
+        ].map(item => (
+          <div key={item.label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white border border-slate-100">
+            <span className="text-xs font-medium text-slate-600 font-['DM_Sans']">{item.label}</span>
+            {'value' in item ? (
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-['DM_Sans']">{item.value}</span>
+            ) : (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-['DM_Sans'] ${
+                item.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+              }`}>{item.ok ? '✓ OK' : '✗ ASSENTE'}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    ),
   },
   {
-    icon: BadgeCheck,
-    step: '03',
-    title: 'Chiama. Chiudi. Incassa.',
-    description: "Hai il cellulare diretto, l'email del titolare, e un pitch personalizzato pronto. Sai esattamente cosa dirgli prima ancora di alzare il telefono.",
-    tag: 'AI Pitch Generator',
-    color: '#10B981',
-    bg: '#F0FDF4',
+    number: '03',
+    title: 'Chiama, pitch, chiudi. Con tutto pronto.',
+    description: "Hai il cellulare del titolare, l'email diretta e un pitch AI personalizzato sui problemi specifici dell'azienda. Sai cosa dirgli prima ancora di chiamare.",
+    tag: 'AI Pitch + Contatti',
+    icon: Sparkles,
+    gradient: 'from-emerald-500 to-teal-500',
+    light: 'bg-emerald-50',
+    textColor: 'text-emerald-600',
+    mockup: () => (
+      <div className="space-y-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold">MR</div>
+            <div>
+              <div className="text-sm font-bold text-slate-800 font-['DM_Sans']">Marco Rossi</div>
+              <div className="text-[11px] text-slate-400 font-['DM_Sans']">Titolare · Studio Dentistico Rossi</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="flex items-center gap-2 bg-emerald-50 rounded-lg px-3 py-2 border border-emerald-100">
+              <Phone size={12} className="text-emerald-600" />
+              <div>
+                <div className="text-[9px] text-emerald-600/60 font-['DM_Sans']">Cellulare ✓</div>
+                <div className="text-xs font-bold text-emerald-700 font-['DM_Sans']">348 123 ****</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
+              <Mail size={12} className="text-blue-600" />
+              <div>
+                <div className="text-[9px] text-blue-600/60 font-['DM_Sans']">Email diretta</div>
+                <div className="text-xs font-bold text-blue-700 font-['DM_Sans']">marco@studi...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Sparkles size={12} className="text-violet-500" />
+            <span className="text-[10px] font-bold text-slate-600 font-['DM_Sans']">PITCH AI</span>
+          </div>
+          <div className="text-xs text-slate-600 font-['DM_Sans'] leading-relaxed italic">
+            &quot;Buongiorno Dott. Rossi, ho analizzato il vostro sito e ho notato che manca il Meta Pixel — state perdendo dati per il remarketing...&quot;
+          </div>
+        </div>
+      </div>
+    ),
   },
-] as const
+]
 
 export default function HowItWorks() {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-
   return (
-    <section
-      id="how-it-works"
-      style={{
-        background: '#F8FAFC',
-        padding: '96px 32px',
-        borderBottom: '1px solid #F1F5F9',
-      }}
-    >
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <section id="how-it-works" className="py-24 lg:py-32 bg-white relative overflow-hidden">
+      {/* Subtle background */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-50/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-50/20 rounded-full blur-3xl pointer-events-none" />
 
+      <div className="relative max-w-7xl mx-auto px-6 sm:px-8">
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 72 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            background: 'white', border: '1px solid #E2E8F0',
-            borderRadius: 999, padding: '6px 16px',
-            fontSize: 11, fontWeight: 600,
-            color: '#64748B', letterSpacing: '0.08em',
-            textTransform: 'uppercase', marginBottom: 20,
-            fontFamily: 'DM Sans, sans-serif',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            Il Processo
+        <div className="text-center mb-20">
+          <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-4 py-1.5 mb-6">
+            <Zap size={12} className="text-indigo-500" />
+            <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">Come funziona</span>
           </div>
-          <h2 style={{
-            fontFamily: 'Syne, sans-serif',
-            fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)',
-            fontWeight: 600,
-            letterSpacing: '-0.025em',
-            color: '#0F172A',
-            marginBottom: 16,
-          }}>
+          <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-5">
             Tre passi.{' '}
-            <span style={{ color: '#6366F1' }}>
+            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
               Zero sprechi di tempo.
             </span>
           </h2>
-          <p style={{
-            fontSize: 17, color: '#64748B',
-            fontFamily: 'DM Sans, sans-serif',
-            maxWidth: 540, margin: '0 auto',
-            lineHeight: 1.65,
-          }}>
+          <p className="text-lg text-slate-500 font-['DM_Sans'] max-w-xl mx-auto leading-relaxed">
             Dal target al pitch in meno di due minuti.
-            Mentre i tuoi competitor chiamano a freddo,
-            tu chiami chi ha già bisogno di te.
+            Mentre i competitor chiamano a freddo, tu chiami chi ha già bisogno di te.
           </p>
         </div>
 
-        {/* Content */}
-        <div style={{
-          display: 'grid',
-          alignItems: 'center',
-        }} className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-
-          {/* Steps */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {steps.map((s, idx) => (
-              <div key={s.title} style={{
-                background: 'white',
-                border: '1px solid #F1F5F9',
-                borderRadius: 16,
-                padding: '24px 28px',
-                position: 'relative',
-                boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
-                transition: 'all 0.2s',
-              }}>
-                {/* Step number */}
-                <div style={{
-                  position: 'absolute', top: -10, left: 24,
-                  width: 24, height: 24, borderRadius: '50%',
-                  background: s.color,
-                  display: 'flex', alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 10, fontWeight: 800,
-                  color: 'white',
-                  fontFamily: 'DM Sans, sans-serif',
-                  boxShadow: `0 4px 8px ${s.color}40`,
-                }}>
-                  {idx + 1}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                  {/* Icon */}
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 12,
-                    background: s.bg,
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', flexShrink: 0,
-                  }}>
-                    <s.icon size={22} color={s.color} />
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center',
-                      gap: 10, marginBottom: 8,
-                    }}>
-                      <span style={{
-                        fontSize: 15, fontWeight: 700,
-                        color: '#0F172A',
-                        fontFamily: 'Syne, sans-serif',
-                      }}>
-                        {s.title}
-                      </span>
-                      <span style={{
-                        fontSize: 10, fontWeight: 600,
-                        padding: '2px 8px', borderRadius: 999,
-                        background: s.bg, color: s.color,
-                        fontFamily: 'DM Sans, sans-serif',
-                        letterSpacing: '0.02em',
-                      }}>
-                        {s.tag}
-                      </span>
+        {/* Steps — alternating layout */}
+        <div className="space-y-24 lg:space-y-32">
+          {steps.map((step, idx) => {
+            const isReversed = idx % 2 === 1
+            const MockupEl = step.mockup
+            return (
+              <motion.div
+                key={step.number}
+                className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center ${isReversed ? 'lg:direction-rtl' : ''}`}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-100px' }}
+                transition={{ duration: 0.6 }}
+              >
+                {/* Text side */}
+                <div className={isReversed ? 'lg:order-2' : ''}>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg`}>
+                      <step.icon size={22} className="text-white" />
                     </div>
-                    <p style={{
-                      fontSize: 14, color: '#64748B',
-                      lineHeight: 1.65,
-                      fontFamily: 'DM Sans, sans-serif',
-                      margin: 0,
-                    }}>
-                      {s.description}
-                    </p>
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 font-['DM_Sans'] uppercase tracking-widest">Passo {step.number}</span>
+                      <span className={`ml-3 text-[10px] font-bold ${step.textColor} ${step.light} px-2.5 py-0.5 rounded-full font-['DM_Sans']`}>{step.tag}</span>
+                    </div>
                   </div>
+
+                  <h3 className="font-['Syne'] text-2xl sm:text-3xl font-bold text-slate-900 mb-4 tracking-tight leading-tight">
+                    {step.title}
+                  </h3>
+
+                  <p className="text-base text-slate-500 font-['DM_Sans'] leading-relaxed mb-6 max-w-md">
+                    {step.description}
+                  </p>
+
+                  {idx === steps.length - 1 && (
+                    <CtaLink>
+                      <span className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-3 rounded-xl font-['DM_Sans'] shadow-lg shadow-indigo-500/25 transition-all cursor-pointer hover:-translate-y-0.5">
+                        Provalo Gratis
+                        <ArrowRight size={16} />
+                      </span>
+                    </CtaLink>
+                  )}
                 </div>
 
-                {/* Connector */}
-                {idx < steps.length - 1 && (
-                  <div style={{
-                    position: 'absolute', bottom: -17,
-                    left: 35, width: 1, height: 18,
-                    background: 'linear-gradient(to bottom, #E2E8F0, transparent)',
-                  }} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Video */}
-          <div style={{
-            background: 'white',
-            border: '1px solid #E2E8F0',
-            borderRadius: 20,
-            overflow: 'hidden',
-            boxShadow: '0 20px 60px rgba(99,102,241,0.1)',
-          }}>
-            <video
-              ref={videoRef}
-              src="/mirax-demo.mp4"
-              style={{ width: '100%', display: 'block' }}
-              autoPlay loop muted playsInline controls
-            />
-          </div>
-
+                {/* Mockup side */}
+                <div className={`${isReversed ? 'lg:order-1' : ''}`}>
+                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 lg:p-6 shadow-xl shadow-slate-200/50">
+                    <MockupEl />
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
         </div>
       </div>
     </section>

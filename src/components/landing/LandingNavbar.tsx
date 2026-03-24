@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -6,6 +5,12 @@ import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import CtaLink from '@/components/CtaLink'
 import MiraxLogo from '@/components/MiraxLogo'
+
+const navItems = [
+  { label: 'Come funziona', href: '#how-it-works' },
+  { label: 'Funzionalità', href: '#arsenal' },
+  { label: 'Prezzi', href: '#pricing' },
+]
 
 export default function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -19,43 +24,22 @@ export default function LandingNavbar() {
   }, [])
 
   return (
-    <header style={{
-      position: 'sticky', top: 0, zIndex: 50,
-      background: 'white',
-      borderBottom: scrolled ? '1px solid #F1F5F9' : '1px solid transparent',
-      boxShadow: scrolled ? '0 1px 12px rgba(0,0,0,0.06)' : 'none',
-      transition: 'all 0.3s ease',
-    }}>
-      <div style={{
-        maxWidth: 1280, margin: '0 auto',
-        padding: '0 32px',
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 68,
-      }}>
-        
+    <header className={`sticky top-0 z-50 bg-white/95 backdrop-blur-md transition-all duration-300 ${
+      scrolled ? 'border-b border-slate-100 shadow-sm' : 'border-b border-transparent'
+    }`}>
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 flex items-center justify-between h-[68px]">
         {/* Logo */}
-        <Link href="/" style={{ textDecoration: 'none' }}>
+        <Link href="/" className="no-underline">
           <MiraxLogo size={32} />
         </Link>
 
         {/* Nav */}
-        <nav style={{
-          alignItems: 'center', gap: 32,
-        }} className="hidden md:flex">
-          {[
-            { label: 'Come funziona', href: '#how-it-works' },
-            { label: 'Funzionalità', href: '#arsenal' },
-            { label: 'Prezzi', href: '#pricing' },
-          ].map((item) => (
-            <a key={item.label} href={item.href} style={{
-              fontSize: 14, fontWeight: 500,
-              color: '#475569', textDecoration: 'none',
-              fontFamily: 'DM Sans, sans-serif',
-              transition: 'color 0.2s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#0F172A')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#475569')}
+        <nav className="hidden md:flex items-center gap-8">
+          {navItems.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors font-['DM_Sans'] no-underline"
             >
               {item.label}
             </a>
@@ -63,29 +47,16 @@ export default function LandingNavbar() {
         </nav>
 
         {/* CTA */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/login" style={{
-            fontSize: 14, fontWeight: 500,
-            color: '#475569', textDecoration: 'none',
-            fontFamily: 'DM Sans, sans-serif',
-            padding: '8px 16px',
-          }}
-          className="hidden sm:block"
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="hidden sm:block text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors font-['DM_Sans'] no-underline px-4 py-2"
           >
             Accedi
           </Link>
           <span className="hidden sm:inline-block">
             <CtaLink>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: '#6366F1',
-                color: 'white', fontSize: 14, fontWeight: 600,
-                padding: '9px 20px', borderRadius: 8,
-                fontFamily: 'DM Sans, sans-serif',
-                boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
-                cursor: 'pointer', textDecoration: 'none',
-                transition: 'all 0.2s',
-              }}>
+              <span className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg font-['DM_Sans'] shadow-md shadow-indigo-500/25 cursor-pointer transition-all">
                 Inizia Gratis
                 <ArrowRight size={14} />
               </span>
@@ -94,9 +65,8 @@ export default function LandingNavbar() {
 
           {/* Mobile menu button */}
           <button
-            className="md:hidden"
+            className="md:hidden p-2 bg-transparent border-none cursor-pointer"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}
             type="button"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2">
@@ -119,33 +89,25 @@ export default function LandingNavbar() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div style={{
-          background: 'white', borderTop: '1px solid #F1F5F9',
-          padding: '16px 32px 24px',
-          display: 'flex', flexDirection: 'column', gap: 16,
-        }}>
-          {['Come funziona', 'Funzionalità', 'Prezzi'].map((item) => (
-            <a key={item} href="#" onClick={() => setMobileMenuOpen(false)} style={{
-              fontSize: 15, fontWeight: 500, color: '#374151',
-              textDecoration: 'none', fontFamily: 'DM Sans, sans-serif',
-              paddingBottom: 12, borderBottom: '1px solid #F1F5F9',
-            }}>
-              {item}
+        <div className="bg-white border-t border-slate-100 px-6 sm:px-8 py-4 flex flex-col gap-4">
+          {navItems.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-base font-medium text-slate-700 no-underline font-['DM_Sans'] pb-3 border-b border-slate-100"
+            >
+              {item.label}
             </a>
           ))}
-          <Link href="/login" style={{
-            fontSize: 15, fontWeight: 500, color: '#374151',
-            textDecoration: 'none', fontFamily: 'DM Sans, sans-serif',
-          }}>
+          <Link
+            href="/login"
+            className="text-base font-medium text-slate-700 no-underline font-['DM_Sans']"
+          >
             Accedi
           </Link>
           <CtaLink>
-            <span style={{
-              display: 'flex', justifyContent: 'center',
-              background: '#6366F1', color: 'white',
-              fontSize: 14, fontWeight: 600, padding: '11px 20px',
-              borderRadius: 8, fontFamily: 'DM Sans, sans-serif',
-            }}>
+            <span className="flex justify-center bg-indigo-600 text-white text-sm font-semibold py-3 px-5 rounded-lg font-['DM_Sans'] cursor-pointer">
               Inizia Gratis →
             </span>
           </CtaLink>

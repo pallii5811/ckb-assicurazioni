@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ShieldCheck, Plus, Minus } from 'lucide-react'
+import { ShieldCheck, Plus, Minus, MessageCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 const faqs = [
   {
@@ -42,134 +43,83 @@ export default function FaqComplianceSection() {
   const [open, setOpen] = useState<number | null>(null)
 
   return (
-    <section style={{
-      background: '#F8FAFC',
-      padding: '96px 32px',
-      borderBottom: '1px solid #F1F5F9',
-    }}>
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <section className="py-24 lg:py-32 bg-slate-50 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-50/20 rounded-full blur-3xl pointer-events-none" />
 
+      <div className="relative max-w-4xl mx-auto px-6 sm:px-8">
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: 20,
-          marginBottom: 48,
-        }}>
+        <motion.div
+          className="flex flex-wrap items-start justify-between gap-5 mb-12"
+          initial={{ opacity: 0, y: 15 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
           <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center',
-              background: 'white', border: '1px solid #E2E8F0',
-              borderRadius: 999, padding: '6px 16px',
-              fontSize: 11, fontWeight: 600,
-              color: '#64748B', letterSpacing: '0.08em',
-              textTransform: 'uppercase', marginBottom: 16,
-              fontFamily: 'DM Sans, sans-serif',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-            }}>
-              FAQ
+            <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 mb-5 shadow-sm">
+              <MessageCircle size={12} className="text-indigo-500" />
+              <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">FAQ</span>
             </div>
-            <h2 style={{
-              fontFamily: 'Syne, sans-serif',
-              fontSize: 'clamp(1.8rem, 3vw, 2.4rem)',
-              fontWeight: 600,
-              letterSpacing: '-0.025em',
-              color: '#0F172A', marginBottom: 8,
-            }}>
+            <h2 className="font-['Syne'] text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 mb-2">
               Domande Frequenti
             </h2>
-            <p style={{
-              fontSize: 16, color: '#64748B',
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
+            <p className="text-base text-slate-500 font-['DM_Sans']">
               Risposte chiare su dati, qualità e crediti.
             </p>
           </div>
 
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: '#F0FDF4', border: '1px solid #BBF7D0',
-            borderRadius: 10, padding: '10px 16px',
-            alignSelf: 'flex-start',
-          }}>
-            <ShieldCheck size={16} color="#10B981" />
-            <span style={{
-              fontSize: 13, fontWeight: 600,
-              color: '#166534',
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-2.5">
+            <ShieldCheck size={16} className="text-emerald-600" />
+            <span className="text-sm font-semibold text-emerald-800 font-['DM_Sans']">
               100% GDPR Compliant
             </span>
           </div>
-        </div>
+        </motion.div>
 
         {/* FAQ grid */}
-        <div style={{
-          display: 'grid',
-        }} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {faqs.map((item, i) => (
-            <div key={item.q} style={{
-              background: 'white',
-              border: open === i ? '1px solid #C7D2FE' : '1px solid #F1F5F9',
-              borderRadius: 14,
-              overflow: 'hidden',
-              transition: 'all 0.2s',
-              boxShadow: open === i ? '0 4px 16px rgba(99,102,241,0.08)' : '0 1px 4px rgba(0,0,0,0.04)',
-            }}>
+            <motion.div
+              key={item.q}
+              className={`bg-white rounded-xl overflow-hidden transition-all duration-200 ${
+                open === i
+                  ? 'border border-indigo-200 shadow-md shadow-indigo-50'
+                  : 'border border-slate-100 shadow-sm'
+              }`}
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.04, duration: 0.4 }}
+            >
               <button
                 type="button"
                 onClick={() => setOpen(open === i ? null : i)}
-                style={{
-                  width: '100%',
-                  display: 'flex', alignItems: 'center',
-                  justifyContent: 'space-between', gap: 12,
-                  padding: '18px 20px',
-                  background: 'none', border: 'none',
-                  cursor: 'pointer', textAlign: 'left',
-                }}
+                className="w-full flex items-center justify-between gap-3 p-5 text-left cursor-pointer bg-transparent border-none"
               >
-                <span style={{
-                  fontSize: 14, fontWeight: 600,
-                  color: '#0F172A',
-                  fontFamily: 'DM Sans, sans-serif',
-                  lineHeight: 1.4,
-                }}>
+                <span className="text-sm font-semibold text-slate-900 font-['DM_Sans'] leading-snug">
                   {item.q}
                 </span>
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: open === i ? '#EEF2FF' : '#F8FAFC',
-                  border: '1px solid',
-                  borderColor: open === i ? '#C7D2FE' : '#E2E8F0',
-                  display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', flexShrink: 0,
-                  transition: 'all 0.2s',
-                }}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                  open === i
+                    ? 'bg-indigo-50 border border-indigo-200'
+                    : 'bg-slate-50 border border-slate-200'
+                }`}>
                   {open === i
-                    ? <Minus size={12} color="#6366F1" />
-                    : <Plus size={12} color="#64748B" />
+                    ? <Minus size={12} className="text-indigo-600" />
+                    : <Plus size={12} className="text-slate-500" />
                   }
                 </div>
               </button>
-              <div style={{
-                maxHeight: open === i ? 300 : 0,
-                overflow: 'hidden',
-                transition: 'max-height 0.3s ease',
-              }}>
-                <p style={{
-                  padding: '0 20px 18px',
-                  fontSize: 14, color: '#64748B',
-                  lineHeight: 1.7,
-                  fontFamily: 'DM Sans, sans-serif',
-                  margin: 0,
-                }}>
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{ maxHeight: open === i ? 300 : 0 }}
+              >
+                <p className="px-5 pb-5 text-sm text-slate-500 font-['DM_Sans'] leading-relaxed m-0">
                   {item.a}
                 </p>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
-
       </div>
     </section>
   )

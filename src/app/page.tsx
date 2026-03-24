@@ -8,10 +8,10 @@ import ImpactStatsSection from '@/components/landing/ImpactStatsSection'
 import LandingNavbar from '@/components/landing/LandingNavbar'
 import PricingSection from '@/components/landing/PricingSection'
 import SocialProofBar from '@/components/landing/SocialProofBar'
+import ProductShowcase from '@/components/landing/ProductShowcase'
 import { LogoBarSection } from '@/components/landing/LogoBarSection'
 import { TestimonialSection } from '@/components/landing/TestimonialSection'
 import { VsSection } from '@/components/landing/VsSection'
-import { AnimateOnScroll } from '@/components/ui/scroll-animations'
 import { ScrollAnimationObserver } from '@/components/ui/use-scroll-animation'
 import { ROICalculator } from '@/components/landing/roi-calculator'
 import { UseCases } from '@/components/landing/use-cases'
@@ -190,48 +190,21 @@ export default function Home() {
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
-          <AnimateOnScroll>
-            <HeroSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <LogoBarSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <SocialProofBar />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <ImpactStatsSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <HowItWorks />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <UseCases />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <TestimonialSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <ArsenalSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <VsSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <ROICalculator />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <PricingSection />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <Guarantee />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <TrustBadges />
-          </AnimateOnScroll>
-          <AnimateOnScroll>
-            <FaqComplianceSection />
-          </AnimateOnScroll>
+          <HeroSection />
+          <LogoBarSection />
+          <SocialProofBar />
+          <ProductShowcase />
+          <ImpactStatsSection />
+          <HowItWorks />
+          <UseCases />
+          <TestimonialSection />
+          <ArsenalSection />
+          <VsSection />
+          <ROICalculator />
+          <PricingSection />
+          <Guarantee />
+          <TrustBadges />
+          <FaqComplianceSection />
         </main>
         <LandingFooter />
       </div>

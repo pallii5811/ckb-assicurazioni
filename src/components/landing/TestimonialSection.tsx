@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { Star } from 'lucide-react'
 
 const testimonials = [
   {
@@ -11,7 +12,7 @@ const testimonials = [
     score: '+€4.800',
     tag: 'Ristorazione',
     metric: '3 clienti in 3 giorni',
-    accent: '#6366F1',
+    gradient: 'from-indigo-500 to-violet-500',
   },
   {
     quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con MIRAX cerco "dentisti a Torino senza sito aggiornato" e mi escono 30 lead con email del titolare e pitch già pronto.',
@@ -21,7 +22,7 @@ const testimonials = [
     score: '15x risposta',
     tag: 'Healthcare',
     metric: '15x tasso risposta',
-    accent: '#0EA5E9',
+    gradient: 'from-cyan-500 to-blue-500',
   },
   {
     quote: 'La funzione Pitch AI mi risparmia 2 ore al giorno. Prima scrivevo ogni email da zero. Adesso: trovo il lead, leggo i suoi problemi, clicco Genera Pitch, copio, invio. 90 secondi.',
@@ -31,248 +32,124 @@ const testimonials = [
     score: '-2h/giorno',
     tag: 'Efficienza',
     metric: '90s dal lead al pitch',
-    accent: '#10B981',
+    gradient: 'from-emerald-500 to-teal-500',
   },
 ]
 
-const stats = [
-  { value: '200+', label: 'Agency italiane' },
-  { value: '50K+', label: 'Lead/mese' },
-  { value: '4.9/5', label: 'Rating utenti' },
-  { value: '< 2min', label: 'Target → pitch' },
-]
-
 export function TestimonialSection() {
-  const [active, setActive] = useState(0)
-  const t = testimonials[active]
-
   return (
-    <section style={{
-      background: 'white',
-      padding: '96px 32px',
-      borderBottom: '1px solid #F1F5F9',
-    }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <section className="py-24 lg:py-32 bg-slate-950 relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-950/50 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-violet-950/30 rounded-full blur-3xl" />
+      </div>
 
+      <div className="relative max-w-7xl mx-auto px-6 sm:px-8">
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 64 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            background: '#F8FAFC', border: '1px solid #E2E8F0',
-            borderRadius: 999, padding: '6px 16px',
-            fontSize: 11, fontWeight: 600,
-            color: '#64748B', letterSpacing: '0.08em',
-            textTransform: 'uppercase', marginBottom: 20,
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
-            Risultati Reali
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
+            <span className="text-xs font-semibold text-indigo-400 font-['DM_Sans'] uppercase tracking-wider">Risultati Reali</span>
           </div>
-          <h2 style={{
-            fontFamily: 'Syne, sans-serif',
-            fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)',
-            fontWeight: 600,
-            letterSpacing: '-0.025em',
-            color: '#0F172A', marginBottom: 16,
-          }}>
+          <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-5 tracking-tight">
             Chi usa MIRAX{' '}
-            <span style={{ color: '#6366F1' }}>chiude di più</span>
+            <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+              chiude di più.
+            </span>
           </h2>
-          <p style={{
-            fontSize: 17, color: '#64748B',
-            fontFamily: 'DM Sans, sans-serif',
-            maxWidth: 480, margin: '0 auto',
-          }}>
-            Non promesse. Risultati concreti da agency
-            e consulenti italiani.
+          <p className="text-lg text-slate-400 font-['DM_Sans'] max-w-lg mx-auto">
+            Non promesse. Risultati concreti da agency e consulenti italiani.
           </p>
         </div>
 
-        {/* Stats */}
-        <div style={{
-          display: 'grid',
-          marginBottom: 48,
-        }} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {stats.map((s) => (
-            <div key={s.label} style={{
-              background: '#F8FAFC',
-              border: '1px solid #F1F5F9',
-              borderRadius: 14, padding: '24px',
-              textAlign: 'center',
-            }}>
-              <div style={{
-                fontFamily: 'Syne, sans-serif',
-                fontSize: 28, fontWeight: 700,
-                color: '#0F172A', letterSpacing: '-0.02em',
-                marginBottom: 4,
-              }}>
-                {s.value}
+        {/* Featured testimonial — large */}
+        <motion.div
+          className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-8 lg:p-10 mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8">
+            {/* Left: metric */}
+            <div className="flex flex-col items-center justify-center text-center lg:border-r lg:border-white/10 lg:pr-8">
+              <div className="font-['Syne'] text-4xl lg:text-5xl font-bold text-indigo-400 tracking-tight mb-2">
+                {testimonials[0].score}
               </div>
-              <div style={{
-                fontSize: 11, color: '#94A3B8',
-                fontFamily: 'DM Sans, sans-serif',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em', fontWeight: 600,
-              }}>
-                {s.label}
+              <div className="text-sm text-slate-500 font-['DM_Sans'] mb-3">
+                {testimonials[0].metric}
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Main testimonial card */}
-        <div style={{
-          background: '#0F172A',
-          borderRadius: 20,
-          overflow: 'hidden',
-          marginBottom: 20,
-          boxShadow: '0 20px 60px rgba(15,23,42,0.15)',
-        }}>
-          <div style={{
-            display: 'grid',
-          }} className="grid grid-cols-1 lg:grid-cols-[240px_1fr]">
-
-            {/* Left metric */}
-            <div style={{
-              padding: '48px 32px',
-              borderRight: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              textAlign: 'center',
-              background: 'rgba(255,255,255,0.02)',
-            }}>
-              <div style={{
-                fontFamily: 'Syne, sans-serif',
-                fontSize: 40, fontWeight: 700,
-                color: t.accent,
-                letterSpacing: '-0.03em',
-                marginBottom: 8,
-              }}>
-                {t.score}
-              </div>
-              <div style={{
-                fontSize: 12, color: 'rgba(255,255,255,0.4)',
-                fontFamily: 'DM Sans, sans-serif',
-                marginBottom: 16,
-              }}>
-                {t.metric}
-              </div>
-              <div style={{
-                fontSize: 10, fontWeight: 700,
-                padding: '4px 12px', borderRadius: 999,
-                background: `${t.accent}20`,
-                color: t.accent,
-                border: `1px solid ${t.accent}40`,
-                fontFamily: 'DM Sans, sans-serif',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-              }}>
-                {t.tag}
-              </div>
+              <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full font-['DM_Sans'] uppercase tracking-wider">
+                {testimonials[0].tag}
+              </span>
             </div>
 
-            {/* Right quote */}
-            <div style={{ padding: '48px' }}>
-              <div style={{
-                fontSize: 72, lineHeight: 0.5,
-                color: 'rgba(255,255,255,0.08)',
-                fontFamily: 'Georgia, serif',
-                marginBottom: 16,
-              }}>
-                "
-              </div>
-              <p style={{
-                fontSize: 18, lineHeight: 1.7,
-                color: 'rgba(255,255,255,0.85)',
-                fontFamily: 'DM Sans, sans-serif',
-                marginBottom: 32,
-              }}>
-                {t.quote}
+            {/* Right: quote */}
+            <div>
+              <div className="text-6xl leading-none text-white/5 font-serif mb-2">&ldquo;</div>
+              <p className="text-lg lg:text-xl text-white/80 font-['DM_Sans'] leading-relaxed mb-8">
+                {testimonials[0].quote}
               </p>
-              <div style={{
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: 16,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    background: t.accent,
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 13, fontWeight: 700, color: 'white',
-                    fontFamily: 'DM Sans, sans-serif',
-                  }}>
-                    {t.avatar}
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${testimonials[0].gradient} flex items-center justify-center text-white text-sm font-bold`}>
+                    {testimonials[0].avatar}
                   </div>
                   <div>
-                    <div style={{
-                      fontSize: 14, fontWeight: 700,
-                      color: 'white', fontFamily: 'DM Sans, sans-serif',
-                    }}>
-                      {t.name}
-                    </div>
-                    <div style={{
-                      fontSize: 12, color: 'rgba(255,255,255,0.4)',
-                      fontFamily: 'DM Sans, sans-serif',
-                    }}>
-                      {t.role}
-                    </div>
+                    <div className="text-sm font-bold text-white font-['DM_Sans']">{testimonials[0].name}</div>
+                    <div className="text-xs text-slate-500 font-['DM_Sans']">{testimonials[0].role}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 3 }}>
+                <div className="flex gap-0.5">
                   {[0,1,2,3,4].map(i => (
-                    <span key={i} style={{ color: '#F59E0B', fontSize: 16 }}>★</span>
+                    <Star key={i} size={14} className="text-amber-400 fill-amber-400" />
                   ))}
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Selector */}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {testimonials.map((test, i) => (
-            <button
-              key={i}
-              onClick={() => setActive(i)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 16px', borderRadius: 12,
-                border: active === i ? '1px solid #6366F1' : '1px solid #E2E8F0',
-                background: active === i ? '#EEF2FF' : 'white',
-                cursor: 'pointer', transition: 'all 0.2s',
-                boxShadow: active === i ? '0 4px 12px rgba(99,102,241,0.15)' : 'none',
-              }}
+        {/* Two smaller testimonials side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {testimonials.slice(1).map((t, idx) => (
+            <motion.div
+              key={t.name}
+              className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 lg:p-7"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 + idx * 0.15, duration: 0.5 }}
             >
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: test.accent,
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 10, fontWeight: 700, color: 'white',
-                fontFamily: 'DM Sans, sans-serif',
-              }}>
-                {test.avatar}
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{
-                  fontSize: 13, fontWeight: 700,
-                  color: active === i ? '#6366F1' : '#0F172A',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {test.name}
+              <div className="flex items-center gap-4 mb-5">
+                <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-white text-sm font-bold`}>
+                  {t.avatar}
                 </div>
-                <div style={{
-                  fontSize: 11, color: '#94A3B8',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {test.score}
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-white font-['DM_Sans']">{t.name}</div>
+                  <div className="text-xs text-slate-500 font-['DM_Sans']">{t.role}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-['Syne'] text-xl font-bold text-white">{t.score}</div>
+                  <div className="text-[10px] text-slate-500 font-['DM_Sans']">{t.metric}</div>
                 </div>
               </div>
-            </button>
+              <p className="text-sm text-white/70 font-['DM_Sans'] leading-relaxed mb-4">
+                {t.quote}
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-white/30 bg-white/5 px-2.5 py-1 rounded-full font-['DM_Sans'] uppercase tracking-wider">
+                  {t.tag}
+                </span>
+                <div className="flex gap-0.5">
+                  {[0,1,2,3,4].map(i => (
+                    <Star key={i} size={12} className="text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
           ))}
         </div>
-
       </div>
     </section>
   )

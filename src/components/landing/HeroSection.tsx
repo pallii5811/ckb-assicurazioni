@@ -1,397 +1,284 @@
-
-
 'use client'
 
-import { ArrowRight, Play } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowRight, Search, Zap, Shield, Sparkles } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import CtaLink from '@/components/CtaLink'
 
-const snapshots = [
-  {
-    query: 'dentisti Milano senza pixel',
-    leads: [
-      { nome: 'Studio Dentistico Rossi', score: 72, label: 'HOT', tel: '02 8595 6321', chips: ['NO PIXEL', 'ERRORI SEO'] },
-      { nome: 'Odontoiatria Centrale Milano', score: 54, label: 'WARM', tel: '347 123 4567', chips: ['NO PIXEL', 'NO GTM'] },
-      { nome: 'Dentisti Associati Brera', score: 41, label: 'WARM', tel: '02 4567 8901', chips: ['ERRORI SEO'] },
-    ],
-  },
-  {
-    query: 'avvocati Napoli senza Google Ads',
-    leads: [
-      { nome: 'Studio Legale Esposito', score: 71, label: 'HOT', tel: '340 123 4567', chips: ['NO GOOGLE ADS', 'NO PIXEL'] },
-      { nome: 'Avvocati Associati Napoli', score: 49, label: 'WARM', tel: '081 234 5678', chips: ['NO GOOGLE ADS'] },
-      { nome: 'Foro Napoletano Srl', score: 35, label: 'WARM', tel: '328 987 6543', chips: ['ERRORI SEO'] },
-    ],
-  },
-  {
-    query: 'ristoranti Roma con errori SEO',
-    leads: [
-      { nome: "Trattoria Campo de' Fiori", score: 63, label: 'HOT', tel: '338 987 6543', chips: ['ERRORI SEO', 'NO GTM'] },
-      { nome: 'Ristorante Testaccio', score: 58, label: 'WARM', tel: '06 5678 9012', chips: ['ERRORI SEO'] },
-      { nome: 'Osteria Prati', score: 41, label: 'WARM', tel: '345 123 4567', chips: ['ERRORI SEO', 'NO PIXEL'] },
-    ],
-  },
+const queries = [
+  'dentisti Milano senza pixel',
+  'avvocati Napoli senza Google Ads',
+  'ristoranti Roma con errori SEO',
+  'architetti Torino senza sito web',
+  'palestre Bologna senza Instagram',
 ]
 
-function LeadCard({ lead, index }: { lead: typeof snapshots[0]['leads'][0], index: number }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '10px 14px',
-      background: index === 0 ? '#FAFBFF' : 'white',
-      borderRadius: 10,
-      border: '1px solid #EEF2FF',
-      marginBottom: 8,
-      boxShadow: '0 1px 4px rgba(99,102,241,0.06)',
-      transition: 'all 0.2s',
-    }}>
-      <div style={{ flex: 1 }}>
-        <div style={{
-          fontSize: 13, fontWeight: 600,
-          color: '#1E293B', marginBottom: 4,
-          fontFamily: 'DM Sans, sans-serif',
-        }}>
-          {lead.nome}
-        </div>
-        <div style={{
-          fontSize: 11, color: '#10B981',
-          fontWeight: 500, marginBottom: 5,
-          display: 'flex', alignItems: 'center', gap: 5,
-          fontFamily: 'DM Sans, sans-serif',
-        }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: '#10B981', display: 'inline-block',
-            boxShadow: '0 0 0 2px rgba(16,185,129,0.2)',
-          }} />
-          {lead.tel}
-        </div>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' as const }}>
-          {lead.chips.map((chip, i) => (
-            <span key={i} style={{
-              fontSize: 9, fontWeight: 700,
-              padding: '2px 7px', borderRadius: 4,
-              letterSpacing: '0.03em',
-              background: chip.includes('PIXEL') || chip.includes('SEO') ? '#FEF2F2' :
-                          chip.includes('GTM') ? '#FFF7ED' : '#EFF6FF',
-              color: chip.includes('PIXEL') || chip.includes('SEO') ? '#DC2626' :
-                     chip.includes('GTM') ? '#C2410C' : '#4F46E5',
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
-              {chip}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, marginLeft: 12 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 700,
-          padding: '3px 9px', borderRadius: 6,
-          background: lead.label === 'HOT' ? '#FEF2F2' : '#FFF7ED',
-          color: lead.label === 'HOT' ? '#DC2626' : '#EA580C',
-          fontFamily: 'DM Sans, sans-serif',
-        }}>
-          {lead.label} {lead.score}
-        </span>
-        <span style={{
-          fontSize: 11, fontWeight: 600,
-          padding: '3px 10px', borderRadius: 6,
-          background: '#EEF2FF', color: '#6366F1',
-          fontFamily: 'DM Sans, sans-serif',
-          cursor: 'pointer',
-        }}>
-          Pitch →
-        </span>
-      </div>
-    </div>
-  )
-}
+const demoLeads = [
+  { nome: 'Studio Dentistico Rossi', citta: 'Milano', score: 87, problems: ['NO PIXEL', 'SEO ERRORS'], tel: '02 8595 ****', email: 'info@studio...', hasWebsite: true },
+  { nome: 'Odontoiatria Centrale', citta: 'Milano', score: 72, problems: ['NO GTM', 'NO PIXEL'], tel: '347 123 ****', email: 'marco@odonto...', hasWebsite: true },
+  { nome: 'Dental Care Brera', citta: 'Milano', score: 64, problems: ['SLOW SITE', 'NO SSL'], tel: '02 4567 ****', email: 'dir@dental...', hasWebsite: true },
+  { nome: 'Sorriso Perfetto Srl', citta: 'Milano', score: 58, problems: ['NO PIXEL', 'NO DMARC'], tel: '340 987 ****', email: 'info@sorriso...', hasWebsite: false },
+]
 
-function SearchWidget({ snap }: { snap: typeof snapshots[0] }) {
-  return (
-    <div style={{ width: '100%' }}>
-      {/* Search bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        background: '#F8FAFF', borderRadius: 10,
-        border: '1px solid #E0E7FF',
-        padding: '9px 14px', marginBottom: 12,
-      }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <span style={{
-          flex: 1, fontSize: 12, color: '#475569',
-          fontFamily: 'DM Sans, sans-serif',
-        }}>
-          {snap.query}
-        </span>
-        <span style={{
-          background: '#6366F1', color: 'white',
-          fontSize: 11, fontWeight: 600,
-          padding: '4px 12px', borderRadius: 7,
-          fontFamily: 'DM Sans, sans-serif',
-        }}>
-          Cerca
-        </span>
-      </div>
-
-      {/* Lead cards */}
-      {snap.leads.map((lead, i) => (
-        <LeadCard key={i} lead={lead} index={i} />
-      ))}
-
-      {/* Footer */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        marginTop: 8, padding: '0 2px',
-        fontSize: 10, color: '#94A3B8',
-        fontFamily: 'monospace',
-      }}>
-        <span>mirax · ai-search</span>
-        <span style={{ color: '#10B981', fontWeight: 600 }}>● live</span>
-      </div>
-    </div>
-  )
-}
-
-function HeroWidget() {
-  const [current, setCurrent] = useState(0)
-  const [exiting, setExiting] = useState(false)
+function TypingText({ texts }: { texts: string[] }) {
+  const [index, setIndex] = useState(0)
+  const [displayed, setDisplayed] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setExiting(true)
-      setTimeout(() => {
-        setCurrent(p => (p + 1) % snapshots.length)
-        setExiting(false)
-      }, 380)
-    }, 3800)
+    const current = texts[index]
+    let timeout: NodeJS.Timeout
+
+    if (!isDeleting && displayed.length < current.length) {
+      timeout = setTimeout(() => setDisplayed(current.slice(0, displayed.length + 1)), 60)
+    } else if (!isDeleting && displayed.length === current.length) {
+      timeout = setTimeout(() => setIsDeleting(true), 2000)
+    } else if (isDeleting && displayed.length > 0) {
+      timeout = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 30)
+    } else if (isDeleting && displayed.length === 0) {
+      setIsDeleting(false)
+      setIndex((index + 1) % texts.length)
+    }
+    return () => clearTimeout(timeout)
+  }, [displayed, isDeleting, index, texts])
+
+  return (
+    <span className="text-indigo-500">{displayed}<span className="animate-pulse">|</span></span>
+  )
+}
+
+function DashboardMockup() {
+  const [activeRow, setActiveRow] = useState(0)
+
+  useEffect(() => {
+    const t = setInterval(() => setActiveRow(p => (p + 1) % demoLeads.length), 2500)
     return () => clearInterval(t)
   }, [])
 
-  const n1 = (current + 1) % snapshots.length
-  const n2 = (current + 2) % snapshots.length
-
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 500, height: 360, margin: '0 auto' }}>
-      
-      {/* Card 3 — retro */}
-      <div style={{
-        position: 'absolute', top: 28, left: 28, right: -20,
-        background: 'white',
-        borderRadius: 16, border: '1px solid #EEF2FF',
-        padding: '16px 18px', zIndex: 1,
-        opacity: 0.45, transform: 'scale(0.92)',
-        transformOrigin: 'top center',
-        boxShadow: '0 8px 30px rgba(99,102,241,0.08)',
-        overflow: 'hidden', height: 320, pointerEvents: 'none',
-      }}>
-        <SearchWidget snap={snapshots[n2]} />
+    <div className="relative w-full">
+      {/* Browser chrome */}
+      <div className="bg-slate-800 rounded-t-2xl px-4 py-3 flex items-center gap-2">
+        <div className="flex gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-red-400" />
+          <div className="w-3 h-3 rounded-full bg-yellow-400" />
+          <div className="w-3 h-3 rounded-full bg-green-400" />
+        </div>
+        <div className="flex-1 mx-4">
+          <div className="bg-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-400 font-mono">
+            app.mirax.it/dashboard
+          </div>
+        </div>
       </div>
 
-      {/* Card 2 — medio */}
-      <div style={{
-        position: 'absolute', top: 14, left: 14, right: -10,
-        background: 'white',
-        borderRadius: 16, border: '1px solid #E0E7FF',
-        padding: '16px 18px', zIndex: 2,
-        opacity: 0.7, transform: 'scale(0.96)',
-        transformOrigin: 'top center',
-        boxShadow: '0 12px 40px rgba(99,102,241,0.1)',
-        overflow: 'hidden', height: 320, pointerEvents: 'none',
-      }}>
-        <SearchWidget snap={snapshots[n1]} />
+      {/* App content */}
+      <div className="bg-white rounded-b-2xl border border-slate-200 border-t-0 overflow-hidden shadow-2xl shadow-indigo-500/10">
+        {/* Top bar */}
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50/80">
+          <div className="flex items-center gap-2 flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2">
+            <Search size={14} className="text-slate-400" />
+            <span className="text-sm text-slate-500 font-['DM_Sans']">
+              <TypingText texts={queries} />
+            </span>
+          </div>
+          <div className="bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg font-['DM_Sans'] flex items-center gap-1.5">
+            <Zap size={12} />
+            Cerca
+          </div>
+        </div>
+
+        {/* Results header */}
+        <div className="px-5 py-2.5 flex items-center justify-between border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-800 font-['DM_Sans']">4 risultati</span>
+            <span className="text-xs text-emerald-600 font-medium font-['DM_Sans'] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              Live
+            </span>
+          </div>
+          <div className="flex gap-1.5">
+            {['Score', 'Problemi', 'Contatti'].map(f => (
+              <span key={f} className="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded font-['DM_Sans']">{f}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Table header */}
+        <div className="grid grid-cols-12 px-5 py-2 bg-slate-50/50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-['DM_Sans'] border-b border-slate-100">
+          <div className="col-span-4">Azienda</div>
+          <div className="col-span-2 text-center">Score</div>
+          <div className="col-span-3">Problemi</div>
+          <div className="col-span-3 text-right">Contatto</div>
+        </div>
+
+        {/* Rows */}
+        {demoLeads.map((lead, i) => (
+          <motion.div
+            key={lead.nome}
+            className={`grid grid-cols-12 px-5 py-3 items-center border-b border-slate-50 cursor-pointer transition-colors duration-200 ${
+              i === activeRow ? 'bg-indigo-50/60' : 'hover:bg-slate-50/60'
+            }`}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 * i, duration: 0.4 }}
+          >
+            <div className="col-span-4">
+              <div className="text-xs font-semibold text-slate-800 font-['DM_Sans'] truncate">{lead.nome}</div>
+              <div className="text-[10px] text-slate-400 font-['DM_Sans']">{lead.citta}</div>
+            </div>
+            <div className="col-span-2 flex justify-center">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                lead.score >= 80 ? 'bg-gradient-to-br from-red-500 to-orange-500' :
+                lead.score >= 60 ? 'bg-gradient-to-br from-orange-400 to-amber-400' :
+                'bg-gradient-to-br from-amber-400 to-yellow-400'
+              }`}>
+                {lead.score}
+              </div>
+            </div>
+            <div className="col-span-3 flex gap-1 flex-wrap">
+              {lead.problems.map(p => (
+                <span key={p} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-['DM_Sans']">{p}</span>
+              ))}
+            </div>
+            <div className="col-span-3 text-right">
+              <div className="text-[10px] text-emerald-600 font-medium font-['DM_Sans']">{lead.tel}</div>
+              <div className="text-[10px] text-slate-400 font-['DM_Sans']">{lead.email}</div>
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Bottom bar */}
+        <div className="flex items-center justify-between px-5 py-2.5 bg-slate-50/60 border-t border-slate-100">
+          <span className="text-[10px] text-slate-400 font-mono">mirax v2.0 · ai-powered</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-indigo-500 font-semibold font-['DM_Sans'] flex items-center gap-1">
+              <Sparkles size={10} />
+              Genera Pitch
+            </span>
+            <span className="text-[10px] text-slate-400 font-['DM_Sans']">Esporta CSV</span>
+          </div>
+        </div>
       </div>
 
-      {/* Card 1 — primo piano */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        background: 'white',
-        borderRadius: 16, border: '1px solid #E0E7FF',
-        padding: '18px 20px', zIndex: 3,
-        opacity: exiting ? 0 : 1,
-        transform: exiting
-          ? 'translateY(-20px) translateX(-12px) rotate(-3deg) scale(0.95)'
-          : 'translateY(0) rotate(0) scale(1)',
-        transition: 'all 0.38s cubic-bezier(0.4,0,0.2,1)',
-        boxShadow: '0 20px 60px rgba(99,102,241,0.15), 0 4px 20px rgba(0,0,0,0.06)',
-        overflow: 'hidden',
-      }}>
-        <SearchWidget snap={snapshots[current]} />
-      </div>
+      {/* Floating badges */}
+      <motion.div
+        className="absolute -right-4 top-20 bg-white rounded-xl shadow-lg shadow-slate-200/60 border border-slate-100 px-3 py-2 hidden lg:block"
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 1.2, duration: 0.5 }}
+      >
+        <div className="text-[10px] text-slate-400 font-['DM_Sans'] mb-1">Score AI</div>
+        <div className="text-lg font-bold text-indigo-600 font-['Syne']">87<span className="text-xs text-slate-400">/100</span></div>
+      </motion.div>
+
+      <motion.div
+        className="absolute -left-4 bottom-24 bg-white rounded-xl shadow-lg shadow-slate-200/60 border border-slate-100 px-3 py-2 hidden lg:block"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 1.5, duration: 0.5 }}
+      >
+        <div className="text-[10px] text-slate-400 font-['DM_Sans'] mb-1">Pitch generato</div>
+        <div className="text-[10px] text-emerald-600 font-semibold font-['DM_Sans'] flex items-center gap-1">
+          <Sparkles size={10} /> Pronto in 3 sec
+        </div>
+      </motion.div>
     </div>
   )
 }
 
 export default function HeroSection() {
   return (
-    <section style={{
-      background: 'white',
-      borderBottom: '1px solid #F1F5F9',
-      padding: '80px 0 100px',
-      position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Background decoration */}
-      <div style={{
-        position: 'absolute', top: -200, right: -200,
-        width: 600, height: 600,
-        background: 'radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'absolute', bottom: -100, left: -100,
-        width: 400, height: 400,
-        background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
+    <section className="relative overflow-hidden bg-white">
+      {/* Mesh gradient background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-3xl" />
+        <div className="absolute top-40 right-0 w-[500px] h-[500px] bg-violet-100/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-50/40 rounded-full blur-3xl" />
+        {/* Grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: 'linear-gradient(#6366F1 1px, transparent 1px), linear-gradient(90deg, #6366F1 1px, transparent 1px)',
+          backgroundSize: '60px 60px'
+        }} />
+      </div>
 
-      <div style={{
-        maxWidth: 1280, margin: '0 auto',
-        padding: '0 32px',
-        display: 'grid',
-        alignItems: 'center',
-      }} className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20">
-
-        {/* LEFT */}
-        <div>
+      <div className="relative max-w-7xl mx-auto px-6 sm:px-8 pt-20 pb-28 lg:pt-28 lg:pb-36">
+        {/* Top center text */}
+        <motion.div
+          className="text-center mb-16 lg:mb-20"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+        >
           {/* Badge */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: '#EEF2FF', border: '1px solid #C7D2FE',
-            borderRadius: 999, padding: '6px 14px', marginBottom: 28,
-          }}>
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: '#10B981',
-              boxShadow: '0 0 0 3px rgba(16,185,129,0.15)',
-              display: 'inline-block',
-            }} />
-            <span style={{
-              fontSize: 12, fontWeight: 600,
-              color: '#6366F1',
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
-              Live · 47.293 aziende analizzate oggi
+          <motion.div
+            className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-full px-4 py-1.5 mb-8"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-          </div>
+            <span className="text-xs font-semibold text-indigo-600 font-['DM_Sans']">
+              47.293 aziende analizzate oggi
+            </span>
+          </motion.div>
 
-          {/* Titolo — stile Lusha: peso 400-500, grande, leggibile */}
-          <h1 style={{
-            fontFamily: 'Syne, sans-serif',
-            fontSize: 'clamp(2.2rem, 4.5vw, 3.4rem)',
-            fontWeight: 500,
-            lineHeight: 1.12,
-            letterSpacing: '-0.025em',
-            color: '#0F172A',
-            marginBottom: 20,
-          }}>
-            Trova aziende italiane
+          {/* Main headline */}
+          <h1 className="font-['Syne'] text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.08]">
+            Il motore di intelligence
             <br />
-            <span style={{ color: '#6366F1' }}>
-              pronte ad ascoltarti.
+            <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 bg-clip-text text-transparent">
+              dietro le agenzie che chiudono.
             </span>
-            <br />
-            Prima di chiamare.
           </h1>
 
-          {/* Sottotitolo */}
-          <p style={{
-            fontSize: 17, lineHeight: 1.65,
-            color: '#64748B', maxWidth: 480,
-            fontFamily: 'DM Sans, sans-serif',
-            fontWeight: 400, marginBottom: 36,
-          }}>
-            MIRAX analizza milioni di PMI italiane, 
-            rileva i problemi tecnici reali e ti consegna 
-            una lista di potenziali clienti con il pitch già scritto.
+          {/* Subtitle */}
+          <p className="text-lg sm:text-xl text-slate-500 font-['DM_Sans'] max-w-2xl mx-auto mb-10 leading-relaxed">
+            MIRAX scansiona milioni di PMI italiane, trova i problemi tecnici reali
+            e ti consegna lead qualificati con il pitch già pronto. In 2 minuti.
           </p>
 
-          {/* CTA */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 36 }}>
+          {/* CTA row */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <CtaLink>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                background: '#6366F1', color: 'white',
-                fontSize: 15, fontWeight: 600,
-                padding: '13px 28px', borderRadius: 10,
-                fontFamily: 'DM Sans, sans-serif',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
-                cursor: 'pointer',
-              }}>
-                Inizia Gratis
-                <ArrowRight size={16} />
+              <span className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-semibold px-8 py-3.5 rounded-xl font-['DM_Sans'] shadow-lg shadow-indigo-500/30 transition-all duration-200 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/40 hover:-translate-y-0.5">
+                Inizia Gratis — 10 Lead
+                <ArrowRight size={18} />
               </span>
             </CtaLink>
-
             <button
               type="button"
-              onClick={() => {
-                const el = document.querySelector('#how-it-works')
-                if (el) el.scrollIntoView({ behavior: 'smooth' })
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 10,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 14, fontWeight: 500, color: '#64748B',
-                fontFamily: 'DM Sans, sans-serif',
-              }}
+              onClick={() => document.querySelector('#how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+              className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 text-sm font-medium font-['DM_Sans'] transition-colors"
             >
-              <span style={{
-                width: 36, height: 36,
-                borderRadius: '50%', border: '1.5px solid #E2E8F0',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              }}>
-                <Play size={12} fill="#64748B" color="#64748B" />
+              <span className="w-9 h-9 rounded-full border border-slate-200 bg-white flex items-center justify-center shadow-sm">
+                <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><polygon points="0,0 10,6 0,12" /></svg>
               </span>
-              Guarda demo (90 sec)
+              Vedi come funziona
             </button>
           </div>
 
-          {/* Social proof */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex' }}>
-                {['#6366F1','#8B5CF6','#EC4899','#F59E0B','#10B981'].map((color, i) => (
-                  <div key={i} style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: color, border: '2px solid white',
-                    marginLeft: i === 0 ? 0 : -8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, fontWeight: 700, color: 'white',
-                  }}>
-                    {['A','B','C','D','E'][i]}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: 'DM Sans, sans-serif' }}>
-                  ★★★★★ <span style={{ color: '#6366F1' }}>4.9/5</span>
-                </div>
-                <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'DM Sans, sans-serif' }}>
-                  200+ agenzie italiane
-                </div>
-              </div>
-            </div>
-
-            <div style={{ width: 1, height: 32, background: '#E2E8F0' }} />
-
-            {['🔒 GDPR', '💳 No carta', '⚡ 10 gratis'].map((badge) => (
-              <span key={badge} style={{
-                fontSize: 12, color: '#64748B', fontFamily: 'DM Sans, sans-serif',
-              }}>
-                {badge}
-              </span>
-            ))}
+          {/* Trust row */}
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-10 text-sm text-slate-400 font-['DM_Sans']">
+            <span className="flex items-center gap-1.5"><Shield size={14} className="text-emerald-500" /> GDPR Compliant</span>
+            <span className="text-slate-200">|</span>
+            <span>Nessuna carta richiesta</span>
+            <span className="text-slate-200">|</span>
+            <span className="flex items-center gap-1">★★★★★ <strong className="text-slate-600">4.9/5</strong> da 200+ agenzie</span>
           </div>
-        </div>
+        </motion.div>
 
-        {/* RIGHT — Widget */}
-        <div style={{ position: 'relative' }}>
-          <HeroWidget />
-        </div>
-
+        {/* Product mockup */}
+        <motion.div
+          className="max-w-4xl mx-auto"
+          initial={{ opacity: 0, y: 60 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <DashboardMockup />
+        </motion.div>
       </div>
     </section>
   )
