@@ -345,7 +345,8 @@ export default function DashboardShell() {
 
         // Step 1: Try to fill from the leads table first (fast, no external scraping)
         // Detect if the query requires technical data (needs a website)
-        const isTechnicalQuery = /errori?\s*(seo|html)|seo\s*error|senza\s*(meta\s*)?pixel|no\s*pixel|senza\s*gtm|no\s*gtm|senza\s*ssl|no\s*ssl|senza\s*google\s*ads|no\s*google\s*ads|senza\s*ads|senza\s*dmarc|no\s*dmarc|rischio\s*spam|sito\s*lento|slow\s*(site|speed)|non\s*mobile|no\s*mobile|senza\s*mobile|senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(query)
+        const isNoWebsiteQuery = /senza\s*(sito|website)|no\s*(web|website|sito)|manca\s*(il\s+)?sito|privo\s+di\s+sito/i.test(query)
+        const isTechnicalQuery = isNoWebsiteQuery || /errori?\s*(seo|html)|seo\s*error|senza\s*(meta\s*)?pixel|no\s*pixel|senza\s*gtm|no\s*gtm|senza\s*ssl|no\s*ssl|senza\s*google\s*ads|no\s*google\s*ads|senza\s*ads|senza\s*dmarc|no\s*dmarc|rischio\s*spam|sito\s*lento|slow\s*(site|speed)|non\s*mobile|no\s*mobile|senza\s*mobile|senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(query)
 
         // Build a filter that checks if a NORMALIZED lead matches the query's technical criteria
         const buildTechFilter = (q: string): ((l: any) => boolean) | null => {
@@ -376,6 +377,11 @@ export default function DashboardShell() {
             filters.push((l) => {
               const spd = l.technical_report?.load_speed_s ?? l.technical_report?.load_speed_seconds
               return typeof spd === 'number' && spd > 3
+            })
+          if (/senza\s*(sito|website)|no\s*(web|website|sito)/i.test(ql))
+            filters.push((l) => {
+              const s = (l.sito || l.website || '').trim()
+              return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d'
             })
           return filters.length > 0 ? (lead: any) => filters.some(f => f(lead)) : null
         }
@@ -424,12 +430,17 @@ export default function DashboardShell() {
               seenKeys.add(key)
               return true
             })
-            let filtered = isTechnicalQuery
+            let filtered = isNoWebsiteQuery
               ? deduped.filter((r: any) => {
                   const sito = (r.sito || r.website || '').trim()
-                  return sito && sito !== 'N/D' && sito !== 'n/d'
+                  return !sito || sito === 'N/D' || sito === 'N/A' || sito === 'N.D.' || sito === 'n/d'
                 })
-              : deduped
+              : isTechnicalQuery
+                ? deduped.filter((r: any) => {
+                    const sito = (r.sito || r.website || '').trim()
+                    return sito && sito !== 'N/D' && sito !== 'n/d'
+                  })
+                : deduped
             if (techFilter) filtered = filtered.filter(techFilter)
             const prev = resultsArrRef.current
             const remaining = maxLeads - prev.length
@@ -585,10 +596,17 @@ export default function DashboardShell() {
                       (r.sito || r.website || r.nome || r.azienda || r.name || '').toLowerCase()
                     )
                   )
-                  const newLeads = normalized.filter((r: any) => {
+                  let newLeads = normalized.filter((r: any) => {
                     const key = (r.sito || r.website || r.nome || r.azienda || r.name || '').toLowerCase()
                     return key && !existingKeys.has(key)
                   })
+                  // Apply has_website filter from activeFilters (e.g. "senza sito")
+                  if ((activeFilters as any)?.has_website === false) {
+                    newLeads = newLeads.filter((r: any) => {
+                      const s = (r.sito || r.website || '').trim()
+                      return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d'
+                    })
+                  }
                   const allowed = newLeads.slice(0, Math.min(remaining, creditsRef.current))
                   if (allowed.length > 0) {
                     const updated = [...curArr, ...allowed]

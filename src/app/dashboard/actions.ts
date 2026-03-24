@@ -1262,6 +1262,19 @@ Zero testo aggiuntivo. Solo l'array.`
       })
     }
 
+    // Apply has_website filter (e.g. "senza sito" / "senza website")
+    if (filtri.has_website === false) {
+      validLeads = validLeads.filter((lead) => {
+        const s = (typeof lead.sito === 'string' ? lead.sito : '').trim()
+        return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+      })
+    } else if (filtri.has_website === true) {
+      validLeads = validLeads.filter((lead) => {
+        const s = (typeof lead.sito === 'string' ? lead.sito : '').trim()
+        return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
+      })
+    }
+
     const finalResults = validLeads
 
     if (finalResults.length === 0) {
