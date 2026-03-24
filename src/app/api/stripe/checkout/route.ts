@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
+      payment_method_collection: 'always',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/dashboard/billing?canceled=true`,
@@ -76,6 +77,12 @@ export async function POST(req: NextRequest) {
           plan_id: planId,
         },
       },
+      payment_method_options: {
+        card: {
+          setup_future_usage: 'off_session',
+        },
+      },
+      allow_promotion_codes: true,
     })
 
     return NextResponse.json({ url: session.url })
