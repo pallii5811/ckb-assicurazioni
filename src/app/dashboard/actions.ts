@@ -1275,6 +1275,24 @@ Zero testo aggiuntivo. Solo l'array.`
       })
     }
 
+    // Dedup: strip phone/email that appear in 3+ leads (directory/aggregator contacts)
+    {
+      const phoneCounts: Record<string, number> = {}
+      const emailCounts: Record<string, number> = {}
+      for (const lead of validLeads) {
+        const p = (lead.telefono || '').replace(/\s+/g, '').trim()
+        const e = (lead.email || '').trim().toLowerCase()
+        if (p && p !== 'N/D' && p !== 'N/A') phoneCounts[p] = (phoneCounts[p] || 0) + 1
+        if (e && e !== 'n/d' && e !== 'n/a') emailCounts[e] = (emailCounts[e] || 0) + 1
+      }
+      for (const lead of validLeads) {
+        const p = (lead.telefono || '').replace(/\s+/g, '').trim()
+        const e = (lead.email || '').trim().toLowerCase()
+        if (p && phoneCounts[p] >= 3) lead.telefono = ''
+        if (e && emailCounts[e] >= 3) lead.email = ''
+      }
+    }
+
     const finalResults = validLeads
 
     if (finalResults.length === 0) {
@@ -1602,7 +1620,23 @@ const classicTextSearchAction = async (userQuery: string): Promise<SearchResult>
 
   }
 
-
+  // Dedup: strip phone/email that appear in 3+ leads (directory/aggregator contacts)
+  {
+    const phoneCounts: Record<string, number> = {}
+    const emailCounts: Record<string, number> = {}
+    for (const lead of coercedLeads) {
+      const p = (lead.telefono || '').replace(/\s+/g, '').trim()
+      const e = (lead.email || '').trim().toLowerCase()
+      if (p && p !== 'N/D' && p !== 'N/A') phoneCounts[p] = (phoneCounts[p] || 0) + 1
+      if (e && e !== 'n/d' && e !== 'n/a') emailCounts[e] = (emailCounts[e] || 0) + 1
+    }
+    for (const lead of coercedLeads) {
+      const p = (lead.telefono || '').replace(/\s+/g, '').trim()
+      const e = (lead.email || '').trim().toLowerCase()
+      if (p && phoneCounts[p] >= 3) lead.telefono = ''
+      if (e && emailCounts[e] >= 3) lead.email = ''
+    }
+  }
 
   return {
 
@@ -5030,7 +5064,23 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
     console.log('LEAD FILTRATI AI (COUNT):', validLeads.length)
 
-
+    // Dedup: strip phone/email that appear in 3+ leads (directory/aggregator contacts)
+    {
+      const phoneCounts: Record<string, number> = {}
+      const emailCounts: Record<string, number> = {}
+      for (const lead of validLeads) {
+        const p = (lead.telefono || '').replace(/\s+/g, '').trim()
+        const e = (lead.email || '').trim().toLowerCase()
+        if (p && p !== 'N/D' && p !== 'N/A') phoneCounts[p] = (phoneCounts[p] || 0) + 1
+        if (e && e !== 'n/d' && e !== 'n/a') emailCounts[e] = (emailCounts[e] || 0) + 1
+      }
+      for (const lead of validLeads) {
+        const p = (lead.telefono || '').replace(/\s+/g, '').trim()
+        const e = (lead.email || '').trim().toLowerCase()
+        if (p && phoneCounts[p] >= 3) lead.telefono = ''
+        if (e && emailCounts[e] >= 3) lead.email = ''
+      }
+    }
 
     const finalResults = validLeads
 
