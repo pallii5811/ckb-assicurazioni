@@ -691,7 +691,19 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
           const cAt = typeof completedJob.created_at === 'string' ? completedJob.created_at : null
           const cMs = cAt ? Date.parse(cAt) : NaN
           if (Number.isFinite(cMs) && Date.now() - cMs <= completedMaxAgeMs) {
-            const cached = Array.isArray(completedJob.results) ? completedJob.results : (() => { try { return JSON.parse(completedJob.results as any) } catch { return [] } })()
+            let cached = Array.isArray(completedJob.results) ? completedJob.results : (() => { try { return JSON.parse(completedJob.results as any) } catch { return [] } })()
+            // Apply has_website filter to cached results (e.g. "senza sito")
+            if (filtri.has_website === false) {
+              cached = cached.filter((lead: any) => {
+                const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+                return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+              })
+            } else if (filtri.has_website === true) {
+              cached = cached.filter((lead: any) => {
+                const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+                return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
+              })
+            }
             if (cached.length > 0) {
               return { results: cached, filters: filtri, ai_debug: { ...aiDebug, source: 'cached_completed' } }
             }
@@ -4281,7 +4293,19 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
           const cAt = typeof completedJob.created_at === 'string' ? completedJob.created_at : null
           const cMs = cAt ? Date.parse(cAt) : NaN
           if (Number.isFinite(cMs) && Date.now() - cMs <= completedMaxAgeMs) {
-            const cached = Array.isArray(completedJob.results) ? completedJob.results : (() => { try { return JSON.parse(completedJob.results as any) } catch { return [] } })()
+            let cached = Array.isArray(completedJob.results) ? completedJob.results : (() => { try { return JSON.parse(completedJob.results as any) } catch { return [] } })()
+            // Apply has_website filter to cached results (e.g. "senza sito")
+            if (filtri.has_website === false) {
+              cached = cached.filter((lead: any) => {
+                const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+                return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+              })
+            } else if (filtri.has_website === true) {
+              cached = cached.filter((lead: any) => {
+                const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+                return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
+              })
+            }
             if (cached.length > 0) {
               console.log('[hybrid] reusing completed job:', completedJob.id, cached.length, 'results')
               return { results: cached, filters: filtri, ai_debug: { ...aiDebug, source: 'cached_completed' } }

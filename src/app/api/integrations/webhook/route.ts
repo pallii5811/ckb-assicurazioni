@@ -12,17 +12,22 @@ export async function GET() {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
-    .from('user_integrations')
-    .select('webhook_url')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  try {
+    const { data, error } = await supabase
+      .from('user_integrations')
+      .select('webhook_url')
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.log('[webhook] query error (table may not exist):', error.message)
+      return Response.json({ webhookUrl: '' })
+    }
+
+    return Response.json({ webhookUrl: data?.webhook_url ?? '' })
+  } catch {
+    return Response.json({ webhookUrl: '' })
   }
-
-  return Response.json({ webhookUrl: data?.webhook_url ?? '' })
 }
 
 export async function PUT(req: Request) {

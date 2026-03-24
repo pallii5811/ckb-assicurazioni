@@ -824,7 +824,7 @@ export default function DashboardShell() {
 
           window.clearInterval(interval)
 
-          const nextResults =
+          let nextResults =
 
             typeof (data as any).results === 'string'
 
@@ -832,7 +832,22 @@ export default function DashboardShell() {
 
               : (data as any).results
 
-          setResults(Array.isArray(nextResults) ? nextResults : nextResults ? [nextResults] : [])
+          let arr = Array.isArray(nextResults) ? nextResults : nextResults ? [nextResults] : []
+
+          // Apply has_website filter from activeFilters (e.g. "senza sito")
+          if ((activeFilters as any)?.has_website === false) {
+            arr = arr.filter((lead: any) => {
+              const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+              return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+            })
+          } else if ((activeFilters as any)?.has_website === true) {
+            arr = arr.filter((lead: any) => {
+              const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+              return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
+            })
+          }
+
+          setResults(arr)
 
           setSearchState('done')
 
@@ -874,6 +889,22 @@ export default function DashboardShell() {
 
         const parsed = Array.isArray((data as any)?.results) ? (data as any).results : (() => { try { return JSON.parse(((data as any)?.results as any) || '[]') } catch { return [] } })()
 
+        // Helper: apply has_website filter from activeFilters
+        const applyWebsiteFilter = (leads: any[]) => {
+          if ((activeFilters as any)?.has_website === false) {
+            return leads.filter((lead: any) => {
+              const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+              return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+            })
+          } else if ((activeFilters as any)?.has_website === true) {
+            return leads.filter((lead: any) => {
+              const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+              return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
+            })
+          }
+          return leads
+        }
+
         if (data?.status === 'completed') {
 
           window.clearInterval(interval)
@@ -881,7 +912,7 @@ export default function DashboardShell() {
           setIsScraping(false)
 
           // Cap completed results by maxLeads and credits, then deduct
-          const normalized = (parsed || []).map(normalizeLeadFields)
+          const normalized = applyWebsiteFilter((parsed || []).map(normalizeLeadFields))
           const cappedByMax = normalized.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
@@ -896,7 +927,7 @@ export default function DashboardShell() {
           setSearchState('done')
           // Show any partial results if available
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const normalized = parsed.map(normalizeLeadFields)
+            const normalized = applyWebsiteFilter(parsed.map(normalizeLeadFields))
             const cappedByCredits = normalized.slice(0, creditsRef.current)
             setResults(cappedByCredits)
           }
@@ -905,7 +936,7 @@ export default function DashboardShell() {
         } else if (data?.status === 'processing' && Array.isArray(parsed) && parsed.length > 0) {
 
           // Show intermediate results capped by credits (normalize raw field names)
-          const normalized = parsed.map(normalizeLeadFields)
+          const normalized = applyWebsiteFilter(parsed.map(normalizeLeadFields))
           const cappedByCredits = normalized.slice(0, creditsRef.current)
           setResults(cappedByCredits)
 

@@ -12,17 +12,22 @@ export async function GET() {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
-    .from('lists')
-    .select('id, name, description, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('lists')
+      .select('id, name, description, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.log('[lists] query error (table may not exist):', error.message)
+      return Response.json({ lists: [] })
+    }
+
+    return Response.json({ lists: data ?? [] })
+  } catch {
+    return Response.json({ lists: [] })
   }
-
-  return Response.json({ lists: data ?? [] })
 }
 
 export async function POST(req: Request) {
