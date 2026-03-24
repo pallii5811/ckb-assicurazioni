@@ -183,6 +183,8 @@ export default function DashboardShell() {
 
 
 
+  const hasMountedRef = useRef(false)
+
   const [query, setQuery] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [maxLeads, setMaxLeads] = useState(10)
@@ -209,6 +211,7 @@ export default function DashboardShell() {
       const savedAiDebug = sessionStorage.getItem('ckb_aiDebug')
       if (savedAiDebug) setAiDebug(JSON.parse(savedAiDebug))
     } catch {}
+    hasMountedRef.current = true
   }, [])
 
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
@@ -221,24 +224,24 @@ export default function DashboardShell() {
 
   const [isScraping, setIsScraping] = useState(false)
 
-  // Persist search state to sessionStorage
+  // Persist search state to sessionStorage (skip until after restore)
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!hasMountedRef.current) return
     sessionStorage.setItem('ckb_query', query)
   }, [query])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!hasMountedRef.current) return
     try { sessionStorage.setItem('ckb_results', JSON.stringify(results)) } catch {}
   }, [results])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!hasMountedRef.current) return
     try { sessionStorage.setItem('ckb_filters', JSON.stringify(activeFilters)) } catch {}
   }, [activeFilters])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!hasMountedRef.current) return
     try { sessionStorage.setItem('ckb_aiDebug', JSON.stringify(aiDebug)) } catch {}
   }, [aiDebug])
 

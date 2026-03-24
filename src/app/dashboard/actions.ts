@@ -675,6 +675,29 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
         } = await supabase.auth.getUser()
 
+        // Check for recently completed job first — reuse results instead of re-scraping
+        const completedMaxAgeMs = 60 * 60 * 1000 // 1 hour
+        const { data: completedJob } = await supabase
+          .from('searches')
+          .select('id, status, results, created_at')
+          .eq('location', cityBase)
+          .ilike('category', categoryBase)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (completedJob?.id && completedJob.results) {
+          const cAt = typeof completedJob.created_at === 'string' ? completedJob.created_at : null
+          const cMs = cAt ? Date.parse(cAt) : NaN
+          if (Number.isFinite(cMs) && Date.now() - cMs <= completedMaxAgeMs) {
+            const cached = Array.isArray(completedJob.results) ? completedJob.results : (() => { try { return JSON.parse(completedJob.results as any) } catch { return [] } })()
+            if (cached.length > 0) {
+              return { results: cached, filters: filtri, ai_debug: { ...aiDebug, source: 'cached_completed' } }
+            }
+          }
+        }
+
         const { data: existingJob } = await supabase
 
           .from('searches')
@@ -2910,37 +2933,42 @@ const buildSystemPrompt = () => {
 const buildPitchSystemPrompt = () => {
 
   return [
-
-    'Sei un copywriter B2B esperto di lead generation e consulenza digital (tracking, performance, SEO tecnico).',
-
-    'Scrivi una cold email breve e molto personalizzata in Italiano (OGGETTO + CORPO).',
-
-    'Tono: professionale ma non troppo formale, come un consulente esperto che vuole dare un consiglio sincero.',
-
+    'Sei un senior sales consultant B2B specializzato in digital marketing, web performance, SEO tecnico e lead generation.',
+    'Il tuo compito è scrivere una cold email ALTAMENTE personalizzata e strutturata in Italiano (OGGETTO + CORPO) basata sui dati tecnici reali del lead.',
     '',
-
-    'Vincoli:',
-
-    '- Non citare "OpenAI" o LLM o prompt.',
-
-    '- Non inventare dati non presenti nel contesto.',
-
-    '- Se manca il Facebook Pixel, spiega in 1 frase il danno economico (niente retargeting / audience / conversion tracking).',
-
-    '- Se il sito è lento (page_speed basso), spiega che stanno perdendo clienti (abbandono / conversioni).',
-
-    '- Se ci sono errori SEO/HTML, menziona 1-2 esempi e impatto.',
-
-    '- CTA: proponi una call di 15 minuti e chiedi se preferiscono oggi o domani.',
-
-    '- Firma corta (nome agenzia generico, senza link).',
-
+    'STRUTTURA OBBLIGATORIA del corpo email:',
     '',
-
+    '1. **Apertura personalizzata** (1-2 righe): Saluto con nome azienda, riferimento specifico alla loro attività/settore/città.',
+    '',
+    '2. **Analisi tecnica dettagliata** (il cuore del pitch):',
+    '   Per OGNI problema trovato nei dati, scrivi un paragrafo breve ma incisivo che includa:',
+    '   - Il problema specifico identificato (es. "manca il Facebook Pixel", "Google Tag Manager assente", "velocità pagina X secondi")',
+    '   - L\'IMPATTO CONCRETO sul business con dati/statistiche reali:',
+    '     • Pixel assente → "State perdendo il 70% del potenziale di retargeting. Senza Pixel, ogni visitatore che esce dal sito è perso per sempre — niente audience lookalike, niente remarketing, niente conversion tracking per ottimizzare le campagne."',
+    '     • GTM assente → "Senza Google Tag Manager non potete tracciare eventi, form, click sui CTA. È come guidare bendati — zero dati sulle conversioni."',
+    '     • SSL assente → "Google penalizza i siti senza HTTPS nel ranking. Inoltre i browser mostrano \'Non sicuro\' — il 85% degli utenti abbandona."',
+    '     • Velocità bassa → "Con un page speed di X secondi, state perdendo circa il Y% dei visitatori (Google: ogni secondo in più = -7% conversioni)."',
+    '     • Errori SEO/HTML → "Ho rilevato errori come [specifici]. Questi impattano direttamente il posizionamento su Google: H1 mancante = -20% visibilità, meta description assente = CTR dimezzato."',
+    '     • No Instagram → "Nel vostro settore, il 78% dei potenziali clienti cerca su Instagram prima di contattare. Assenza = opportunità perse."',
+    '     • Google Ads assente → "I vostri competitor stanno acquisendo clienti con Google Ads mentre voi dipendete solo dal passaparola."',
+    '',
+    '3. **Proposta di valore** (2-3 righe): Cosa potete fare concretamente per risolvere i problemi, con risultati attesi realistici.',
+    '',
+    '4. **CTA forte**: Proponi una call gratuita di 15 minuti. Usa urgenza naturale: "Preferite oggi pomeriggio o domani mattina?"',
+    '',
+    '5. **Firma**: Solo "Un saluto," seguito da "[Nome Agenzia]"',
+    '',
+    'REGOLE FERREE:',
+    '- NON citare "OpenAI", "AI", "LLM", "prompt", "intelligenza artificiale" o "analisi automatica".',
+    '- NON inventare dati non presenti nel contesto. Usa solo i dati forniti.',
+    '- Scrivi come se avessi analizzato personalmente il sito.',
+    '- Tono: consulente esperto e diretto, non venditore aggressivo. Professionale ma umano.',
+    '- L\'oggetto deve essere specifico e incuriosire (es. "3 problemi tecnici che stanno frenando [Nome Azienda]").',
+    '- Il corpo deve essere 150-250 parole — abbastanza lungo da dimostrare competenza, abbastanza corto da essere letto.',
+    '- Ogni affermazione tecnica deve avere un impatto business collegato.',
+    '',
     'Output: rispondi SOLO con JSON valido nel formato:',
-
     '{ "subject": string, "body": string }',
-
   ].join('\n')
 
 }
@@ -2963,7 +2991,9 @@ const openaiPitch = async (input: PitchInput): Promise<PitchResult> => {
 
     model: 'gpt-4o-mini',
 
-    temperature: 0.4,
+    temperature: 0.5,
+
+    max_tokens: 1200,
 
     messages: [
 
@@ -4235,7 +4265,29 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
         console.log('[hybrid] user id:', user?.id)
 
+        // Check for recently completed job first — reuse results instead of re-scraping
+        const completedMaxAgeMs = 60 * 60 * 1000 // 1 hour
+        const { data: completedJob } = await supabase
+          .from('searches')
+          .select('id, status, results, created_at')
+          .eq('location', cityBase)
+          .ilike('category', categoryBase)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
+        if (completedJob?.id && completedJob.results) {
+          const cAt = typeof completedJob.created_at === 'string' ? completedJob.created_at : null
+          const cMs = cAt ? Date.parse(cAt) : NaN
+          if (Number.isFinite(cMs) && Date.now() - cMs <= completedMaxAgeMs) {
+            const cached = Array.isArray(completedJob.results) ? completedJob.results : (() => { try { return JSON.parse(completedJob.results as any) } catch { return [] } })()
+            if (cached.length > 0) {
+              console.log('[hybrid] reusing completed job:', completedJob.id, cached.length, 'results')
+              return { results: cached, filters: filtri, ai_debug: { ...aiDebug, source: 'cached_completed' } }
+            }
+          }
+        }
 
         const { data: existingJob } = await supabase
 
