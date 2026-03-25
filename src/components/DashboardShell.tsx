@@ -157,6 +157,55 @@ function deduplicateResults(items: unknown[]): unknown[] {
 
 
 
+function buildTechFilter(q: string): ((l: any) => boolean) | null {
+  const filters: Array<(l: any) => boolean> = []
+  const ql = q.toLowerCase()
+  if (/errori?\s*(seo|html)|seo\s*error|con\s*errori/i.test(ql))
+    filters.push((l) => {
+      const tr = l.technical_report || {}
+      const stack = Array.isArray(l.tech_stack) ? l.tech_stack.join(' ').toLowerCase() : ''
+      const htmlErr = tr.html_errors
+      const hasHtmlErrors = htmlErr === true || (typeof htmlErr === 'number' && htmlErr > 0)
+      return tr.seo_disaster === true || hasHtmlErrors || stack.includes('disastro seo') || stack.includes('seo error')
+    })
+  if (/senza\s*(meta\s*)?pixel|no\s*pixel/i.test(ql))
+    filters.push((l) => l.meta_pixel !== true)
+  if (/senza\s*gtm|no\s*gtm|senza\s*tag\s*manager/i.test(ql))
+    filters.push((l) => l.google_tag_manager !== true)
+  if (/senza\s*ssl|no\s*ssl/i.test(ql))
+    filters.push((l) => l.ssl === false)
+  if (/senza\s*google\s*ads|no\s*google\s*ads|senza\s*ads/i.test(ql))
+    filters.push((l) => l.google_ads !== true && (l.technical_report?.has_google_ads !== true))
+  if (/senza\s*instagram|no\s*instagram/i.test(ql))
+    filters.push((l) => {
+      const ig = (l.instagram || '').trim()
+      return !ig || ig === 'N/D'
+    })
+  if (/senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(ql))
+    filters.push((l) => l.google_analytics !== true && (l.technical_report?.has_ga4 !== true))
+  if (/sito\s*lento|slow\s*(site|speed)/i.test(ql))
+    filters.push((l) => {
+      const spd = l.technical_report?.load_speed_s ?? l.technical_report?.load_speed_seconds
+      return typeof spd === 'number' && spd > 3
+    })
+  if (/senza\s*(sito|website)|no\s*(web|website|sito)/i.test(ql))
+    filters.push((l) => {
+      const s = (l.sito || l.website || '').trim()
+      return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d'
+    })
+  if (filters.length === 0) return null
+  // Prerequisite: if query needs web-tech info (not "senza sito"), exclude leads without websites
+  const needsWebsite = !(/senza\s*(sito|website)|no\s*(web|website|sito)/i.test(ql)) &&
+    /errori|seo|pixel|gtm|tag.manager|ssl|google.ads|ads|analytics|ga4|lento|slow/i.test(ql)
+  return (lead: any) => {
+    if (needsWebsite) {
+      const s = (lead.sito || lead.website || '').trim()
+      if (!s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d') return false
+    }
+    return filters.some(f => f(lead))
+  }
+}
+
 export default function DashboardShell() {
 
   const { credits, setCredits } = useDashboard()
@@ -358,43 +407,7 @@ export default function DashboardShell() {
         const isNoWebsiteQuery = /senza\s*(sito|website)|no\s*(web|website|sito)|manca\s*(il\s+)?sito|privo\s+di\s+sito/i.test(query)
         const isTechnicalQuery = isNoWebsiteQuery || /errori?\s*(seo|html)|seo\s*error|senza\s*(meta\s*)?pixel|no\s*pixel|senza\s*gtm|no\s*gtm|senza\s*ssl|no\s*ssl|senza\s*google\s*ads|no\s*google\s*ads|senza\s*ads|senza\s*dmarc|no\s*dmarc|rischio\s*spam|sito\s*lento|slow\s*(site|speed)|non\s*mobile|no\s*mobile|senza\s*mobile|senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(query)
 
-        // Build a filter that checks if a NORMALIZED lead matches the query's technical criteria
-        const buildTechFilter = (q: string): ((l: any) => boolean) | null => {
-          const filters: Array<(l: any) => boolean> = []
-          const ql = q.toLowerCase()
-          if (/errori?\s*(seo|html)|seo\s*error|con\s*errori/i.test(ql))
-            filters.push((l) => {
-              const tr = l.technical_report || {}
-              const stack = Array.isArray(l.tech_stack) ? l.tech_stack.join(' ').toLowerCase() : ''
-              return tr.seo_disaster === true || tr.html_errors === true || stack.includes('disastro seo') || stack.includes('seo error')
-            })
-          if (/senza\s*(meta\s*)?pixel|no\s*pixel/i.test(ql))
-            filters.push((l) => l.meta_pixel !== true)
-          if (/senza\s*gtm|no\s*gtm|senza\s*tag\s*manager/i.test(ql))
-            filters.push((l) => l.google_tag_manager !== true)
-          if (/senza\s*ssl|no\s*ssl/i.test(ql))
-            filters.push((l) => l.ssl === false)
-          if (/senza\s*google\s*ads|no\s*google\s*ads|senza\s*ads/i.test(ql))
-            filters.push((l) => l.google_ads !== true && (l.technical_report?.has_google_ads !== true))
-          if (/senza\s*instagram|no\s*instagram/i.test(ql))
-            filters.push((l) => {
-              const ig = (l.instagram || '').trim()
-              return !ig || ig === 'N/D'
-            })
-          if (/senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(ql))
-            filters.push((l) => l.google_analytics !== true && (l.technical_report?.has_ga4 !== true))
-          if (/sito\s*lento|slow\s*(site|speed)/i.test(ql))
-            filters.push((l) => {
-              const spd = l.technical_report?.load_speed_s ?? l.technical_report?.load_speed_seconds
-              return typeof spd === 'number' && spd > 3
-            })
-          if (/senza\s*(sito|website)|no\s*(web|website|sito)/i.test(ql))
-            filters.push((l) => {
-              const s = (l.sito || l.website || '').trim()
-              return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d'
-            })
-          return filters.length > 0 ? (lead: any) => filters.some(f => f(lead)) : null
-        }
+        // Use module-level buildTechFilter (handles seo errors, pixel, gtm, ssl, etc.)
         const techFilter = buildTechFilter(query)
 
         try {
@@ -854,9 +867,13 @@ export default function DashboardShell() {
             })
           }
 
+          // Apply tech filter from query (errori seo, senza pixel, etc.)
+          const _tf1 = buildTechFilter(query)
+          if (_tf1) arr = arr.map(normalizeLeadFields).filter(_tf1) as any[]
+
           // Merge with existing results (never reduce count)
           const existingArr = resultsArrRef.current as any[]
-          const mergedArr = deduplicateResults([...existingArr, ...arr.map(normalizeLeadFields)]) as any[]
+          const mergedArr = deduplicateResults([...existingArr, ...((_tf1 ? arr : arr.map(normalizeLeadFields)) as any[])]) as any[]
           setResults(mergedArr.length >= existingArr.length ? mergedArr : existingArr)
 
           setSearchState('done')
@@ -899,20 +916,23 @@ export default function DashboardShell() {
 
         const parsed = Array.isArray((data as any)?.results) ? (data as any).results : (() => { try { return JSON.parse(((data as any)?.results as any) || '[]') } catch { return [] } })()
 
-        // Helper: apply has_website filter from activeFilters
-        const applyWebsiteFilter = (leads: any[]) => {
+        // Helper: apply has_website filter + tech filters from query
+        const _tf2 = buildTechFilter(query)
+        const applyAllFilters = (leads: any[]) => {
+          let out = leads
           if ((activeFilters as any)?.has_website === false) {
-            return leads.filter((lead: any) => {
+            out = out.filter((lead: any) => {
               const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
               return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
             })
           } else if ((activeFilters as any)?.has_website === true) {
-            return leads.filter((lead: any) => {
+            out = out.filter((lead: any) => {
               const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
               return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
             })
           }
-          return leads
+          if (_tf2) out = out.filter(_tf2)
+          return out
         }
 
         if (data?.status === 'completed') {
@@ -922,7 +942,7 @@ export default function DashboardShell() {
           setIsScraping(false)
 
           // Merge completed results with existing (never reduce count, preserve audited emails)
-          const normalized = deduplicateResults(applyWebsiteFilter((parsed || []).map(normalizeLeadFields))) as any[]
+          const normalized = deduplicateResults(applyAllFilters((parsed || []).map(normalizeLeadFields))) as any[]
           const existing = resultsArrRef.current as any[]
           const merged = deduplicateResults([...existing, ...normalized]) as any[]
           const cappedByMax = merged.slice(0, maxLeads)
@@ -940,7 +960,7 @@ export default function DashboardShell() {
           setSearchState('done')
           // Show any partial results if available
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const normalized = deduplicateResults(applyWebsiteFilter(parsed.map(normalizeLeadFields))) as any[]
+            const normalized = deduplicateResults(applyAllFilters(parsed.map(normalizeLeadFields))) as any[]
             const existing = resultsArrRef.current as any[]
             const merged = deduplicateResults([...existing, ...normalized]) as any[]
             const cappedByMax = merged.slice(0, maxLeads)
@@ -952,7 +972,7 @@ export default function DashboardShell() {
         } else if (data?.status === 'processing' && Array.isArray(parsed) && parsed.length > 0) {
 
           // Merge intermediate results with existing (never reduce count, preserve audited emails)
-          const normalized = deduplicateResults(applyWebsiteFilter(parsed.map(normalizeLeadFields))) as any[]
+          const normalized = deduplicateResults(applyAllFilters(parsed.map(normalizeLeadFields))) as any[]
           const existing = resultsArrRef.current as any[]
           const merged = deduplicateResults([...existing, ...normalized]) as any[]
           const cappedByMax = merged.slice(0, maxLeads)

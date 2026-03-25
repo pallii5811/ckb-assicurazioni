@@ -4662,9 +4662,14 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
 
 
+      const htmlErrRaw = item?.technical_report?.html_errors
       const hasSeoErrors =
 
         item?.technical_report?.seo_disaster === true ||
+
+        (typeof htmlErrRaw === 'number' && htmlErrRaw > 0) ||
+
+        htmlErrRaw === true ||
 
         (item?.tech_stack && Array.isArray(item.tech_stack) && item.tech_stack.includes('DISASTRO SEO (NO H1/TITLE)'))
 
