@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Search, List, Plug, CreditCard, Crown, LogOut, Folder, BarChart2, User, Kanban, Brain } from 'lucide-react'
+import { Search, List, Plug, CreditCard, Crown, LogOut, Folder, BarChart2, User, Kanban, Brain, Send } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -39,6 +39,7 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
     { icon: Folder, label: 'Ambienti', href: '/dashboard/environments' },
     { icon: Kanban, label: 'Pipeline', href: '/dashboard/pipeline' },
     { icon: Brain, label: 'Smart Insights', href: '/dashboard/insights' },
+    { icon: Send, label: 'Sequenze Email', href: '/dashboard/sequences' },
     { icon: BarChart2, label: 'Il Mio Score AI', href: '/dashboard/stats' },
     { icon: Plug, label: 'Integrazioni', href: '/dashboard/integrations' },
     { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
