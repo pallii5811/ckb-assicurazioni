@@ -824,9 +824,18 @@ export default function DashboardShell() {
 
     if (searchState !== 'pending' || !currentJobId) return
 
-
+    const _pollStart1 = Date.now()
+    const POLL_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes max
 
     const interval = window.setInterval(async () => {
+
+      // Timeout: stop polling after 10 min, show whatever we have
+      if (Date.now() - _pollStart1 > POLL_TIMEOUT_MS) {
+        window.clearInterval(interval)
+        setSearchState('done')
+        console.log('[poll] timeout reached for currentJobId, stopping')
+        return
+      }
 
       try {
 
@@ -900,7 +909,19 @@ export default function DashboardShell() {
 
     if (!isScraping || !scrapeJobId) return
 
+    const _pollStart2 = Date.now()
+    const POLL_TIMEOUT_MS2 = 10 * 60 * 1000 // 10 minutes max
+
     const interval = window.setInterval(async () => {
+
+      // Timeout: stop polling after 10 min, show whatever we have
+      if (Date.now() - _pollStart2 > POLL_TIMEOUT_MS2) {
+        window.clearInterval(interval)
+        setIsScraping(false)
+        setSearchState('done')
+        console.log('[poll] timeout reached for scrapeJobId, stopping')
+        return
+      }
 
       try {
 
