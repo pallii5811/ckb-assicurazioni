@@ -87,34 +87,57 @@ function normalizeLeadFields(lead: any): any {
 function deduplicateResults(items: unknown[]): unknown[] {
 
   const seen = new Map<string, unknown>()
+  const domainToKey = new Map<string, string>()
 
   for (const item of items) {
 
     const obj = item as any
 
-    const phone = (obj.telefono || obj.phone || '').replace(/\D/g, '').slice(-9)
+    // Split phone on common separators ( / , ; | ) and use the first valid chunk
+    const rawPhone = (obj.telefono || obj.phone || '').toString()
+    const phoneParts = rawPhone.split(/[\/,;|]+/)
+    let phone = ''
+    for (const part of phoneParts) {
+      const digits = part.replace(/\D/g, '').replace(/^(39|0039)/, '')
+      if (digits.length >= 8) { phone = digits.slice(-9); break }
+    }
 
     const name = (obj.azienda || obj.nome || obj.company || '').toLowerCase().trim().slice(0, 20)
 
-    const website = (obj.sito || obj.website || '').toLowerCase().trim()
+    const rawSite = (obj.sito || obj.website || '').toString().toLowerCase().trim()
+    const domain = rawSite.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').trim()
 
+    // Build primary key: phone > domain > name
+    const phoneKey = phone && phone.length >= 8 ? `tel:${phone}` : ''
+    const webKey = domain ? `web:${domain}` : ''
+    const nameKey = name ? `name:${name}` : ''
 
+    // Check duplicate by domain (catches multiple Maps listings sharing one website)
+    if (webKey && domainToKey.has(webKey)) {
+      const existingMapKey = domainToKey.get(webKey)!
+      const existing = seen.get(existingMapKey) as any
+      if (existing) {
+        const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(Boolean).length
+        const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(Boolean).length
+        if (newScore > existingScore) seen.set(existingMapKey, item)
+      }
+      continue
+    }
 
-    const key =
+    // Check duplicate by phone
+    if (phoneKey && seen.has(phoneKey)) {
+      const existing = seen.get(phoneKey) as any
+      const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(Boolean).length
+      const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(Boolean).length
+      if (newScore > existingScore) seen.set(phoneKey, item)
+      if (webKey) domainToKey.set(webKey, phoneKey)
+      continue
+    }
 
-      phone && phone.length >= 8
+    // New unique lead
+    const primaryKey = phoneKey || webKey || nameKey || `uid:${Math.random()}`
 
-        ? `tel:${phone}`
-
-        : website
-
-          ? `web:${website}`
-
-          : `name:${name}`
-
-
-
-    if (!key || key === 'tel:' || key === 'web:' || key === 'name:') {
+    if (!primaryKey || primaryKey === 'tel:' || primaryKey === 'web:' || primaryKey === 'name:') {
 
       seen.set(`uid:${Math.random()}`, item)
 
@@ -122,23 +145,8 @@ function deduplicateResults(items: unknown[]): unknown[] {
 
     }
 
-
-
-    if (!seen.has(key)) {
-
-      seen.set(key, item)
-
-    } else {
-
-      const existing = seen.get(key) as any
-
-      const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(Boolean).length
-
-      const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(Boolean).length
-
-      if (newScore > existingScore) seen.set(key, item)
-
-    }
+    seen.set(primaryKey, item)
+    if (webKey) domainToKey.set(webKey, primaryKey)
 
   }
   return Array.from(seen.values())
@@ -609,11 +617,13 @@ export default function DashboardShell() {
                   }
                   const allowed = newLeads.slice(0, Math.min(remaining, creditsRef.current))
                   if (allowed.length > 0) {
-                    const updated = [...curArr, ...allowed]
+                    const prevLen = curArr.length
+                    const updated = deduplicateResults([...curArr, ...allowed]) as any[]
                     resultsArrRef.current = updated
                     resultsCountRef.current = updated.length
                     setResults(updated)
-                    deductCredits(allowed.length)
+                    const actualNewCount = updated.length - prevLen
+                    if (actualNewCount > 0) deductCredits(actualNewCount)
                     if (updated.length >= maxLeads) {
                       clearInterval(pollInterval)
                       autoscrapePollRef.current = null
