@@ -940,7 +940,7 @@ export default function DashboardShell() {
           setIsScraping(false)
 
           // Cap completed results by maxLeads and credits, then deduct
-          const normalized = applyWebsiteFilter((parsed || []).map(normalizeLeadFields))
+          const normalized = deduplicateResults(applyWebsiteFilter((parsed || []).map(normalizeLeadFields))) as any[]
           const cappedByMax = normalized.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
@@ -955,7 +955,7 @@ export default function DashboardShell() {
           setSearchState('done')
           // Show any partial results if available
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const normalized = applyWebsiteFilter(parsed.map(normalizeLeadFields))
+            const normalized = deduplicateResults(applyWebsiteFilter(parsed.map(normalizeLeadFields))) as any[]
             const cappedByMax = normalized.slice(0, maxLeads)
             const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
             setResults(cappedByCredits)
@@ -965,7 +965,7 @@ export default function DashboardShell() {
         } else if (data?.status === 'processing' && Array.isArray(parsed) && parsed.length > 0) {
 
           // Show intermediate results capped by maxLeads AND credits (normalize raw field names)
-          const normalized = applyWebsiteFilter(parsed.map(normalizeLeadFields))
+          const normalized = deduplicateResults(applyWebsiteFilter(parsed.map(normalizeLeadFields))) as any[]
           const cappedByMax = normalized.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
