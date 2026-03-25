@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Search, List, Plug, CreditCard, Crown, LogOut, Folder, BarChart2, User } from 'lucide-react'
+import { Search, List, Plug, CreditCard, Crown, LogOut, Folder, BarChart2, User, Kanban, Brain } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -37,6 +37,8 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
     { icon: Search, label: 'Ricerca', href: '/dashboard' },
     { icon: List, label: 'Le mie Liste', href: '/dashboard/leads' },
     { icon: Folder, label: 'Ambienti', href: '/dashboard/environments' },
+    { icon: Kanban, label: 'Pipeline', href: '/dashboard/pipeline' },
+    { icon: Brain, label: 'Smart Insights', href: '/dashboard/insights' },
     { icon: BarChart2, label: 'Il Mio Score AI', href: '/dashboard/stats' },
     { icon: Plug, label: 'Integrazioni', href: '/dashboard/integrations' },
     { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
