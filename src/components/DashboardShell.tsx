@@ -875,7 +875,10 @@ export default function DashboardShell() {
             })
           }
 
-          setResults(arr)
+          // Merge with existing results (never reduce count)
+          const existingArr = resultsArrRef.current as any[]
+          const mergedArr = deduplicateResults([...existingArr, ...arr.map(normalizeLeadFields)]) as any[]
+          setResults(mergedArr.length >= existingArr.length ? mergedArr : existingArr)
 
           setSearchState('done')
 
@@ -939,13 +942,16 @@ export default function DashboardShell() {
 
           setIsScraping(false)
 
-          // Cap completed results by maxLeads and credits, then deduct
+          // Merge completed results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyWebsiteFilter((parsed || []).map(normalizeLeadFields))) as any[]
-          const cappedByMax = normalized.slice(0, maxLeads)
+          const existing = resultsArrRef.current as any[]
+          const merged = deduplicateResults([...existing, ...normalized]) as any[]
+          const cappedByMax = merged.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
-          if (cappedByCredits.length > 0) {
-            deductCredits(cappedByCredits.length)
+          const newCount = Math.max(0, cappedByCredits.length - existing.length)
+          if (newCount > 0) {
+            deductCredits(newCount)
           }
 
         } else if (data?.status === 'error') {
@@ -956,7 +962,9 @@ export default function DashboardShell() {
           // Show any partial results if available
           if (Array.isArray(parsed) && parsed.length > 0) {
             const normalized = deduplicateResults(applyWebsiteFilter(parsed.map(normalizeLeadFields))) as any[]
-            const cappedByMax = normalized.slice(0, maxLeads)
+            const existing = resultsArrRef.current as any[]
+            const merged = deduplicateResults([...existing, ...normalized]) as any[]
+            const cappedByMax = merged.slice(0, maxLeads)
             const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
             setResults(cappedByCredits)
           }
@@ -964,9 +972,11 @@ export default function DashboardShell() {
 
         } else if (data?.status === 'processing' && Array.isArray(parsed) && parsed.length > 0) {
 
-          // Show intermediate results capped by maxLeads AND credits (normalize raw field names)
+          // Merge intermediate results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyWebsiteFilter(parsed.map(normalizeLeadFields))) as any[]
-          const cappedByMax = normalized.slice(0, maxLeads)
+          const existing = resultsArrRef.current as any[]
+          const merged = deduplicateResults([...existing, ...normalized]) as any[]
+          const cappedByMax = merged.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
 
