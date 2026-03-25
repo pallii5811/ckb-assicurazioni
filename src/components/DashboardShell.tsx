@@ -648,33 +648,10 @@ export default function DashboardShell() {
           })
         }
 
-        // Step 3: Keep triggering scrape jobs UNTIL maxLeads reached
-        let consecutiveEmpty = 0
-        let scrapeOffset = 0
-        while (resultsCountRef.current < maxLeads && creditsRef.current > 0) {
-          const countBefore = resultsCountRef.current
-
-          const reached = await runOneScrapeJob(scrapeOffset)
-          if (reached) break
-
-          // Update offset: always move forward by batchSize so backend paginates
-          scrapeOffset += Math.max(resultsCountRef.current - countBefore, 40)
-
-          // Save results after each job so they persist even if backend overwrites
-          if (resultsCountRef.current > countBefore) {
-            await persistResults()
-          }
-
-          // If this attempt added new leads, reset empty counter; otherwise increment
-          if (resultsCountRef.current > countBefore) {
-            consecutiveEmpty = 0
-          } else {
-            consecutiveEmpty++
-            // After 3 consecutive empty jobs, the backend truly has no more unique leads
-            if (consecutiveEmpty >= 3) break
-            // Wait 6s before retrying
-            await new Promise(r => setTimeout(r, 6000))
-          }
+        // Step 3: Trigger at most 1 extra scrape job (avoid flooding the worker queue)
+        if (resultsCountRef.current < maxLeads && creditsRef.current > 0) {
+          await runOneScrapeJob(0)
+          await persistResults()
         }
 
         setAutoScrapeLoading(false)
