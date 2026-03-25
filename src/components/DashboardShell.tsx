@@ -956,16 +956,18 @@ export default function DashboardShell() {
           // Show any partial results if available
           if (Array.isArray(parsed) && parsed.length > 0) {
             const normalized = applyWebsiteFilter(parsed.map(normalizeLeadFields))
-            const cappedByCredits = normalized.slice(0, creditsRef.current)
+            const cappedByMax = normalized.slice(0, maxLeads)
+            const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
             setResults(cappedByCredits)
           }
           toastError('La ricerca ha riscontrato un errore. Riprova con una query diversa.', 'Errore ricerca')
 
         } else if (data?.status === 'processing' && Array.isArray(parsed) && parsed.length > 0) {
 
-          // Show intermediate results capped by credits (normalize raw field names)
+          // Show intermediate results capped by maxLeads AND credits (normalize raw field names)
           const normalized = applyWebsiteFilter(parsed.map(normalizeLeadFields))
-          const cappedByCredits = normalized.slice(0, creditsRef.current)
+          const cappedByMax = normalized.slice(0, maxLeads)
+          const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
 
         }
