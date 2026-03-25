@@ -117,9 +117,10 @@ function deduplicateResults(items: unknown[]): unknown[] {
       const existingMapKey = domainToKey.get(webKey)!
       const existing = seen.get(existingMapKey) as any
       if (existing) {
-        const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(Boolean).length
-        const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(Boolean).length
-        if (newScore > existingScore) seen.set(existingMapKey, item)
+        const isReal = (v: any) => v && v !== 'N/D' && v !== 'N/A' && v !== 'n/d'
+        const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(isReal).length
+        const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(isReal).length
+        if (newScore >= existingScore) seen.set(existingMapKey, item)
       }
       continue
     }
@@ -127,9 +128,10 @@ function deduplicateResults(items: unknown[]): unknown[] {
     // Check duplicate by phone
     if (phoneKey && seen.has(phoneKey)) {
       const existing = seen.get(phoneKey) as any
-      const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(Boolean).length
-      const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(Boolean).length
-      if (newScore > existingScore) seen.set(phoneKey, item)
+      const isReal2 = (v: any) => v && v !== 'N/D' && v !== 'N/A' && v !== 'n/d'
+      const existingScore = [existing.email, existing.sito, existing.instagram, existing.rating].filter(isReal2).length
+      const newScore = [obj.email, obj.sito, obj.instagram, obj.rating].filter(isReal2).length
+      if (newScore >= existingScore) seen.set(phoneKey, item)
       if (webKey) domainToKey.set(webKey, phoneKey)
       continue
     }
