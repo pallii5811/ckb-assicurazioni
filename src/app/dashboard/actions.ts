@@ -218,11 +218,23 @@ async function filterLeadsWithAI(leads: any[], originalQuery: string): Promise<a
 
     const data = await response.json()
 
-    const content = data.choices?.[0]?.message?.content || '[]'
+    // Safety: if OpenAI returned no choices (rate limit, error, etc.), skip filter
+    if (!data.choices?.[0]?.message?.content) {
+      console.warn('[AI FILTER] OpenAI returned no choices, skipping filter')
+      return leads
+    }
+
+    const content = data.choices[0].message.content
 
     const clean = content.replace(/```json|```/g, '').trim()
 
     const relevantIndices: number[] = JSON.parse(clean)
+
+    // Safety: if AI returned empty but we had leads, don't wipe everything
+    if (relevantIndices.length === 0 && sample.length > 0) {
+      console.warn('[AI FILTER] AI returned empty array for', sample.length, 'leads — skipping filter')
+      return leads
+    }
 
     const filteredSample = sample.filter((_, i) => relevantIndices.includes(i))
 
@@ -292,6 +304,8 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
       const qNorm = query.trim().toLowerCase().replace(/\s+/g, ' ')
 
+      const _stopLoc = new Set(['a','ad','in','su','da','di','per','con','tra','fra','al','del','nel','dal','sul'])
+
       const findBestMatch = (candidates: string[]) => {
 
         let best: string | null = null
@@ -302,7 +316,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
           const cand = raw.trim()
 
-          if (!cand) continue
+          if (!cand || _stopLoc.has(cand.toLowerCase())) continue
 
           const candNorm = cand.toLowerCase()
 
@@ -475,7 +489,11 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
 
 
-    const cityBase = (filtri.citta || '').trim()
+    const _prepBlock = new Set(['a','ad','in','su','da','di','per','con','tra','fra','al','del','nel','dal','sul'])
+
+    let cityBase = (filtri.citta || '').trim()
+
+    if (_prepBlock.has(cityBase.toLowerCase())) cityBase = ''
 
     const categoryBase = (filtri.categoria || '').trim()
 
@@ -680,7 +698,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
         const { data: completedJob } = await supabase
           .from('searches')
           .select('id, status, results, created_at')
-          .eq('location', cityBase)
+          .ilike('location', cityBase)
           .ilike('category', categoryBase)
           .eq('status', 'completed')
           .order('created_at', { ascending: false })
@@ -716,7 +734,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
           .select('id, status, created_at')
 
-          .eq('location', cityBase)
+          .ilike('location', cityBase)
 
           .ilike('category', categoryBase)
 
@@ -756,7 +774,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -1205,9 +1223,22 @@ Zero testo aggiuntivo. Solo l'array.`
         })
 
         const data = await response.json()
-        const content = data.choices?.[0]?.message?.content || '[]'
+
+        // Safety: if OpenAI returned no choices (rate limit, error, etc.), skip filter
+        if (!data.choices?.[0]?.message?.content) {
+          console.warn('[AI FILTER] OpenAI returned no choices, skipping filter')
+          return leads
+        }
+
+        const content = data.choices[0].message.content
         const clean = content.replace(/```json|```/g, '').trim()
         const relevantIndices: number[] = JSON.parse(clean)
+
+        // Safety: if AI returned empty but we had leads, don't wipe everything
+        if (relevantIndices.length === 0 && sample.length > 0) {
+          console.warn('[AI FILTER] AI returned empty array for', sample.length, 'leads — skipping filter')
+          return leads
+        }
 
         const filteredSample = sample.filter((_, i) => relevantIndices.includes(i))
         const rest = leads.slice(150)
@@ -1315,7 +1346,7 @@ Zero testo aggiuntivo. Solo l'array.`
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -3784,6 +3815,8 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
       const qNorm = query.trim().toLowerCase().replace(/\s+/g, ' ')
 
+      const _stopLoc2 = new Set(['a','ad','in','su','da','di','per','con','tra','fra','al','del','nel','dal','sul'])
+
       const findBestMatch = (candidates: string[]) => {
 
         let best: string | null = null
@@ -3794,7 +3827,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
           const cand = raw.trim()
 
-          if (!cand) continue
+          if (!cand || _stopLoc2.has(cand.toLowerCase())) continue
 
           const candNorm = cand.toLowerCase()
 
@@ -3858,21 +3891,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
     const llmCity = norm((nlp as any)?.city)
 
-    const availableLocationsNorm = new Set(
-
-      (Array.isArray(available.available_locations) ? available.available_locations : [])
-
-        .filter((v: any) => typeof v === 'string')
-
-        .map((v: string) => norm(v))
-
-        .filter(Boolean)
-
-    )
-
-    const heurCityIsValid = !!heurCity && availableLocationsNorm.has(heurCity)
-
-    if (heurCityIsValid && heurCity !== llmCity) {
+    if (heurCity && heurCity !== llmCity) {
 
       nlp = { ...nlp, city: (heur as any).city }
 
@@ -4062,7 +4081,11 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
 
 
-    const cityBase = (filtri.citta || '').trim()
+    const _prepBlock2 = new Set(['a','ad','in','su','da','di','per','con','tra','fra','al','del','nel','dal','sul'])
+
+    let cityBase = (filtri.citta || '').trim()
+
+    if (_prepBlock2.has(cityBase.toLowerCase())) cityBase = ''
 
     const categoryBase = (filtri.categoria || '').trim()
 
@@ -4249,8 +4272,6 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
     let usedFallbackCityOnly = false
 
-
-
     let queryDb = supabase.from('searches').select('*').eq('status', 'completed').limit(500)
 
     if (cityBase) queryDb = queryDb.ilike('location', `%${cityBase}%`)
@@ -4329,7 +4350,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
         const { data: completedJob } = await supabase
           .from('searches')
           .select('id, status, results, created_at')
-          .eq('location', cityBase)
+          .ilike('location', cityBase)
           .ilike('category', categoryBase)
           .eq('status', 'completed')
           .order('created_at', { ascending: false })
@@ -4366,7 +4387,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
           .select('id, status, created_at')
 
-          .eq('location', cityBase)
+          .ilike('location', cityBase)
 
           .ilike('category', categoryBase)
 
@@ -4412,7 +4433,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -4436,7 +4457,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
               .select('id, status, created_at')
 
-              .eq('location', cityBase)
+              .ilike('location', cityBase)
 
               .ilike('category', categoryBase)
 
@@ -4454,7 +4475,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                   .from('searches')
 
-                  .update({ status: 'pending_user', created_at: new Date().toISOString() })
+                  .update({ status: 'pending', created_at: new Date().toISOString() })
 
                   .eq('id', dupRow.id)
 
@@ -5115,7 +5136,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -5145,7 +5166,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                 .select('id, status, created_at')
 
-                .eq('location', cityBase)
+                .ilike('location', cityBase)
 
                 .ilike('category', categoryBase)
 
@@ -5163,7 +5184,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                     .from('searches')
 
-                    .update({ status: 'pending_user', created_at: new Date().toISOString() })
+                    .update({ status: 'pending', created_at: new Date().toISOString() })
 
                     .eq('id', dupRow.id)
 

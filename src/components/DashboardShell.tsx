@@ -26,20 +26,53 @@ import { useDashboard } from '@/components/DashboardContext'
 
 
 
+function _sanitize(v: any): string {
+  if (v === null || v === undefined) return ''
+  const s = String(v).trim()
+  if (s === 'None' || s === 'none' || s === 'null' || s === 'undefined') return ''
+  return s
+}
+
+// Quality gate: lead must have at least phone OR email
+function _hasContactInfo(lead: any): boolean {
+  const _ok = (v: any) => {
+    if (!v) return false
+    const s = String(v).replace(/\s+/g, '').trim()
+    return s.length >= 4 && !['N/D','N/A','N.D.','n/d','None','none'].includes(s)
+  }
+  const hasPhone = _ok(lead?.telefono) || _ok(lead?.phone)
+  const hasEmail = _ok(lead?.email) && String(lead?.email || '').includes('@')
+  return hasPhone || hasEmail
+}
+
 function normalizeLeadFields(lead: any): any {
   const audit = lead.audit || {}
-  const hasItalianFields = lead.azienda || lead.nome || lead.sito || lead.telefono
+
+  // Sanitize common poison strings from Python backend
+  const _s = (k: string) => _sanitize(lead[k])
+  const hasItalianFields = _s('azienda') || _s('nome') || _s('sito') || _s('telefono')
 
   // Map basic fields from English to Italian if needed
-  const base = hasItalianFields ? lead : {
+  const base = hasItalianFields ? {
     ...lead,
-    azienda: lead.business_name || lead.name || '',
-    nome: lead.business_name || lead.name || '',
-    sito: lead.website || '',
-    telefono: lead.phone || '',
-    citta: lead.city || '',
-    categoria: lead.category || '',
-    instagram: lead.instagram || '',
+    azienda: _s('azienda') || _s('nome') || _s('business_name') || _s('name') || '',
+    nome: _s('nome') || _s('azienda') || _s('business_name') || _s('name') || '',
+    sito: _s('sito') || _s('website') || '',
+    telefono: _s('telefono') || _s('phone') || '',
+    email: _s('email') || '',
+    citta: _s('citta') || _s('city') || '',
+    categoria: _s('categoria') || _s('category') || '',
+    instagram: _s('instagram') || '',
+  } : {
+    ...lead,
+    azienda: _s('business_name') || _s('name') || '',
+    nome: _s('business_name') || _s('name') || '',
+    sito: _s('website') || '',
+    telefono: _s('phone') || '',
+    email: _s('email') || '',
+    citta: _s('city') || '',
+    categoria: _s('category') || '',
+    instagram: _s('instagram') || '',
   }
 
   // Always ensure technical fields are populated
@@ -157,6 +190,11 @@ function deduplicateResults(items: unknown[]): unknown[] {
 
 
 
+function _hasContact(lead: any): boolean {
+  const _isVal = (v: any) => v && typeof v === 'string' && !['n/d','n/a','none','null',''].includes(v.trim().toLowerCase())
+  return _isVal(lead?.telefono ?? lead?.phone) || _isVal(lead?.email)
+}
+
 function buildTechFilter(q: string): ((l: any) => boolean) | null {
   const filters: Array<(l: any) => boolean> = []
   const ql = q.toLowerCase()
@@ -264,7 +302,7 @@ export default function DashboardShell() {
       const savedQuery = sessionStorage.getItem('ckb_query')
       if (savedQuery) setQuery(savedQuery)
       const savedResults = sessionStorage.getItem('ckb_results')
-      if (savedResults) setResults(JSON.parse(savedResults))
+      if (savedResults) setResults((JSON.parse(savedResults) as any[]).filter(_hasContact))
       const savedFilters = sessionStorage.getItem('ckb_filters')
       if (savedFilters) setActiveFilters(JSON.parse(savedFilters))
       const savedAiDebug = sessionStorage.getItem('ckb_aiDebug')
@@ -402,148 +440,13 @@ export default function DashboardShell() {
           return
         }
 
-        // Step 1: Try to fill from the leads table first (fast, no external scraping)
-        // Detect if the query requires technical data (needs a website)
+        // Detect "senza sito" for filtering in auto-scrape polling
         const isNoWebsiteQuery = /senza\s*(sito|website)|no\s*(web|website|sito)|manca\s*(il\s+)?sito|privo\s+di\s+sito/i.test(query)
-        const isTechnicalQuery = isNoWebsiteQuery || /errori?\s*(seo|html)|seo\s*error|senza\s*(meta\s*)?pixel|no\s*pixel|senza\s*gtm|no\s*gtm|senza\s*ssl|no\s*ssl|senza\s*google\s*ads|no\s*google\s*ads|senza\s*ads|senza\s*dmarc|no\s*dmarc|rischio\s*spam|sito\s*lento|slow\s*(site|speed)|non\s*mobile|no\s*mobile|senza\s*mobile|senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(query)
 
-        // Use module-level buildTechFilter (handles seo errors, pixel, gtm, ssl, etc.)
-        const techFilter = buildTechFilter(query)
-
-        try {
-          // For technical queries: leads table has NO audit data, so ONLY use searches.results
-          // For non-technical queries: use leads table (basic info is enough)
-          let allRaw: any[] = []
-
-          if (!isTechnicalQuery) {
-            // Non-technical: fetch from leads table (basic fields only)
-            const leadsResp = await fetch(`/api/leads-live?category=${encodeURIComponent(category)}&city=${encodeURIComponent(city)}`)
-            const leadsData = await leadsResp.json().catch(() => ({ leads: [] }))
-            const dbLeads = Array.isArray(leadsData.leads) ? leadsData.leads : []
-            allRaw.push(...dbLeads)
-          }
-
-          // Always fetch from previous completed searches (searches.results) — these HAVE audit data
-          try {
-            // Extract just the city name for broader matching
-            const cityOnly = city.split(/\s+/).filter(w => !['a', 'in', 'di', 'nel', 'nella'].includes(w.toLowerCase())).pop() || city
-            const { data: prevSearches } = await supabase
-              .from('searches')
-              .select('results')
-              .ilike('category', `%${category}%`)
-              .ilike('location', `%${cityOnly}%`)
-              .not('results', 'is', null)
-              .order('created_at', { ascending: false })
-              .limit(10)
-            if (Array.isArray(prevSearches)) {
-              for (const s of prevSearches) {
-                const r = Array.isArray(s.results) ? s.results : []
-                allRaw.push(...r)
-              }
-            }
-          } catch {}
-
-          if (allRaw.length > 0) {
-            const normalized = allRaw.map(normalizeLeadFields)
-            // Dedup within merged set
-            const seenKeys = new Set<string>()
-            const deduped = normalized.filter((r: any) => {
-              const key = (r.sito || r.website || r.nome || r.azienda || r.name || '').toLowerCase()
-              if (!key || seenKeys.has(key)) return false
-              seenKeys.add(key)
-              return true
-            })
-            let filtered = isNoWebsiteQuery
-              ? deduped.filter((r: any) => {
-                  const sito = (r.sito || r.website || '').trim()
-                  return !sito || sito === 'N/D' || sito === 'N/A' || sito === 'N.D.' || sito === 'n/d'
-                })
-              : isTechnicalQuery
-                ? deduped.filter((r: any) => {
-                    const sito = (r.sito || r.website || '').trim()
-                    return sito && sito !== 'N/D' && sito !== 'n/d'
-                  })
-                : deduped
-            if (techFilter) filtered = filtered.filter(techFilter)
-            const prev = resultsArrRef.current
-            const remaining = maxLeads - prev.length
-            if (remaining > 0) {
-              const existingKeys = new Set(
-                (prev as any[]).map((r: any) =>
-                  (r.sito || r.website || r.nome || r.azienda || r.name || '').toLowerCase()
-                )
-              )
-              const newLeads = filtered.filter((r: any) => {
-                const key = (r.sito || r.website || r.nome || r.azienda || r.name || '').toLowerCase()
-                return key && !existingKeys.has(key)
-              })
-              const allowed = newLeads.slice(0, Math.min(remaining, creditsRef.current))
-              if (allowed.length > 0) {
-                const next = [...prev, ...allowed]
-                resultsArrRef.current = next
-                resultsCountRef.current = next.length
-                setResults(next)
-                deductCredits(allowed.length)
-              }
-            }
-          }
-        } catch {}
-
-        // Step 2: Check if we still need more leads after DB fill
-        // Use ref (sync) instead of setState read (broken with React 18 batching)
+        // If we already have enough leads, skip auto-scrape
         if (resultsCountRef.current >= maxLeads) {
           setAutoScrapeLoading(false)
           return
-        }
-
-        const persistResults = async () => {
-          try {
-            const currentResults = resultsArrRef.current
-            if (!currentResults || currentResults.length === 0) return
-
-            let sid = searchIdRef.current || currentSearchId
-
-            // If no searchId, find or create one
-            if (!sid) {
-              const { data: existing } = await supabase
-                .from('searches')
-                .select('id')
-                .ilike('category', category)
-                .ilike('location', city)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-              if (existing?.id) {
-                sid = existing.id
-                searchIdRef.current = existing.id
-                setCurrentSearchId(existing.id)
-              }
-            }
-
-            if (sid) {
-              const { error } = await supabase
-                .from('searches')
-                .update({ results: currentResults, status: 'completed' })
-                .eq('id', sid)
-              if (error) console.warn('[PERSIST] update failed:', error.message)
-              else console.log('[PERSIST] saved', currentResults.length, 'leads to', sid)
-            } else {
-              // No existing row — insert new
-              const { data: ins, error } = await supabase
-                .from('searches')
-                .insert({ category, location: city, status: 'completed', results: currentResults, created_at: new Date().toISOString() })
-                .select('id')
-                .single()
-              if (error) console.warn('[PERSIST] insert failed:', error.message)
-              else if (ins?.id) {
-                searchIdRef.current = ins.id
-                setCurrentSearchId(ins.id)
-                console.log('[PERSIST] inserted', currentResults.length, 'leads as', ins.id)
-              }
-            }
-          } catch (e) {
-            console.error('[PERSIST] error:', e)
-          }
         }
 
         // Helper: trigger one scrape job via /api/trigger-scrape and poll via /api/check-scrape-job
@@ -633,7 +536,7 @@ export default function DashboardShell() {
                   const allowed = newLeads.slice(0, Math.min(remaining, creditsRef.current))
                   if (allowed.length > 0) {
                     const prevLen = curArr.length
-                    const updated = deduplicateResults([...curArr, ...allowed]) as any[]
+                    const updated = (deduplicateResults([...curArr, ...allowed]) as any[]).filter(_hasContact)
                     resultsArrRef.current = updated
                     resultsCountRef.current = updated.length
                     setResults(updated)
@@ -663,14 +566,12 @@ export default function DashboardShell() {
           })
         }
 
-        // Step 3: Trigger at most 1 extra scrape job (avoid flooding the worker queue)
+        // Trigger at most 1 extra scrape job (avoid flooding the worker queue)
         if (resultsCountRef.current < maxLeads && creditsRef.current > 0) {
           await runOneScrapeJob(0)
-          await persistResults()
         }
 
         setAutoScrapeLoading(false)
-        await persistResults()
       } catch (e) {
         console.error('auto-scrape error:', e)
       }
@@ -882,7 +783,7 @@ export default function DashboardShell() {
 
           // Merge with existing results (never reduce count)
           const existingArr = resultsArrRef.current as any[]
-          const mergedArr = deduplicateResults([...existingArr, ...((_tf1 ? arr : arr.map(normalizeLeadFields)) as any[])]) as any[]
+          const mergedArr = (deduplicateResults([...existingArr, ...((_tf1 ? arr : arr.map(normalizeLeadFields)) as any[])]) as any[]).filter(_hasContact)
           setResults(mergedArr.length >= existingArr.length ? mergedArr : existingArr)
 
           setSearchState('done')
@@ -965,7 +866,7 @@ export default function DashboardShell() {
           // Merge completed results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyAllFilters((parsed || []).map(normalizeLeadFields))) as any[]
           const existing = resultsArrRef.current as any[]
-          const merged = deduplicateResults([...existing, ...normalized]) as any[]
+          const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_hasContact)
           const cappedByMax = merged.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
@@ -983,7 +884,7 @@ export default function DashboardShell() {
           if (Array.isArray(parsed) && parsed.length > 0) {
             const normalized = deduplicateResults(applyAllFilters(parsed.map(normalizeLeadFields))) as any[]
             const existing = resultsArrRef.current as any[]
-            const merged = deduplicateResults([...existing, ...normalized]) as any[]
+            const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_hasContact)
             const cappedByMax = merged.slice(0, maxLeads)
             const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
             setResults(cappedByCredits)
@@ -995,7 +896,7 @@ export default function DashboardShell() {
           // Merge intermediate results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyAllFilters(parsed.map(normalizeLeadFields))) as any[]
           const existing = resultsArrRef.current as any[]
-          const merged = deduplicateResults([...existing, ...normalized]) as any[]
+          const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_hasContact)
           const cappedByMax = merged.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
@@ -1146,7 +1047,7 @@ export default function DashboardShell() {
 
       setPendingJobId(null)
 
-      setResults(deduplicateResults(filtered))
+      setResults((deduplicateResults(filtered) as any[]).filter(_hasContact))
 
       setActiveFilters(filters && typeof filters === 'object' ? (filters as Record<string, unknown>) : null)
 
@@ -1319,7 +1220,7 @@ export default function DashboardShell() {
         }
       }
 
-      setResults(capped)
+      setResults((capped as any[]).filter(_hasContact))
 
       setActiveFilters(filters && typeof filters === 'object' ? (filters as Record<string, unknown>) : null)
 
@@ -1377,7 +1278,7 @@ export default function DashboardShell() {
 
       const next = Array.isArray(res?.results) ? res.results : []
 
-      setResults(deduplicateResults(next))
+      setResults((deduplicateResults(next) as any[]).filter(_hasContact))
 
       setSearchState('done')
 
