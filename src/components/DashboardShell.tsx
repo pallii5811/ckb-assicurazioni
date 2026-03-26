@@ -33,6 +33,8 @@ function _sanitize(v: any): string {
   return s
 }
 
+const _FAKE_EMAIL_DOMAINS = new Set(['website.com','example.com','email.com','sito.com','domain.com','test.com','yoursite.com','yourdomain.com','tuosito.com','tuodominio.com','sitoweb.com','miosito.com','nomedominio.com','nomesito.com','sample.com','placeholder.com','mail.com'])
+
 // Quality gate: lead must have at least phone OR email
 function _hasContactInfo(lead: any): boolean {
   const _ok = (v: any) => {
@@ -52,6 +54,14 @@ function normalizeLeadFields(lead: any): any {
   const _s = (k: string) => _sanitize(lead[k])
   const hasItalianFields = _s('azienda') || _s('nome') || _s('sito') || _s('telefono')
 
+  // Sanitize fake/template emails
+  const _cleanEmail = (raw: string): string => {
+    if (!raw || !raw.includes('@')) return ''
+    const domain = raw.split('@')[1]?.toLowerCase()
+    if (_FAKE_EMAIL_DOMAINS.has(domain)) return ''
+    return raw
+  }
+
   // Map basic fields from English to Italian if needed
   const base = hasItalianFields ? {
     ...lead,
@@ -59,7 +69,7 @@ function normalizeLeadFields(lead: any): any {
     nome: _s('nome') || _s('azienda') || _s('business_name') || _s('name') || '',
     sito: _s('sito') || _s('website') || '',
     telefono: _s('telefono') || _s('phone') || '',
-    email: _s('email') || '',
+    email: _cleanEmail(_s('email') || ''),
     citta: _s('citta') || _s('city') || '',
     categoria: _s('categoria') || _s('category') || '',
     instagram: _s('instagram') || '',
@@ -69,7 +79,7 @@ function normalizeLeadFields(lead: any): any {
     nome: _s('business_name') || _s('name') || '',
     sito: _s('website') || '',
     telefono: _s('phone') || '',
-    email: _s('email') || '',
+    email: _cleanEmail(_s('email') || ''),
     citta: _s('city') || '',
     categoria: _s('category') || '',
     instagram: _s('instagram') || '',
@@ -190,9 +200,18 @@ function deduplicateResults(items: unknown[]): unknown[] {
 
 
 
+function _isRealEmail(v: any): boolean {
+  if (!v || typeof v !== 'string') return false
+  const e = v.trim().toLowerCase()
+  if (!e || ['n/d','n/a','none','null'].includes(e)) return false
+  const atIdx = e.indexOf('@')
+  if (atIdx < 1) return false
+  const domain = e.slice(atIdx + 1)
+  return !_FAKE_EMAIL_DOMAINS.has(domain)
+}
 function _hasContact(lead: any): boolean {
   const _isVal = (v: any) => v && typeof v === 'string' && !['n/d','n/a','none','null',''].includes(v.trim().toLowerCase())
-  return _isVal(lead?.telefono ?? lead?.phone) || _isVal(lead?.email)
+  return _isVal(lead?.telefono ?? lead?.phone) || _isRealEmail(lead?.email)
 }
 
 function buildTechFilter(q: string): ((l: any) => boolean) | null {
