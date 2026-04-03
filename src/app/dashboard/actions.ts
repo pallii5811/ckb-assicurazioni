@@ -738,7 +738,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
           .ilike('category', categoryBase)
 
-          .in('status', ['pending', 'processing'])
+          .in('status', ['pending', 'pending_user', 'processing'])
 
           .order('created_at', { ascending: false })
 
@@ -774,7 +774,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
             location: cityBase,
 
-            status: 'pending',
+            status: 'pending_user',
 
             results: [],
 
@@ -1346,7 +1346,7 @@ Zero testo aggiuntivo. Solo l'array.`
 
             location: cityBase,
 
-            status: 'pending',
+            status: 'pending_user',
 
             results: [],
 
@@ -1725,7 +1725,7 @@ export async function processSemanticSearchAction(userQuery: string): Promise<Te
 
   try {
 
-    const result = await withTimeout(textToFilterSearchAction(userQuery), 25000)
+    const result = await withTimeout(textToFilterSearchAction(userQuery), 60000)
 
     return { ...result, ai_debug: { ...(result.ai_debug as any), semantic_mode: 'ai' } }
 
@@ -4391,7 +4391,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
           .ilike('category', categoryBase)
 
-          .in('status', ['pending', 'processing'])
+          .in('status', ['pending', 'pending_user', 'processing'])
 
           .order('created_at', { ascending: false })
 
@@ -4433,7 +4433,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
             location: cityBase,
 
-            status: 'pending',
+            status: 'pending_user',
 
             results: [],
 
@@ -4475,7 +4475,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                   .from('searches')
 
-                  .update({ status: 'pending', created_at: new Date().toISOString() })
+                  .update({ status: 'pending_user', created_at: new Date().toISOString() })
 
                   .eq('id', dupRow.id)
 
@@ -5136,7 +5136,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
             location: cityBase,
 
-            status: 'pending',
+            status: 'pending_user',
 
             results: [],
 
@@ -5184,7 +5184,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                     .from('searches')
 
-                    .update({ status: 'pending', created_at: new Date().toISOString() })
+                    .update({ status: 'pending_user', created_at: new Date().toISOString() })
 
                     .eq('id', dupRow.id)
 

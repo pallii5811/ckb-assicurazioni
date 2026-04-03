@@ -910,7 +910,7 @@ export default function DashboardShell() {
           }
           toastError('La ricerca ha riscontrato un errore. Riprova con una query diversa.', 'Errore ricerca')
 
-        } else if (data?.status === 'processing' && Array.isArray(parsed) && parsed.length > 0) {
+        } else if ((data?.status === 'processing' || data?.status === 'pending_user' || data?.status === 'pending') && Array.isArray(parsed) && parsed.length > 0) {
 
           // Merge intermediate results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyAllFilters(parsed.map(normalizeLeadFields))) as any[]
@@ -928,7 +928,7 @@ export default function DashboardShell() {
 
       }
 
-    }, 5000)
+    }, 3000)
 
 
 
