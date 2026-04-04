@@ -381,7 +381,9 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
     const llmCity = norm((nlp as any)?.city)
 
-    if (heurCity && heurCity !== llmCity) {
+    const knownLocs = (Array.isArray(available?.available_locations) ? available.available_locations : []).map(l => l.toLowerCase())
+    const heurCityKnown = heurCity && knownLocs.some(loc => loc.includes(heurCity) || heurCity.includes(loc))
+    if (heurCity && !llmCity && heurCityKnown) {
 
       nlp = { ...nlp, city: (heur as any).city }
 
@@ -788,6 +790,27 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
           return { results: [], status: 'pending', jobId: insertData?.[0]?.id, searchId: insertData?.[0]?.id }
 
+        }
+
+        // Handle duplicate key: find existing record and re-queue it
+        if (String((insertError as any)?.code) === '23505') {
+          try {
+            const { data: dupRow } = await supabase
+              .from('searches')
+              .select('id, status, created_at')
+              .ilike('location', cityBase)
+              .ilike('category', categoryBase)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (dupRow?.id) {
+              try {
+                await supabase.from('searches').update({ status: 'pending_user', created_at: new Date().toISOString() }).eq('id', dupRow.id)
+              } catch { /* ignore */ }
+              console.log('[expanded] requeued existing job (unique):', dupRow.id)
+              return { results: [], status: 'pending', jobId: dupRow.id, searchId: dupRow.id }
+            }
+          } catch { /* ignore */ }
         }
 
         return { results: [], filters: filtri, ai_debug: { ...aiDebug, category_variants: categoryVariants, fallback_city_only: usedFallbackCityOnly } }
@@ -1360,7 +1383,29 @@ Zero testo aggiuntivo. Solo l'array.`
 
           .single()
 
-        if (insertError) return { results: [] }
+        if (insertError) {
+          // Handle duplicate key: find existing record and re-queue it
+          if (String((insertError as any)?.code) === '23505') {
+            try {
+              const { data: dupRow } = await supabase
+                .from('searches')
+                .select('id, status, created_at')
+                .ilike('location', cityBase)
+                .ilike('category', categoryBase)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              if (dupRow?.id) {
+                try {
+                  await supabase.from('searches').update({ status: 'pending_user', created_at: new Date().toISOString() }).eq('id', dupRow.id)
+                } catch { /* ignore */ }
+                console.log('[textToFilter] requeued existing job (unique):', dupRow.id)
+                return { results: [], status: 'pending', jobId: dupRow.id, searchId: dupRow.id }
+              }
+            } catch { /* ignore */ }
+          }
+          return { results: [] }
+        }
 
         return { results: [], status: 'pending', jobId: (insertData as any).id, searchId: (insertData as any).id }
 
@@ -2072,17 +2117,34 @@ const heuristicSearchNlpParams = (userQuery: string): SearchNlpParams => {
 
   let city: string | null = null
 
-  const cityMatch = userQuery.match(/\b(?:a|ad|in|su|da|di)\s+([A-Za-zÀ-ÖØ-öø-ÿ'\-\s]{2,40})/)
-
-  if (cityMatch && typeof cityMatch[1] === 'string') {
-
-    const raw = cityMatch[1].trim()
-
-    const token = raw.split(/\s+/)[0] || ''
-
-    if (token.length >= 2) city = token
-
+  // Find ALL preposition+word matches, pick the LAST one (closest to end = most likely city).
+  // Regex captures only ONE word (no \s) so each preposition is a separate match.
+  const cityRe = /\b(?:a|ad|in|su|da|di)\s+([A-Za-zÀ-ÖØ-öø-ÿ'\-]{2,40})/gi
+  const cityStopWords = new Set(['senza','no','con','per','che','non','privo','manca','dove','come','sito','website','pixel','gtm','seo','ga4','ads','instagram','facebook','tiktok','google','errori','analytics','ambito','tipo','modo','base'])
+  const prepWords = new Set(['a','ad','in','su','da','di','del','della','dei','delle','al','nel','dal','sul','per','con','tra','fra'])
+  let bestCityMatch: string | null = null
+  let bestCityIndex = -1
+  for (const m of userQuery.matchAll(cityRe)) {
+    if (m[1] && typeof m.index === 'number' && m.index > bestCityIndex) {
+      bestCityIndex = m.index
+      const firstWord = m[1].trim()
+      // Look ahead for compound city names (e.g. "San Marino", "Reggio Emilia")
+      const afterPos = (m.index || 0) + m[0].length
+      const afterText = userQuery.slice(afterPos).trim()
+      const nextTokens = afterText.split(/\s+/)
+      const cityTokens: string[] = [firstWord]
+      for (const t of nextTokens) {
+        const tLow = t.toLowerCase().replace(/[^a-zà-öø-ÿ'\-]/g, '')
+        if (!tLow || cityStopWords.has(tLow) || prepWords.has(tLow)) break
+        if (!/^[A-Za-zÀ-ÖØ-öø-ÿ'\-]+$/.test(t)) break
+        cityTokens.push(t)
+        if (cityTokens.length >= 3) break
+      }
+      const candidate = cityTokens.join(' ').trim()
+      if (candidate.length >= 2) bestCityMatch = candidate
+    }
   }
+  if (bestCityMatch) city = bestCityMatch
 
   if (!city) {
 
@@ -3891,7 +3953,11 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
     const llmCity = norm((nlp as any)?.city)
 
-    if (heurCity && heurCity !== llmCity) {
+    // Only use heuristic city as fallback when LLM didn't find one,
+    // AND the heuristic city looks like a real location (not a category word)
+    const knownLocations = (Array.isArray(available?.available_locations) ? available.available_locations : []).map(l => l.toLowerCase())
+    const heurCityIsKnown = heurCity && knownLocations.some(loc => loc.includes(heurCity) || heurCity.includes(loc))
+    if (heurCity && !llmCity && heurCityIsKnown) {
 
       nlp = { ...nlp, city: (heur as any).city }
 
@@ -3901,7 +3967,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
     const llmCat = norm(nlp.category)
 
-    if (heurCat && heurCat !== llmCat) {
+    if (heurCat && !llmCat) {
 
       nlp = { ...nlp, category: heur.category }
 

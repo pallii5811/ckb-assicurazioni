@@ -840,6 +840,12 @@ export default function DashboardShell() {
         setIsScraping(false)
         setSearchState('done')
         console.log('[poll] timeout reached for scrapeJobId, stopping')
+        const currentResults = resultsArrRef.current || []
+        if (currentResults.length > 0) {
+          toastSuccess(`Ricerca completata con ${currentResults.length} risultati parziali.`, 'Timeout raggiunto')
+        } else {
+          toastError('La ricerca ha impiegato troppo tempo. Riprova più tardi.', 'Timeout ricerca')
+        }
         return
       }
 
@@ -1066,7 +1072,8 @@ export default function DashboardShell() {
 
       setPendingJobId(null)
 
-      setResults((deduplicateResults(filtered) as any[]).filter(_hasContact))
+      const displayResults = (deduplicateResults(filtered) as any[]).filter(_hasContact)
+      setResults(displayResults)
 
       setActiveFilters(filters && typeof filters === 'object' ? (filters as Record<string, unknown>) : null)
 
@@ -1090,7 +1097,7 @@ export default function DashboardShell() {
 
       setSearchState('done')
 
-      toastSuccess(`Trovati ${filtered.length} risultati.`, 'Ricerca completata')
+      toastSuccess(`Trovati ${displayResults.length} risultati.`, 'Ricerca completata')
 
     } catch (err) {
 
@@ -1221,12 +1228,13 @@ export default function DashboardShell() {
 
       const { results: rawFiltered, filters, ai_debug } = response as any
 
-      // First deduplicate, then cap by credits, then charge
+      // First deduplicate, filter contacts, then cap by credits, then charge
       const deduplicated = deduplicateResults(Array.isArray(rawFiltered) ? rawFiltered : [])
-      const capped = deduplicated.slice(0, effectiveMax)
+      const withContacts = (deduplicated as any[]).filter(_hasContact)
+      const capped = withContacts.slice(0, effectiveMax)
       const leadsToCharge = capped.length
 
-      // Deduct credits based on actual unique leads returned
+      // Deduct credits based on actual displayed leads (after contact filter)
       if (leadsToCharge > 0) {
         const creditRes = await fetch('/api/use-credits', {
           method: 'POST',
@@ -1239,7 +1247,7 @@ export default function DashboardShell() {
         }
       }
 
-      setResults((capped as any[]).filter(_hasContact))
+      setResults(capped)
 
       setActiveFilters(filters && typeof filters === 'object' ? (filters as Record<string, unknown>) : null)
 
