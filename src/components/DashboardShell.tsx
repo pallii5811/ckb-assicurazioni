@@ -1228,10 +1228,25 @@ export default function DashboardShell() {
 
       const { results: rawFiltered, filters, ai_debug } = response as any
 
-      // First deduplicate, filter contacts, then cap by credits, then charge
+      // Apply ALL filters before charging credits: deduplicate → contacts → tech filters → has_website → cap
       const deduplicated = deduplicateResults(Array.isArray(rawFiltered) ? rawFiltered : [])
-      const withContacts = (deduplicated as any[]).filter(_hasContact)
-      const capped = withContacts.slice(0, effectiveMax)
+      let filtered = (deduplicated as any[]).map(normalizeLeadFields).filter(_hasContact)
+      // Apply tech filters (senza pixel, senza gtm, errori seo, etc.)
+      const _tfSemantic = buildTechFilter(query)
+      if (_tfSemantic) filtered = filtered.filter(_tfSemantic)
+      // Apply has_website filter from activeFilters
+      if ((activeFilters as any)?.has_website === false) {
+        filtered = filtered.filter((lead: any) => {
+          const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+          return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+        })
+      } else if ((activeFilters as any)?.has_website === true) {
+        filtered = filtered.filter((lead: any) => {
+          const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
+          return s && s !== 'N/D' && s !== 'N/A' && s !== 'N.D.'
+        })
+      }
+      const capped = filtered.slice(0, effectiveMax)
       const leadsToCharge = capped.length
 
       // Deduct credits based on actual displayed leads (after contact filter)
