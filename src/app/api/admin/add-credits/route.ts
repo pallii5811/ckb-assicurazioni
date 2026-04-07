@@ -16,6 +16,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
     }
 
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+    if (adminEmails.length > 0 && !adminEmails.includes((user.email || '').toLowerCase())) {
+      return NextResponse.json({ error: 'Accesso negato' }, { status: 403 })
+    }
+
     const body = await req.json()
     const amount = typeof body.amount === 'number' && body.amount > 0 ? body.amount : 100
 

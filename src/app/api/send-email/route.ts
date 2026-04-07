@@ -1,7 +1,14 @@
+import { createClient } from '@/utils/supabase/server'
 import { resend } from '@/lib/resend'
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ error: 'Non autenticato' }, { status: 401 })
+    }
+
     const { to, subject, html } = (await req.json()) as {
       to?: string
       subject?: string
