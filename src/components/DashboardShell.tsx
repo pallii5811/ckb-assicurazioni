@@ -326,6 +326,8 @@ export default function DashboardShell() {
       if (savedFilters) setActiveFilters(JSON.parse(savedFilters))
       const savedAiDebug = sessionStorage.getItem('ckb_aiDebug')
       if (savedAiDebug) setAiDebug(JSON.parse(savedAiDebug))
+      const savedSearchId = sessionStorage.getItem('ckb_searchId')
+      if (savedSearchId) { setCurrentSearchId(savedSearchId); searchIdRef.current = savedSearchId }
     } catch {}
     setIsRestored(true)
   }, [])
@@ -619,6 +621,11 @@ export default function DashboardShell() {
   const [saveToEnvSearchId, setSaveToEnvSearchId] = useState<string | null>(null)
 
   const [currentSearchId, setCurrentSearchId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isRestored) return
+    if (currentSearchId) sessionStorage.setItem('ckb_searchId', currentSearchId)
+  }, [currentSearchId, isRestored])
 
   const deriveSearchIdFromResults = (items: unknown[]): string | null => {
 

@@ -877,42 +877,181 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <div className="h-4 bg-gray-200 rounded w-1/2" />
               </div>
             ) : social ? (
-              <div className="space-y-3">
-                {social?.source === 'error' ? (
-                  <p className="text-gray-500 text-sm">Profilo non trovato</p>
-                ) : social?.message ? (
-                  <p className="text-gray-500 text-sm">{social.message}</p>
+              <div className="space-y-4">
+                {/* Instagram */}
+                {social.instagram ? (
+                  <div className="p-4 rounded-xl border border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Instagram className="w-4 h-4 text-pink-500" />
+                        <span className="text-sm font-bold text-slate-800">Instagram</span>
+                        {social.instagram.is_verified && <span className="text-blue-500 text-xs">✓</span>}
+                        {social.instagram.is_business && <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">Business</span>}
+                      </div>
+                      <a href={social.instagram.url} target="_blank" rel="noopener noreferrer" className="text-pink-500 hover:text-pink-700">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                    {social.instagram.full_name && <p className="text-xs text-slate-600 mb-2">@{social.instagram.username} · {social.instagram.full_name}</p>}
+                    {social.instagram.error ? (
+                      <p className="text-xs text-amber-600">Profilo trovato ma dati limitati (profilo privato o restrizioni)</p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {social.instagram.followers_display && (
+                          <div className="text-center p-2 bg-white/70 rounded-lg">
+                            <p className="text-base font-bold text-slate-900">{social.instagram.followers_display}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Follower</p>
+                          </div>
+                        )}
+                        {social.instagram.following_display && (
+                          <div className="text-center p-2 bg-white/70 rounded-lg">
+                            <p className="text-base font-bold text-slate-900">{social.instagram.following_display}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Seguiti</p>
+                          </div>
+                        )}
+                        {social.instagram.posts_display && (
+                          <div className="text-center p-2 bg-white/70 rounded-lg">
+                            <p className="text-base font-bold text-slate-900">{social.instagram.posts_display}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Post</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['instagram', 'facebook'] as const).map((platform) => {
-                      const data = social?.[platform]
-                      const found = data?.found === true
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Instagram className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-500">Instagram</span>
+                    </div>
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2.5 py-1 rounded-full">Non trovato</span>
+                  </div>
+                )}
 
-                      return (
-                        <div
-                          key={platform}
-                          className={`p-4 rounded-xl border flex 
-                            items-center justify-between
-                            ${found 
-                              ? 'border-emerald-200 bg-emerald-50' 
-                              : 'border-slate-200 bg-slate-50'
-                            }`}
-                        >
-                          <span className="text-sm font-bold 
-                            text-slate-800 capitalize">
-                            {platform === 'instagram' ? 'Instagram' : 'Facebook'}
-                          </span>
-                          <span className={`text-xs font-bold px-3 py-1 
-                            rounded-full
-                            ${found 
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                              : 'bg-slate-200 text-slate-500'
-                            }`}>
-                            {found ? 'Trovato' : 'Non trovato'}
-                          </span>
-                        </div>
-                      )
-                    })}
+                {/* TikTok */}
+                {social.tiktok ? (
+                  <div className="p-4 rounded-xl border border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Video className="w-4 h-4 text-slate-800" />
+                        <span className="text-sm font-bold text-slate-800">TikTok</span>
+                        {social.tiktok.is_verified && <span className="text-blue-500 text-xs">✓</span>}
+                      </div>
+                      <a href={social.tiktok.url} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-700">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                    {social.tiktok.nickname && <p className="text-xs text-slate-600 mb-2">@{social.tiktok.username} · {social.tiktok.nickname}</p>}
+                    {social.tiktok.error ? (
+                      <p className="text-xs text-amber-600">Profilo trovato ma dati limitati</p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {social.tiktok.followers_display && (
+                          <div className="text-center p-2 bg-white/70 rounded-lg">
+                            <p className="text-base font-bold text-slate-900">{social.tiktok.followers_display}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Follower</p>
+                          </div>
+                        )}
+                        {social.tiktok.likes_display && (
+                          <div className="text-center p-2 bg-white/70 rounded-lg">
+                            <p className="text-base font-bold text-slate-900">{social.tiktok.likes_display}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Like</p>
+                          </div>
+                        )}
+                        {social.tiktok.video_count_display && (
+                          <div className="text-center p-2 bg-white/70 rounded-lg">
+                            <p className="text-base font-bold text-slate-900">{social.tiktok.video_count_display}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Video</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Video className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-500">TikTok</span>
+                    </div>
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2.5 py-1 rounded-full">Non trovato</span>
+                  </div>
+                )}
+
+                {/* Other social links */}
+                {(social.social_links?.facebook || social.social_links?.linkedin || social.social_links?.youtube) && (
+                  <div className="flex flex-wrap gap-2">
+                    {social.social_links.facebook && (
+                      <a href={social.social_links.facebook} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
+                        <Facebook className="w-3 h-3" /> Facebook
+                      </a>
+                    )}
+                    {social.social_links.linkedin && (
+                      <a href={social.social_links.linkedin} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-medium hover:bg-sky-100 transition-colors">
+                        <Linkedin className="w-3 h-3" /> LinkedIn
+                      </a>
+                    )}
+                    {social.social_links.youtube && (
+                      <a href={social.social_links.youtube} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors">
+                        <Video className="w-3 h-3" /> YouTube
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Tech & Pixel Detection */}
+                {social.tech && (
+                  <div className="mt-2 pt-3 border-t border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pixel & Tecnologie rilevate</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {social.tech.tiktok_pixel && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-bold">TikTok Pixel ✓</span>
+                      )}
+                      {social.tech.meta_pixel && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 text-white text-[10px] font-bold">Meta Pixel ✓</span>
+                      )}
+                      {social.tech.google_analytics && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500 text-white text-[10px] font-bold">Google Analytics ✓</span>
+                      )}
+                      {social.tech.google_tag_manager && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-500 text-white text-[10px] font-bold">GTM ✓</span>
+                      )}
+                      {social.tech.google_ads && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-600 text-white text-[10px] font-bold">Google Ads ✓</span>
+                      )}
+                      {social.tech.hotjar && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500 text-white text-[10px] font-bold">Hotjar ✓</span>
+                      )}
+                      {social.tech.microsoft_clarity && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-violet-500 text-white text-[10px] font-bold">Clarity ✓</span>
+                      )}
+                      {social.tech.hubspot && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-orange-600 text-white text-[10px] font-bold">HubSpot ✓</span>
+                      )}
+                      {social.tech.mailchimp && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-600 text-white text-[10px] font-bold">Mailchimp ✓</span>
+                      )}
+                      {social.tech.cms && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200">{social.tech.cms}</span>
+                      )}
+                      {social.tech.has_ecommerce && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">E-commerce ✓</span>
+                      )}
+                      {social.tech.has_ssl === false && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 text-[10px] font-bold border border-red-200">No SSL ⚠</span>
+                      )}
+                      {social.tech.has_cookie_banner === false && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">No Cookie Banner ⚠</span>
+                      )}
+                      {social.tech.has_privacy_policy === false && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">No Privacy Policy ⚠</span>
+                      )}
+                      {!social.tech.tiktok_pixel && !social.tech.meta_pixel && !social.tech.google_analytics && !social.tech.google_tag_manager && !social.tech.google_ads && !social.tech.hotjar && !social.tech.microsoft_clarity && !social.tech.hubspot && !social.tech.mailchimp && !social.tech.cms && !social.tech.has_ecommerce && (
+                        <span className="text-xs text-slate-400">Nessun pixel o tool di marketing rilevato</span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1103,20 +1242,15 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     <Building2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span className="text-xs text-emerald-700 font-medium">Dati verificati dal Registro Imprese</span>
                   </div>
+                ) : registry.fonte === 'vies_verificato' ? (
+                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-xs text-emerald-700 font-medium">P.IVA verificata tramite VIES (Agenzia delle Entrate UE)</span>
+                  </div>
                 ) : registry.fonte === 'google_maps' ? (
                   <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
                     <Target className="w-3.5 h-3.5 text-blue-500" />
                     <span className="text-xs text-blue-700 font-medium">Dati da Google Maps</span>
-                  </div>
-                ) : registry.fonte === 'google_maps_ai_ateco' ? (
-                  <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-                    <Target className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="text-xs text-blue-700 font-medium">Dati da Google Maps &middot; Codice ATECO stimato</span>
-                  </div>
-                ) : registry.fonte === 'stima_ai' ? (
-                  <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs text-amber-700 font-medium">Dati stimati da AI — potrebbero non essere accurati</span>
                   </div>
                 ) : null}
                 <div className="grid grid-cols-1 gap-2">
@@ -1124,6 +1258,17 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     <div>
                       <p className="text-xs text-gray-500">Ragione sociale</p>
                       <p className="text-sm font-semibold text-slate-900">{registry.ragione_sociale}</p>
+                    </div>
+                  ) : null}
+                  {registry.partita_iva ? (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Partita IVA
+                        {registry.piva_verificata ? (
+                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificata</span>
+                        ) : null}
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">IT {registry.partita_iva}</p>
                     </div>
                   ) : null}
                   {registry.forma_giuridica ? (
@@ -1134,13 +1279,57 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   ) : null}
                   {registry.codice_ateco ? (
                     <div>
-                      <p className="text-xs text-gray-500">Codice ATECO</p>
+                      <p className="text-xs text-gray-500">
+                        Codice ATECO
+                        {registry.ateco_stimato ? (
+                          <span className="ml-1.5 text-amber-500 font-normal text-[10px]">(stimato)</span>
+                        ) : null}
+                      </p>
                       <p className="text-sm font-semibold text-slate-900">
                         {registry.codice_ateco}
                         {registry.descrizione_ateco ? (
                           <span className="text-xs text-gray-400 font-normal ml-1.5">— {registry.descrizione_ateco}</span>
                         ) : null}
                       </p>
+                    </div>
+                  ) : null}
+                  {registry.fatturato ? (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Fatturato
+                        {registry.fatturato_fonte === 'registro_imprese' ? (
+                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ Registro Imprese</span>
+                        ) : null}
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        € {registry.fatturato}
+                        {registry.fatturato_anno ? (
+                          <span className="text-xs text-gray-400 font-normal ml-1">({registry.fatturato_anno})</span>
+                        ) : null}
+                      </p>
+                    </div>
+                  ) : null}
+                  {registry.dipendenti ? (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Dipendenti
+                        {registry.dipendenti_fonte === 'registro_imprese' ? (
+                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ Registro Imprese</span>
+                        ) : null}
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">{registry.dipendenti}</p>
+                    </div>
+                  ) : null}
+                  {registry.costo_personale ? (
+                    <div>
+                      <p className="text-xs text-gray-500">Costo del personale</p>
+                      <p className="text-sm font-semibold text-slate-900">€ {registry.costo_personale}</p>
+                    </div>
+                  ) : null}
+                  {registry.capitale_sociale ? (
+                    <div>
+                      <p className="text-xs text-gray-500">Capitale sociale</p>
+                      <p className="text-sm font-semibold text-slate-900">{registry.capitale_sociale}</p>
                     </div>
                   ) : null}
                   {registry.data_costituzione ? (
@@ -1151,8 +1340,25 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   ) : null}
                   {registry.sede_legale ? (
                     <div>
-                      <p className="text-xs text-gray-500">Sede legale</p>
+                      <p className="text-xs text-gray-500">
+                        Sede legale
+                        {registry.sede_legale_verificata ? (
+                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ VIES</span>
+                        ) : null}
+                      </p>
                       <p className="text-sm font-semibold text-slate-900">{registry.sede_legale}</p>
+                    </div>
+                  ) : null}
+                  {registry.codice_rea ? (
+                    <div>
+                      <p className="text-xs text-gray-500">Codice REA</p>
+                      <p className="text-sm font-semibold text-slate-900">{registry.codice_rea}</p>
+                    </div>
+                  ) : null}
+                  {registry.pec ? (
+                    <div>
+                      <p className="text-xs text-gray-500">PEC</p>
+                      <p className="text-sm font-semibold text-slate-900">{registry.pec}</p>
                     </div>
                   ) : null}
                   {registry.stato ? (
