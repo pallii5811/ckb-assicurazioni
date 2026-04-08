@@ -896,26 +896,74 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     {social.instagram.error ? (
                       <p className="text-xs text-amber-600">Profilo trovato ma dati limitati (profilo privato o restrizioni)</p>
                     ) : (
-                      <div className="grid grid-cols-3 gap-2">
-                        {social.instagram.followers_display && (
-                          <div className="text-center p-2 bg-white/70 rounded-lg">
-                            <p className="text-base font-bold text-slate-900">{social.instagram.followers_display}</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Follower</p>
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          {social.instagram.followers_display && (
+                            <div className="text-center p-2 bg-white/70 rounded-lg">
+                              <p className="text-base font-bold text-slate-900">{social.instagram.followers_display}</p>
+                              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Follower</p>
+                            </div>
+                          )}
+                          {social.instagram.following_display && (
+                            <div className="text-center p-2 bg-white/70 rounded-lg">
+                              <p className="text-base font-bold text-slate-900">{social.instagram.following_display}</p>
+                              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Seguiti</p>
+                            </div>
+                          )}
+                          {social.instagram.posts_display && (
+                            <div className="text-center p-2 bg-white/70 rounded-lg">
+                              <p className="text-base font-bold text-slate-900">{social.instagram.posts_display}</p>
+                              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Post</p>
+                            </div>
+                          )}
+                        </div>
+                        {(social.instagram.engagement_display || social.instagram.avg_likes_display || social.instagram.last_post_date) && (
+                          <div className="mt-2 grid grid-cols-3 gap-2">
+                            {social.instagram.engagement_display && (
+                              <div className="text-center p-2 bg-white/70 rounded-lg">
+                                <p className="text-base font-bold text-emerald-600">{social.instagram.engagement_display}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Engagement</p>
+                              </div>
+                            )}
+                            {social.instagram.avg_likes_display && (
+                              <div className="text-center p-2 bg-white/70 rounded-lg">
+                                <p className="text-base font-bold text-slate-900">{social.instagram.avg_likes_display}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Like/post</p>
+                              </div>
+                            )}
+                            {social.instagram.avg_comments_display && (
+                              <div className="text-center p-2 bg-white/70 rounded-lg">
+                                <p className="text-base font-bold text-slate-900">{social.instagram.avg_comments_display}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Commenti/post</p>
+                              </div>
+                            )}
                           </div>
                         )}
-                        {social.instagram.following_display && (
-                          <div className="text-center p-2 bg-white/70 rounded-lg">
-                            <p className="text-base font-bold text-slate-900">{social.instagram.following_display}</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Seguiti</p>
+                        {(social.instagram.last_post_date || social.instagram.posting_frequency) && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {social.instagram.last_post_date && (
+                              <span className={`text-[11px] px-2 py-1 rounded-full font-medium ${
+                                (social.instagram.last_post_days_ago ?? 999) <= 7 ? 'bg-emerald-100 text-emerald-700' :
+                                (social.instagram.last_post_days_ago ?? 999) <= 30 ? 'bg-amber-100 text-amber-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                Ultimo post: {social.instagram.last_post_date}
+                                {social.instagram.last_post_days_ago !== undefined && ` (${social.instagram.last_post_days_ago}g fa)`}
+                              </span>
+                            )}
+                            {social.instagram.posting_frequency && (
+                              <span className="text-[11px] px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                                Frequenza: {social.instagram.posting_frequency}
+                              </span>
+                            )}
+                            {social.instagram.category && (
+                              <span className="text-[11px] px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
+                                {social.instagram.category}
+                              </span>
+                            )}
                           </div>
                         )}
-                        {social.instagram.posts_display && (
-                          <div className="text-center p-2 bg-white/70 rounded-lg">
-                            <p className="text-base font-bold text-slate-900">{social.instagram.posts_display}</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Post</p>
-                          </div>
-                        )}
-                      </div>
+                      </>
                     )}
                   </div>
                 ) : (

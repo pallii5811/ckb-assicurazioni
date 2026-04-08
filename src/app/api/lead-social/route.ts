@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || ''
+
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   Accept: 'text/html,application/xhtml+xml',
@@ -114,13 +116,121 @@ interface InstagramData {
   is_business?: boolean
   profile_pic?: string
   external_url?: string
+  engagement_rate?: number
+  avg_likes?: number
+  avg_comments?: number
+  last_post_date?: string
+  last_post_days_ago?: number
+  posting_frequency?: string
+  category?: string
   error?: string
+}
+
+function calcEngagement(posts: any[], followers: number): Partial<InstagramData> {
+  if (!posts || posts.length === 0 || !followers) return {}
+  let totalLikes = 0, totalComments = 0
+  let latestTs = 0
+  const validPosts: number[] = []
+  for (const p of posts.slice(0, 12)) {
+    const node = p.node || p
+    const likes = node.edge_liked_by?.count ?? node.like_count ?? node.likes ?? 0
+    const comments = node.edge_media_to_comment?.count ?? node.comment_count ?? node.comments ?? 0
+    totalLikes += likes
+    totalComments += comments
+    const ts = node.taken_at_timestamp ?? node.taken_at ?? 0
+    if (ts > latestTs) latestTs = ts
+    if (ts) validPosts.push(ts)
+  }
+  const count = posts.slice(0, 12).length
+  const avgLikes = Math.round(totalLikes / count)
+  const avgComments = Math.round(totalComments / count)
+  const engRate = parseFloat(((totalLikes + totalComments) / count / followers * 100).toFixed(2))
+  const result: Partial<InstagramData> = { engagement_rate: engRate, avg_likes: avgLikes, avg_comments: avgComments }
+  if (latestTs > 0) {
+    const d = new Date(latestTs * 1000)
+    result.last_post_date = d.toISOString().split('T')[0]
+    result.last_post_days_ago = Math.round((Date.now() - d.getTime()) / 86400000)
+  }
+  if (validPosts.length >= 2) {
+    validPosts.sort((a, b) => b - a)
+    const spanDays = (validPosts[0] - validPosts[validPosts.length - 1]) / 86400
+    if (spanDays > 0) {
+      const postsPerWeek = (validPosts.length / spanDays) * 7
+      if (postsPerWeek >= 7) result.posting_frequency = `${Math.round(postsPerWeek / 7)}/giorno`
+      else if (postsPerWeek >= 1) result.posting_frequency = `${Math.round(postsPerWeek)}/settimana`
+      else result.posting_frequency = `${Math.round(postsPerWeek * 4.3)}/mese`
+    }
+  }
+  return result
 }
 
 async function scrapeInstagram(username: string): Promise<InstagramData | null> {
   if (!username) return null
+
+  // ── Method 1: RapidAPI Instagram Scraper (most reliable) ────────
+  if (RAPIDAPI_KEY) {
+    try {
+      const res = await fetch(
+        `https://instagram-scraper-api2.p.rapidapi.com/v1/info?username_or_id_or_url=${encodeURIComponent(username)}`,
+        {
+          headers: {
+            'X-RapidAPI-Key': RAPIDAPI_KEY,
+            'X-RapidAPI-Host': 'instagram-scraper-api2.p.rapidapi.com',
+          },
+          signal: AbortSignal.timeout(10000),
+        }
+      )
+      if (res.ok) {
+        const json = (await res.json()) as any
+        const d = json?.data || json
+        if (d && (d.follower_count !== undefined || d.edge_followed_by)) {
+          const followers = d.follower_count ?? d.edge_followed_by?.count ?? 0
+          const result: InstagramData = {
+            username: d.username || username,
+            full_name: d.full_name || undefined,
+            biography: d.biography || undefined,
+            followers,
+            following: d.following_count ?? d.edge_follow?.count,
+            posts_count: d.media_count ?? d.edge_owner_to_timeline_media?.count,
+            is_verified: d.is_verified,
+            is_business: d.is_business_account || d.is_professional_account,
+            profile_pic: d.profile_pic_url_hd || d.hd_profile_pic_url_info?.url || d.profile_pic_url,
+            external_url: d.external_url || d.bio_links?.[0]?.url || undefined,
+            category: d.category_name || d.category || undefined,
+          }
+          // Try to get recent posts for engagement
+          const posts = d.edge_owner_to_timeline_media?.edges || d.items || []
+          if (posts.length > 0 && followers > 0) {
+            Object.assign(result, calcEngagement(posts, followers))
+          }
+          // If no posts in profile response, try posts endpoint
+          if (!result.engagement_rate && followers > 0) {
+            try {
+              const postsRes = await fetch(
+                `https://instagram-scraper-api2.p.rapidapi.com/v1.2/posts?username_or_id_or_url=${encodeURIComponent(username)}`,
+                {
+                  headers: {
+                    'X-RapidAPI-Key': RAPIDAPI_KEY,
+                    'X-RapidAPI-Host': 'instagram-scraper-api2.p.rapidapi.com',
+                  },
+                  signal: AbortSignal.timeout(10000),
+                }
+              )
+              if (postsRes.ok) {
+                const postsJson = (await postsRes.json()) as any
+                const items = postsJson?.data?.items || postsJson?.items || postsJson?.data?.edges || []
+                if (items.length > 0) Object.assign(result, calcEngagement(items, followers))
+              }
+            } catch { /* posts fetch failed, ok */ }
+          }
+          return result
+        }
+      }
+    } catch { /* RapidAPI failed, try fallbacks */ }
+  }
+
+  // ── Method 2: Instagram web API (often rate-limited) ────────────
   try {
-    // Method 1: Try the web profile info API
     const res = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
       headers: {
         ...BROWSER_HEADERS,
@@ -133,34 +243,39 @@ async function scrapeInstagram(username: string): Promise<InstagramData | null> 
       const json = (await res.json()) as any
       const u = json?.data?.user
       if (u) {
-        return {
+        const followers = u.edge_followed_by?.count ?? u.follower_count ?? 0
+        const result: InstagramData = {
           username,
           full_name: u.full_name || undefined,
           biography: u.biography || undefined,
-          followers: u.edge_followed_by?.count ?? u.follower_count,
+          followers,
           following: u.edge_follow?.count ?? u.following_count,
           posts_count: u.edge_owner_to_timeline_media?.count ?? u.media_count,
           is_verified: u.is_verified,
           is_business: u.is_business_account || u.is_professional_account,
           profile_pic: u.profile_pic_url_hd || u.profile_pic_url,
           external_url: u.external_url || undefined,
+          category: u.category_name || undefined,
         }
+        const posts = u.edge_owner_to_timeline_media?.edges || []
+        if (posts.length > 0 && followers > 0) {
+          Object.assign(result, calcEngagement(posts, followers))
+        }
+        return result
       }
     }
   } catch { /* try fallback */ }
 
+  // ── Method 3: HTML meta tags (last resort) ─────────────────────
   try {
-    // Method 2: Scrape the HTML page and extract meta/JSON
     const html = await fetchHtml(`https://www.instagram.com/${username}/`, 8000)
     if (!html || html.length < 1000) return { username, error: 'profilo_non_accessibile' }
 
     const result: InstagramData = { username }
 
-    // Try to extract from meta tags
     const descM = html.match(/meta\s+(?:name|property)=["'](?:og:)?description["']\s+content=["']([^"']+)/i)
     if (descM) {
       const desc = descM[1]
-      // "1,234 Followers, 567 Following, 89 Posts"
       const fol = desc.match(/([\d,.]+[KkMm]?)\s*Follower/i)
       if (fol) result.followers = parseCount(fol[1])
       const fing = desc.match(/([\d,.]+[KkMm]?)\s*Following/i)
@@ -334,6 +449,9 @@ export async function POST(req: NextRequest) {
       followers_display: formatNumber(igData.followers),
       following_display: formatNumber(igData.following),
       posts_display: formatNumber(igData.posts_count),
+      avg_likes_display: formatNumber(igData.avg_likes),
+      avg_comments_display: formatNumber(igData.avg_comments),
+      engagement_display: igData.engagement_rate !== undefined ? `${igData.engagement_rate}%` : undefined,
       url: `https://instagram.com/${igData.username}`,
     }
   }
