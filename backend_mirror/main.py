@@ -2063,7 +2063,7 @@ async def start_job(payload: StartJobRequest, background: BackgroundTasks, reque
                 row["zone"] = payload.zone
             if user_id:
                 row["user_id"] = user_id
-                row["status"] = "pending_user"
+                row["status"] = "pending"
 
             resp = supabase.table("searches").insert(row).execute()
             data = getattr(resp, "data", None)
