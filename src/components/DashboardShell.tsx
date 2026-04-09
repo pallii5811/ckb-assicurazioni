@@ -18,7 +18,7 @@ import MiraxLogo from '@/components/MiraxLogo'
 
 import { Button } from '@/components/ui/button'
 
-import { Folder, Sparkles } from 'lucide-react'
+import { Folder, Sparkles, Search } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
 
@@ -1346,6 +1346,50 @@ export default function DashboardShell() {
 
   return (
     <>
+      {/* ── Spiegazione + Filter chips ── */}
+      <div className="mb-3 px-1">
+        <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+          <strong className="text-slate-700">Come cercare:</strong> scrivi <strong>categoria + città</strong> (es. &quot;Ristoranti a Roma&quot;) per vedere tutti i risultati.
+          Aggiungi un filtro per trovare aziende con problemi specifici (es. &quot;Ristoranti a Roma <strong>senza sito</strong>&quot;).
+        </p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {[
+            { label: 'senza Pixel', tip: 'No Meta Pixel / retargeting' },
+            { label: 'senza Google Ads', tip: 'Non fanno pubblicità su Google' },
+            { label: 'senza sito', tip: 'Non hanno un sito web' },
+            { label: 'errori SEO', tip: 'Errori nel codice del sito' },
+            { label: 'senza SSL', tip: 'Sito non sicuro (no HTTPS)' },
+            { label: 'senza Instagram', tip: 'Nessun profilo Instagram' },
+            { label: 'senza Facebook', tip: 'Nessuna pagina Facebook' },
+            { label: 'sito lento', tip: 'Sito con caricamento lento' },
+            { label: 'senza GTM', tip: 'No Google Tag Manager' },
+            { label: 'senza Analytics', tip: 'No Google Analytics' },
+            { label: 'senza DMARC', tip: 'Email a rischio spam' },
+            { label: 'non mobile', tip: 'Sito non mobile-friendly' },
+          ].map((f) => (
+            <button
+              key={f.label}
+              type="button"
+              title={f.tip}
+              disabled={isLoading}
+              onClick={() => {
+                const current = query.trim()
+                const kw = f.label.toLowerCase()
+                if (current.toLowerCase().includes(kw)) return
+                setQuery(current ? `${current} ${f.label}` : f.label)
+              }}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer disabled:opacity-50 ${
+                query.toLowerCase().includes(f.label.toLowerCase())
+                  ? 'bg-violet-100 border-violet-300 text-violet-700'
+                  : 'bg-white border-slate-200 text-slate-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <SniperArea
         query={query}
         onQueryChange={setQuery}
@@ -1358,23 +1402,37 @@ export default function DashboardShell() {
         credits={credits}
       />
 
-      <div className="mt-2 px-4">
-        <p className="text-[11px] text-slate-500 mb-1.5">Hai già un sito web da analizzare? Incollalo qui per ottenere un report completo gratuito.</p>
-        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-          <input
-            type="text"
-            placeholder="Incolla qui l'indirizzo del sito (es. https://crystalweb.it)"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            className="flex-1 px-3 py-2.5 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-slate-500"
-          />
-          <button
-            onClick={handleAnalyzeSite}
-            className="px-4 py-2.5 text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium whitespace-nowrap"
-          >
-            Analizza sito
-          </button>
-        </div>
+      {/* ── Ricerca Espansa ── */}
+      <div className="mb-3 flex items-center gap-3 px-1">
+        <button
+          type="button"
+          disabled={isLoading}
+          onClick={handleExpandedSearchClick}
+          className="rounded-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 hover:shadow-xl disabled:opacity-50 flex items-center gap-2 transition-all duration-200 hover:scale-[1.02]"
+        >
+          <Sparkles className="w-4 h-4" />
+          Ricerca Espansa
+        </button>
+        <p className="text-[11px] text-slate-500 max-w-sm hidden sm:block leading-snug">
+          Trova <strong>tutte le aziende correlate</strong> alla tua parola chiave. Es: &quot;comunicazione Milano&quot; ti mostrerà agenzie di comunicazione, uffici stampa, agenzie marketing e molto altro.
+        </p>
+      </div>
+
+      {/* ── Analizza sito singolo ── */}
+      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center px-1 mb-2">
+        <input
+          type="text"
+          placeholder="Oppure incolla URL sito (es. https://crystalweb.it)"
+          value={urlInput}
+          onChange={(e) => setUrlInput(e.target.value)}
+          className="flex-1 px-3 py-2 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-slate-400"
+        />
+        <button
+          onClick={handleAnalyzeSite}
+          className="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium whitespace-nowrap"
+        >
+          Analizza sito
+        </button>
       </div>
 
       {aiAnalyzing ? (
@@ -1402,20 +1460,6 @@ export default function DashboardShell() {
           <p className="text-[11px] text-violet-500">Stiamo analizzando siti web, social e tecnologie di ogni azienda.</p>
         </div>
       ) : null}
-
-      {/* ── Ricerca Espansa ── */}
-      <div className="mb-4 flex items-center gap-3 px-4">
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={handleExpandedSearchClick}
-          className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          <Sparkles className="w-4 h-4" />
-          Ricerca Espansa
-        </button>
-        <span className="text-[11px] text-slate-500 max-w-xs hidden sm:inline">Cerca in tempo reale sul web per trovare lead ancora più aggiornati e completi (usa più crediti).</span>
-      </div>
 
       {!isLoading && results.length === 0 ? (
         isScraping ? (
@@ -1483,156 +1527,56 @@ export default function DashboardShell() {
             `}</style>
           </div>
         ) : (
-          <div className="px-4 space-y-6 pb-8">
-            {/* ── STEP 1: Come funziona ── */}
-            <div className="bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-200 rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-violet-600 text-white flex items-center justify-center text-xs font-black">?</span>
-                Come funziona la ricerca
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
-                  <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-black mb-2">1</div>
-                  <p className="text-sm font-bold text-slate-800 mb-1">Scrivi cosa cerchi</p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Nella barra in alto, scrivi in italiano chi stai cercando. Es: <strong>&quot;Ristoranti a Roma&quot;</strong>. Puoi aggiungere filtri come <strong>&quot;senza Pixel&quot;</strong> o <strong>&quot;con errori SEO&quot;</strong>.
-                  </p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
-                  <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-black mb-2">2</div>
-                  <p className="text-sm font-bold text-slate-800 mb-1">Premi &quot;Cerca&quot;</p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    L&apos;AI analizza il nostro database e ti mostra le aziende con <strong>telefono, email, sito web, rating</strong> e tutte le opportunità di vendita.
-                  </p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
-                  <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-black mb-2">3</div>
-                  <p className="text-sm font-bold text-slate-800 mb-1">Contatta e vendi</p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Usa <strong>&quot;Genera Pitch&quot;</strong> per creare un messaggio personalizzato, <strong>&quot;Dettaglio Lead&quot;</strong> per l&apos;analisi completa, o <strong>&quot;Salva in Ambiente&quot;</strong> per salvare i lead.
-                  </p>
-                </div>
-              </div>
+          <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+            {/* Minimal empty state */}
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 flex items-center justify-center mb-5">
+              <Search className="w-6 h-6 text-violet-500" />
             </div>
 
-            {/* ── STEP 2: Come scrivere la query ── */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-base font-bold text-slate-800 mb-1">Come scrivere la tua ricerca</h3>
-              <p className="text-[12px] text-slate-500 mb-4">La query è composta da: <strong>tipo di attività</strong> + <strong>città/zona</strong> + <strong>filtro</strong> (opzionale). Ecco come combinarli:</p>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Trova i tuoi prossimi clienti</h3>
+            <p className="text-slate-500 text-sm mb-1 max-w-md">
+              Scrivi nella barra di ricerca: <strong>tipo di attività</strong> + <strong>città</strong> + <strong>filtro</strong>
+            </p>
+            <p className="text-slate-400 text-xs mb-5 max-w-sm">
+              Clicca sui filtri qui sopra per aggiungerli alla ricerca, oppure prova uno di questi esempi:
+            </p>
 
-              <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Formula</p>
-                <p className="text-sm font-mono text-slate-800 bg-white px-3 py-2 rounded-lg border border-slate-200">
-                  <span className="text-violet-600 font-bold">[tipo attività]</span>
-                  {' '}a{' '}
-                  <span className="text-blue-600 font-bold">[città]</span>
-                  {' '}
-                  <span className="text-orange-600 font-bold">[filtro opzionale]</span>
-                </p>
-              </div>
-
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Esempi pronti (clicca per usarli)</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  'Ristoranti a Milano senza sito',
-                  'Hotel a Roma senza Pixel',
-                  'Agenzie a Napoli con errori SEO',
-                  'Palestre a Torino senza Instagram',
-                  'Dentisti a Firenze senza Google Ads',
-                  'Negozi a Bologna senza SSL',
-                  'Parrucchieri a Bari con sito lento',
-                  'Avvocati a Roma senza Facebook',
-                ].map((text) => (
-                  <button
-                    key={text}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={async () => {
-                      setQuery(text)
-                      await processSemanticSearch(text)
-                    }}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 disabled:opacity-60 shadow-sm cursor-pointer"
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-2 justify-center mb-6 max-w-lg">
+              {[
+                'Ristoranti a Milano senza sito',
+                'Hotel a Roma senza Pixel',
+                'Agenzie a Napoli errori SEO',
+                'Dentisti a Firenze senza Google Ads',
+              ].map((text) => (
+                <button
+                  key={text}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={async () => {
+                    setQuery(text)
+                    await processSemanticSearch(text)
+                  }}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 disabled:opacity-60 shadow-sm cursor-pointer"
+                >
+                  {text}
+                </button>
+              ))}
             </div>
 
-            {/* ── STEP 3: Legenda Filtri ── */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-base font-bold text-slate-800 mb-1">Filtri disponibili</h3>
-              <p className="text-[12px] text-slate-500 mb-4">Aggiungi questi filtri alla tua ricerca per trovare aziende con problemi specifici — sono tuoi potenziali clienti!</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {[
-                  { filter: 'senza Pixel', desc: 'Non hanno il Meta Pixel (Facebook) — non fanno retargeting', color: 'bg-red-50 border-red-200 text-red-700', icon: '🎯' },
-                  { filter: 'senza Google Ads', desc: 'Non fanno pubblicità su Google — perdono clienti', color: 'bg-blue-50 border-blue-200 text-blue-700', icon: '📢' },
-                  { filter: 'senza sito', desc: 'Non hanno un sito web — enorme opportunità', color: 'bg-slate-50 border-slate-200 text-slate-700', icon: '🌐' },
-                  { filter: 'con errori SEO', desc: 'Il loro sito ha errori SEO — si posizionano male su Google', color: 'bg-orange-50 border-orange-200 text-orange-700', icon: '🔍' },
-                  { filter: 'senza SSL', desc: 'Sito non sicuro (no HTTPS) — penalizzato da Google', color: 'bg-yellow-50 border-yellow-200 text-yellow-700', icon: '🔒' },
-                  { filter: 'senza Instagram', desc: 'Non hanno profilo Instagram — mancano visibilità social', color: 'bg-pink-50 border-pink-200 text-pink-700', icon: '📸' },
-                  { filter: 'senza Facebook', desc: 'Non hanno pagina Facebook — zero presenza social', color: 'bg-blue-50 border-blue-200 text-blue-700', icon: '👍' },
-                  { filter: 'con sito lento', desc: 'Il sito carica lentamente — perdono visitatori', color: 'bg-amber-50 border-amber-200 text-amber-700', icon: '🐌' },
-                  { filter: 'senza GTM', desc: 'Non hanno Google Tag Manager — non tracciano nulla', color: 'bg-orange-50 border-orange-200 text-orange-700', icon: '📊' },
-                  { filter: 'senza Analytics', desc: 'Non hanno Google Analytics — non misurano il traffico', color: 'bg-red-50 border-red-200 text-red-700', icon: '📈' },
-                  { filter: 'senza DMARC', desc: 'Email a rischio spam — le loro email finiscono in spam', color: 'bg-rose-50 border-rose-200 text-rose-700', icon: '✉️' },
-                  { filter: 'non mobile', desc: 'Sito non ottimizzato per cellulare — perdono il 60% del traffico', color: 'bg-violet-50 border-violet-200 text-violet-700', icon: '📱' },
-                ].map((f) => (
-                  <button
-                    key={f.filter}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => {
-                      const current = query.trim()
-                      if (current && !current.toLowerCase().includes(f.filter.toLowerCase())) {
-                        setQuery(`${current} ${f.filter}`)
-                      } else if (!current) {
-                        setQuery(f.filter)
-                      }
-                    }}
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition hover:shadow-md hover:scale-[1.01] cursor-pointer ${f.color}`}
-                  >
-                    <span className="text-lg flex-shrink-0 mt-0.5">{f.icon}</span>
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-bold leading-tight">{f.filter}</p>
-                      <p className="text-[10px] opacity-80 leading-snug mt-0.5">{f.desc}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-[10px] text-slate-400 mt-3 text-center">
-                Clicca su un filtro per aggiungerlo alla tua ricerca. Puoi combinare più filtri nella stessa query.
-              </p>
-            </div>
-
-            {/* ── STEP 4: Cos'è la Ricerca Espansa ── */}
-            <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex-1">
-                <p className="text-sm font-bold text-slate-800 mb-1">Cos&apos;è la Ricerca Espansa?</p>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  La ricerca normale cerca nel nostro database già analizzato (risultati istantanei).
-                  La <strong>Ricerca Espansa</strong> cerca anche in tempo reale sul web, trovando aziende nuove non ancora nel database.
-                  Impiega più tempo (5-15 min) e usa più crediti, ma restituisce risultati più freschi e completi.
-                </p>
+            {/* Ricerca Espansa inline */}
+            <div className="flex items-center gap-3 bg-violet-50/60 border border-violet-200/60 rounded-xl px-4 py-3 max-w-md">
+              <div className="flex-1 text-left">
+                <p className="text-[12px] font-semibold text-slate-700">Ricerca Espansa</p>
+                <p className="text-[10px] text-slate-500">Cerca in tempo reale sul web — più tempo ma lead più freschi.</p>
               </div>
               <button
                 type="button"
                 disabled={isLoading}
                 onClick={handleExpandedSearchClick}
-                className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 whitespace-nowrap flex-shrink-0"
+                className="rounded-lg bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50 whitespace-nowrap flex-shrink-0"
               >
-                Prova Ricerca Espansa
+                Prova
               </button>
-            </div>
-
-            {/* ── STEP 5: Analizza singolo sito ── */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <p className="text-sm font-bold text-slate-800 mb-1">Hai già il sito di un potenziale cliente?</p>
-              <p className="text-[11px] text-slate-500 mb-3">
-                Incolla l&apos;indirizzo del suo sito web nella barra &quot;Analizza sito&quot; qui sopra. Riceverai un report completo gratuito con tutti i problemi del sito, le tecnologie usate, e le opportunità che puoi proporre.
-              </p>
             </div>
           </div>
         )

@@ -52,47 +52,34 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
   }
 
   const content = (
-    <div className="w-64 bg-white border-r border-gray-100 h-screen flex flex-col shadow-xl">
+    <div className="w-64 bg-white border-r border-slate-200 h-screen flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-gray-100">
-        <div className="relative inline-flex">
-          <div className="pointer-events-none absolute -inset-3 rounded-2xl bg-violet-500/10 blur-xl" />
-          <button type="button" onClick={() => handleNavigate('/dashboard')} className="relative flex items-center">
-            <MiraxLogo size={200} variant="dark" showWordmark={true} showTagline={false} />
-          </button>
-        </div>
+      <div className="p-5 pb-4 border-b border-slate-100">
+        <button type="button" onClick={() => handleNavigate('/dashboard')} className="flex items-center">
+          <MiraxLogo size={180} variant="dark" showWordmark={true} showTagline={false} />
+        </button>
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
+      <nav className="flex-1 px-3 py-3 overflow-y-auto">
+        <ul className="space-y-0.5">
           {menuItems.map((item, index) => (
             <li key={index}>
               <button
                 type="button"
                 onClick={() => handleNavigate(item.href)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors duration-150 ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150 text-[13px] ${
                   pathname === item.href
-                    ? 'bg-gradient-to-r from-violet-50 to-blue-50 text-violet-700 border-l-[3px] border-violet-600'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-violet-50 text-violet-700 font-bold'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
                 }`}
               >
                 <item.icon
-                  className={`w-5 h-5 ${
-                    item.href === '/dashboard'
-                      ? 'text-violet-600'
-                      : item.href === '/dashboard/leads'
-                        ? 'text-blue-600'
-                        : item.href === '/dashboard/environments'
-                          ? 'text-amber-600'
-                          : item.href === '/dashboard/stats'
-                            ? 'text-emerald-600'
-                            : item.href === '/dashboard/integrations'
-                              ? 'text-fuchsia-600'
-                              : 'text-slate-600'
-                  } ${pathname === item.href ? 'opacity-100' : 'opacity-90'}`}
+                  className={`w-[18px] h-[18px] flex-shrink-0 ${
+                    pathname === item.href ? 'text-violet-600' : 'text-slate-400'
+                  }`}
                 />
-                <span className="font-medium">{item.label}</span>
+                <span>{item.label}</span>
               </button>
             </li>
           ))}
@@ -100,47 +87,42 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
       </nav>
 
       {/* Credits Progress */}
-      <div className="p-4 border-t border-gray-100">
-        <div className="bg-gradient-to-br from-violet-50 to-blue-50 rounded-xl p-4 border border-violet-200">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <Crown className="w-4 h-4 text-violet-600" />
-              <span className="text-sm font-semibold text-gray-900">Crediti Mensili</span>
-            </div>
-            <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200">
+      <div className="p-3 border-t border-slate-100">
+        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[12px] font-bold text-slate-700">Crediti</span>
+            <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200 text-[10px] px-1.5 py-0">
               {planLabel}
             </Badge>
           </div>
 
           <div className="mb-3">
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600 font-medium">Disponibili: {credits.toLocaleString('it-IT')}</span>
-              <span className="text-gray-500">Totali: {planCredits.toLocaleString('it-IT')}</span>
+            <div className="flex justify-between text-[12px] mb-1">
+              <span className="text-slate-800 font-bold">{credits.toLocaleString('it-IT')}</span>
+              <span className="text-slate-400">/ {planCredits.toLocaleString('it-IT')}</span>
             </div>
-            <div className="flex justify-between text-xs text-gray-500 mb-2">
-              <span>Usati: {usedCredits.toLocaleString('it-IT')}</span>
-              <span>{creditsPercentage.toFixed(0)}%</span>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">1 credito = 1 lead</p>
-            <Progress value={creditsPercentage} className="h-2 bg-violet-100" />
+            <Progress value={creditsPercentage} className="h-1.5 bg-slate-200" />
+            <p className="text-[10px] text-slate-400 mt-1">1 credito = 1 lead</p>
           </div>
 
           <Button
             type="button"
             onClick={() => handleNavigate('/dashboard/billing')}
-            className="w-full bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white font-semibold shadow-lg transition-all duration-200 cta-glow-hover"
+            size="sm"
+            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[12px] shadow-sm"
           >
             Upgrade
           </Button>
 
-          <div className="mt-4 pt-4 border-t border-violet-200/60">
+          <div className="mt-3 pt-3 border-t border-slate-200">
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               onClick={onLogout}
-              className="w-full justify-center text-gray-700 hover:text-rose-700 hover:bg-rose-50/60"
+              className="w-full justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50/60 text-[12px]"
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-1.5 h-3.5 w-3.5" />
               Logout
             </Button>
           </div>
