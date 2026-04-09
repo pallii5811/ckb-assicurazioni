@@ -1187,8 +1187,8 @@ const ResultsTable = ({ query, results, isLoading, searchId, filters, aiDebug }:
                                   <span className="text-xs text-slate-400 italic">N/D</span>
                                 ) : null}
 
-                                <div className="truncate w-full text-gray-500" title={email ? email : 'N/D'}>
-                                  ✉️ {renderNd(email)}
+                                <div className="truncate w-full text-gray-500" title={email ? email : 'Email in estrazione...'}>
+                                  ✉️ {email ? renderNd(email) : <span className="text-xs text-amber-500 italic animate-pulse">In arrivo...</span>}
                                 </div>
                               </>
                             )

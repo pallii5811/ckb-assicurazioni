@@ -386,6 +386,15 @@ export default function DashboardShell() {
         autoscrapePollRef.current = null
       }
     }
+    console.log('[AUTO-SCRAPE-CHECK]', {
+      resultsLen: Array.isArray(results) ? results.length : 0,
+      maxLeads,
+      autoScrapeTriggered,
+      isLoading,
+      isScraping,
+      query: query.slice(0, 30),
+      prevQuery: prevQueryRef.current?.slice(0, 30),
+    })
     if (!Array.isArray(results) || results.length === 0) {
       setAutoScrapeTriggered(false)
       return
@@ -396,6 +405,7 @@ export default function DashboardShell() {
     if (isLoading) return
     // Don't auto-scrape if the main search already has a scrape job running
     if (isScraping) return
+    console.log('[AUTO-SCRAPE] ✅ All checks passed, will trigger in 1.5s')
 
     const triggerAutoScrape = async () => {
       try {
