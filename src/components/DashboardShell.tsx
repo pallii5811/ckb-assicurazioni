@@ -18,7 +18,7 @@ import MiraxLogo from '@/components/MiraxLogo'
 
 import { Button } from '@/components/ui/button'
 
-import { Folder } from 'lucide-react'
+import { Folder, Sparkles } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
 
@@ -1403,46 +1403,23 @@ export default function DashboardShell() {
         </div>
       ) : null}
 
-      <div className="mb-8">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-          <span className="shrink-0 font-semibold text-slate-700">💡 Prova una ricerca:</span>
-          {[
-            'Hotel a Roma senza Pixel',
-            'Agenzie a Milano con errori SEO',
-            'Ristoranti senza sito',
-            'Imprese edili a Torino senza Google Ads',
-          ].map((text) => (
-            <button
-              key={text}
-              type="button"
-              disabled={isLoading}
-              onClick={async () => {
-                setQuery(text)
-                await processSemanticSearch(text)
-              }}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 disabled:opacity-60 shadow-sm"
-            >
-              {text}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-4">
+      {/* ── Ricerca Espansa ── */}
+      <div className="mb-4 flex items-center gap-3 px-4">
         <button
           type="button"
           disabled={isLoading}
           onClick={handleExpandedSearchClick}
-          className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
+          className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 flex items-center gap-2"
         >
+          <Sparkles className="w-4 h-4" />
           Ricerca Espansa
         </button>
-        <p className="text-[11px] text-slate-500 mt-1.5 max-w-md">Trova più risultati cercando in tempo reale. Usa più crediti ma restituisce lead aggiornati e più completi.</p>
+        <span className="text-[11px] text-slate-500 max-w-xs hidden sm:inline">Cerca in tempo reale sul web per trovare lead ancora più aggiornati e completi (usa più crediti).</span>
       </div>
 
       {!isLoading && results.length === 0 ? (
         isScraping ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="relative mb-6">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                 <div className="dashboard-logo-wrapper">
@@ -1462,7 +1439,7 @@ export default function DashboardShell() {
 
             <h3 className="text-xl font-bold text-slate-800 mb-2">Stiamo trovando i tuoi lead...</h3>
             <p className="text-slate-600 text-sm mb-2 max-w-sm leading-relaxed">
-              L'intelligenza artificiale sta analizzando centinaia di aziende per trovare quelle più in linea con la tua ricerca.
+              L&apos;intelligenza artificiale sta analizzando centinaia di aziende per trovare quelle più in linea con la tua ricerca.
             </p>
             <p className="text-slate-800 text-sm font-semibold mb-6">
               Tempo stimato: 5-15 minuti. Non chiudere la pagina.
@@ -1506,36 +1483,157 @@ export default function DashboardShell() {
             `}</style>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="relative mb-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 flex items-center justify-center">
-                <div className="dashboard-logo-wrapper">
-                  <div className="dashboard-pulse-outer" />
-                  <div className="dashboard-pulse-box" />
-                  <img
-                    src="/mirax-icon.svg"
-                    alt="MiraX Icon"
-                    style={{ width: '90px', height: '90px', position: 'relative', zIndex: 1, borderRadius: '20px' }}
-                    onError={(e) => {
-                      ;(e.currentTarget as HTMLImageElement).src = '/mirax-icon.svg'
-                    }}
-                  />
+          <div className="px-4 space-y-6 pb-8">
+            {/* ── STEP 1: Come funziona ── */}
+            <div className="bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-200 rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-violet-600 text-white flex items-center justify-center text-xs font-black">?</span>
+                Come funziona la ricerca
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-black mb-2">1</div>
+                  <p className="text-sm font-bold text-slate-800 mb-1">Scrivi cosa cerchi</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Nella barra in alto, scrivi in italiano chi stai cercando. Es: <strong>&quot;Ristoranti a Roma&quot;</strong>. Puoi aggiungere filtri come <strong>&quot;senza Pixel&quot;</strong> o <strong>&quot;con errori SEO&quot;</strong>.
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-black mb-2">2</div>
+                  <p className="text-sm font-bold text-slate-800 mb-1">Premi &quot;Cerca&quot;</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    L&apos;AI analizza il nostro database e ti mostra le aziende con <strong>telefono, email, sito web, rating</strong> e tutte le opportunità di vendita.
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-black mb-2">3</div>
+                  <p className="text-sm font-bold text-slate-800 mb-1">Contatta e vendi</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Usa <strong>&quot;Genera Pitch&quot;</strong> per creare un messaggio personalizzato, <strong>&quot;Dettaglio Lead&quot;</strong> per l&apos;analisi completa, o <strong>&quot;Salva in Ambiente&quot;</strong> per salvare i lead.
+                  </p>
                 </div>
               </div>
             </div>
 
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Trova i tuoi prossimi clienti</h3>
-            <p className="text-slate-600 text-sm mb-3 max-w-md leading-relaxed">
-              Scrivi in linguaggio naturale chi stai cercando. Ad esempio:
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center mb-4">
-              <span className="text-[11px] px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">"Ristoranti a Roma senza sito"</span>
-              <span className="text-[11px] px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">"Hotel a Milano senza Pixel"</span>
-              <span className="text-[11px] px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">"Agenzie con errori SEO"</span>
+            {/* ── STEP 2: Come scrivere la query ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-slate-800 mb-1">Come scrivere la tua ricerca</h3>
+              <p className="text-[12px] text-slate-500 mb-4">La query è composta da: <strong>tipo di attività</strong> + <strong>città/zona</strong> + <strong>filtro</strong> (opzionale). Ecco come combinarli:</p>
+
+              <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Formula</p>
+                <p className="text-sm font-mono text-slate-800 bg-white px-3 py-2 rounded-lg border border-slate-200">
+                  <span className="text-violet-600 font-bold">[tipo attività]</span>
+                  {' '}a{' '}
+                  <span className="text-blue-600 font-bold">[città]</span>
+                  {' '}
+                  <span className="text-orange-600 font-bold">[filtro opzionale]</span>
+                </p>
+              </div>
+
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Esempi pronti (clicca per usarli)</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'Ristoranti a Milano senza sito',
+                  'Hotel a Roma senza Pixel',
+                  'Agenzie a Napoli con errori SEO',
+                  'Palestre a Torino senza Instagram',
+                  'Dentisti a Firenze senza Google Ads',
+                  'Negozi a Bologna senza SSL',
+                  'Parrucchieri a Bari con sito lento',
+                  'Avvocati a Roma senza Facebook',
+                ].map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={async () => {
+                      setQuery(text)
+                      await processSemanticSearch(text)
+                    }}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 disabled:opacity-60 shadow-sm cursor-pointer"
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="text-slate-400 text-xs max-w-sm">
-              L'AI analizza migliaia di aziende e ti mostra quelle con le migliori opportunità di vendita.
-            </p>
+
+            {/* ── STEP 3: Legenda Filtri ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-slate-800 mb-1">Filtri disponibili</h3>
+              <p className="text-[12px] text-slate-500 mb-4">Aggiungi questi filtri alla tua ricerca per trovare aziende con problemi specifici — sono tuoi potenziali clienti!</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {[
+                  { filter: 'senza Pixel', desc: 'Non hanno il Meta Pixel (Facebook) — non fanno retargeting', color: 'bg-red-50 border-red-200 text-red-700', icon: '🎯' },
+                  { filter: 'senza Google Ads', desc: 'Non fanno pubblicità su Google — perdono clienti', color: 'bg-blue-50 border-blue-200 text-blue-700', icon: '📢' },
+                  { filter: 'senza sito', desc: 'Non hanno un sito web — enorme opportunità', color: 'bg-slate-50 border-slate-200 text-slate-700', icon: '🌐' },
+                  { filter: 'con errori SEO', desc: 'Il loro sito ha errori SEO — si posizionano male su Google', color: 'bg-orange-50 border-orange-200 text-orange-700', icon: '🔍' },
+                  { filter: 'senza SSL', desc: 'Sito non sicuro (no HTTPS) — penalizzato da Google', color: 'bg-yellow-50 border-yellow-200 text-yellow-700', icon: '🔒' },
+                  { filter: 'senza Instagram', desc: 'Non hanno profilo Instagram — mancano visibilità social', color: 'bg-pink-50 border-pink-200 text-pink-700', icon: '📸' },
+                  { filter: 'senza Facebook', desc: 'Non hanno pagina Facebook — zero presenza social', color: 'bg-blue-50 border-blue-200 text-blue-700', icon: '👍' },
+                  { filter: 'con sito lento', desc: 'Il sito carica lentamente — perdono visitatori', color: 'bg-amber-50 border-amber-200 text-amber-700', icon: '🐌' },
+                  { filter: 'senza GTM', desc: 'Non hanno Google Tag Manager — non tracciano nulla', color: 'bg-orange-50 border-orange-200 text-orange-700', icon: '📊' },
+                  { filter: 'senza Analytics', desc: 'Non hanno Google Analytics — non misurano il traffico', color: 'bg-red-50 border-red-200 text-red-700', icon: '📈' },
+                  { filter: 'senza DMARC', desc: 'Email a rischio spam — le loro email finiscono in spam', color: 'bg-rose-50 border-rose-200 text-rose-700', icon: '✉️' },
+                  { filter: 'non mobile', desc: 'Sito non ottimizzato per cellulare — perdono il 60% del traffico', color: 'bg-violet-50 border-violet-200 text-violet-700', icon: '📱' },
+                ].map((f) => (
+                  <button
+                    key={f.filter}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => {
+                      const current = query.trim()
+                      if (current && !current.toLowerCase().includes(f.filter.toLowerCase())) {
+                        setQuery(`${current} ${f.filter}`)
+                      } else if (!current) {
+                        setQuery(f.filter)
+                      }
+                    }}
+                    className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition hover:shadow-md hover:scale-[1.01] cursor-pointer ${f.color}`}
+                  >
+                    <span className="text-lg flex-shrink-0 mt-0.5">{f.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-bold leading-tight">{f.filter}</p>
+                      <p className="text-[10px] opacity-80 leading-snug mt-0.5">{f.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[10px] text-slate-400 mt-3 text-center">
+                Clicca su un filtro per aggiungerlo alla tua ricerca. Puoi combinare più filtri nella stessa query.
+              </p>
+            </div>
+
+            {/* ── STEP 4: Cos'è la Ricerca Espansa ── */}
+            <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800 mb-1">Cos&apos;è la Ricerca Espansa?</p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  La ricerca normale cerca nel nostro database già analizzato (risultati istantanei).
+                  La <strong>Ricerca Espansa</strong> cerca anche in tempo reale sul web, trovando aziende nuove non ancora nel database.
+                  Impiega più tempo (5-15 min) e usa più crediti, ma restituisce risultati più freschi e completi.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={handleExpandedSearchClick}
+                className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 whitespace-nowrap flex-shrink-0"
+              >
+                Prova Ricerca Espansa
+              </button>
+            </div>
+
+            {/* ── STEP 5: Analizza singolo sito ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <p className="text-sm font-bold text-slate-800 mb-1">Hai già il sito di un potenziale cliente?</p>
+              <p className="text-[11px] text-slate-500 mb-3">
+                Incolla l&apos;indirizzo del suo sito web nella barra &quot;Analizza sito&quot; qui sopra. Riceverai un report completo gratuito con tutti i problemi del sito, le tecnologie usate, e le opportunità che puoi proporre.
+              </p>
+            </div>
           </div>
         )
       ) : (
