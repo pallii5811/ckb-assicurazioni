@@ -776,7 +776,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -805,7 +805,7 @@ export async function textToFilterSearchActionExpanded(userQuery: string): Promi
               .maybeSingle()
             if (dupRow?.id) {
               try {
-                await supabase.from('searches').update({ status: 'pending_user', created_at: new Date().toISOString() }).eq('id', dupRow.id)
+                await supabase.from('searches').update({ status: 'pending', created_at: new Date().toISOString() }).eq('id', dupRow.id)
               } catch { /* ignore */ }
               console.log('[expanded] requeued existing job (unique):', dupRow.id)
               return { results: [], status: 'pending', jobId: dupRow.id, searchId: dupRow.id }
@@ -1369,7 +1369,7 @@ Zero testo aggiuntivo. Solo l'array.`
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -1397,7 +1397,7 @@ Zero testo aggiuntivo. Solo l'array.`
                 .maybeSingle()
               if (dupRow?.id) {
                 try {
-                  await supabase.from('searches').update({ status: 'pending_user', created_at: new Date().toISOString() }).eq('id', dupRow.id)
+                  await supabase.from('searches').update({ status: 'pending', created_at: new Date().toISOString() }).eq('id', dupRow.id)
                 } catch { /* ignore */ }
                 console.log('[textToFilter] requeued existing job (unique):', dupRow.id)
                 return { results: [], status: 'pending', jobId: dupRow.id, searchId: dupRow.id }
@@ -4499,7 +4499,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -4541,7 +4541,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                   .from('searches')
 
-                  .update({ status: 'pending_user', created_at: new Date().toISOString() })
+                  .update({ status: 'pending', created_at: new Date().toISOString() })
 
                   .eq('id', dupRow.id)
 
@@ -5202,7 +5202,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
             location: cityBase,
 
-            status: 'pending_user',
+            status: 'pending',
 
             results: [],
 
@@ -5250,7 +5250,7 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
                     .from('searches')
 
-                    .update({ status: 'pending_user', created_at: new Date().toISOString() })
+                    .update({ status: 'pending', created_at: new Date().toISOString() })
 
                     .eq('id', dupRow.id)
 

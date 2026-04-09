@@ -62,6 +62,25 @@ function normalizeLeadFields(lead: any): any {
     return raw
   }
 
+  // Try to extract city from address or name
+  const _extractCity = (): string => {
+    const raw = _s('citta') || _s('city') || _s('location') || ''
+    if (raw) return raw
+    // Try to get city from address field
+    const addr = _s('address') || _s('indirizzo') || ''
+    if (addr) {
+      // Italian cities often appear after the last comma in address
+      const parts = addr.split(',').map((p: string) => p.trim())
+      if (parts.length >= 2) {
+        const last = parts[parts.length - 1].replace(/\d{5}/g, '').trim()
+        if (last && last.length > 2) return last
+        const secondLast = parts[parts.length - 2].replace(/\d{5}/g, '').trim()
+        if (secondLast && secondLast.length > 2) return secondLast
+      }
+    }
+    return ''
+  }
+
   // Map basic fields from English to Italian if needed
   const base = hasItalianFields ? {
     ...lead,
@@ -70,7 +89,7 @@ function normalizeLeadFields(lead: any): any {
     sito: _s('sito') || _s('website') || '',
     telefono: _s('telefono') || _s('phone') || '',
     email: _cleanEmail(_s('email') || ''),
-    citta: _s('citta') || _s('city') || '',
+    citta: _extractCity(),
     categoria: _s('categoria') || _s('category') || '',
     instagram: _s('instagram') || '',
   } : {
@@ -80,7 +99,7 @@ function normalizeLeadFields(lead: any): any {
     sito: _s('website') || '',
     telefono: _s('phone') || '',
     email: _cleanEmail(_s('email') || ''),
-    citta: _s('city') || '',
+    citta: _extractCity(),
     categoria: _s('category') || '',
     instagram: _s('instagram') || '',
   }
@@ -1636,6 +1655,7 @@ export default function DashboardShell() {
             query={query}
             results={results}
             isLoading={isLoading}
+            isScraping={isScraping || autoScrapeLoading}
             searchId={effectiveSearchId}
             filters={activeFilters}
             aiDebug={aiDebug}

@@ -75,6 +75,7 @@ type ResultsTableProps = {
   query: string
   results: unknown[]
   isLoading: boolean
+  isScraping?: boolean
   searchId?: string | null
   filters?: Record<string, unknown> | null
   aiDebug?: unknown
@@ -85,7 +86,7 @@ type UserList = {
   name: string
 }
 
-const ResultsTable = ({ query, results, isLoading, searchId, filters, aiDebug }: ResultsTableProps) => {
+const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters, aiDebug }: ResultsTableProps) => {
   const [activeCRM, setActiveCRM] = useState<{ id: string; type: string; name?: string } | null>(null)
   const [pitchOpen, setPitchOpen] = useState(false)
   const [pitchLoading, setPitchLoading] = useState(false)
@@ -1011,12 +1012,16 @@ const ResultsTable = ({ query, results, isLoading, searchId, filters, aiDebug }:
                         )
                       })()}
 
-                      {email ? (
-                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                          <Mail className="h-4 w-4 text-slate-400" />
+                      <div className="flex items-center gap-2 text-xs text-slate-600">
+                        <Mail className="h-4 w-4 text-slate-400" />
+                        {email ? (
                           <span className="truncate">{email}</span>
-                        </div>
-                      ) : null}
+                        ) : isScraping ? (
+                          <span className="text-xs text-amber-500 italic animate-pulse">In arrivo...</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">N/D</span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="mt-4 flex flex-col items-stretch gap-2">
@@ -1188,7 +1193,7 @@ const ResultsTable = ({ query, results, isLoading, searchId, filters, aiDebug }:
                                 ) : null}
 
                                 <div className="truncate w-full text-gray-500" title={email ? email : 'Email in estrazione...'}>
-                                  ✉️ {email ? renderNd(email) : <span className="text-xs text-amber-500 italic animate-pulse">In arrivo...</span>}
+                                  ✉️ {email ? renderNd(email) : isScraping ? <span className="text-xs text-amber-500 italic animate-pulse">In arrivo...</span> : <span className="text-sm text-gray-900">N/D</span>}
                                 </div>
                               </>
                             )
