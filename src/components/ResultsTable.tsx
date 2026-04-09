@@ -881,18 +881,20 @@ const ResultsTable = ({ query, results, isLoading, searchId, filters, aiDebug }:
           <button
             type="button"
             onClick={() => setSortByScore((v) => !v)}
+            title="Ordina per opportunità di vendita: mostra prima le aziende con più problemi da risolvere"
             className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${sortByScore
               ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-              : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300'
+              : 'bg-white text-slate-700 border-slate-200 hover:border-violet-300'
             }`}
           >
-            {sortByScore ? '🔥 Per Opportunità' : '↕ Ordina'}
+            {sortByScore ? '🔥 Per Opportunità' : '↕ Ordina per opportunità'}
           </button>
 
           <button
             type="button"
             onClick={exportCsv}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 font-semibold hover:border-emerald-300 hover:text-emerald-700 transition-all"
+            title="Scarica tutti i risultati in formato CSV per usarli in Excel o Google Sheets"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-700 font-semibold hover:border-emerald-300 hover:text-emerald-700 transition-all"
           >
             ↓ Esporta CSV
           </button>
@@ -1064,17 +1066,17 @@ const ResultsTable = ({ query, results, isLoading, searchId, filters, aiDebug }:
 
         <div className="hidden md:block">
           <table className="w-full table-fixed text-left text-xs font-medium">
-            <thead className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+            <thead className="sticky top-0 z-10 bg-slate-100 border-b-2 border-slate-200">
               <tr>
-                <th className="w-[18%] px-2 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nome</th>
-                <th className="w-[7%] px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Score</th>
-                <th className="w-[18%] px-2 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contatti</th>
-                <th className="w-[10%] px-2 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Città</th>
-                <th className="w-[12%] px-2 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Categoria</th>
-                <th className="w-[24%] px-2 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Opportunità</th>
-                <th className="w-[8%] px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Rating</th>
-                <th className="w-[6%] px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Speed</th>
-                <th className="min-w-[280px] w-[280px] px-2 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Azioni</th>
+                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Nome</th>
+                <th className="w-[7%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Score</th>
+                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Contatti</th>
+                <th className="w-[10%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Città</th>
+                <th className="w-[12%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Categoria</th>
+                <th className="w-[24%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Opportunità</th>
+                <th className="w-[8%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Rating</th>
+                <th className="w-[6%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Speed</th>
+                <th className="min-w-[280px] w-[280px] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azioni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

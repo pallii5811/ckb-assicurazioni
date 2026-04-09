@@ -1358,20 +1358,23 @@ export default function DashboardShell() {
         credits={credits}
       />
 
-      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2 px-4">
-        <input
-          type="text"
-          placeholder="Oppure incolla URL sito (es. https://crystalweb.it)"
-          value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          className="flex-1 px-3 py-2.5 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-slate-400"
-        />
-        <button
-          onClick={handleAnalyzeSite}
-          className="px-4 py-2.5 text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium whitespace-nowrap"
-        >
-          Analizza sito
-        </button>
+      <div className="mt-2 px-4">
+        <p className="text-[11px] text-slate-500 mb-1.5">Hai già un sito web da analizzare? Incollalo qui per ottenere un report completo gratuito.</p>
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <input
+            type="text"
+            placeholder="Incolla qui l'indirizzo del sito (es. https://crystalweb.it)"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            className="flex-1 px-3 py-2.5 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-slate-500"
+          />
+          <button
+            onClick={handleAnalyzeSite}
+            className="px-4 py-2.5 text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium whitespace-nowrap"
+          >
+            Analizza sito
+          </button>
+        </div>
       </div>
 
       {aiAnalyzing ? (
@@ -1388,17 +1391,21 @@ export default function DashboardShell() {
       ) : null}
 
       {searchState === 'pending' ? (
-        <div className="flex flex-col items-center gap-4 p-8">
-          <p className="text-purple-400 font-semibold animate-pulse">⏳ Sto analizzando in tempo reale... attendere 2-3 minuti</p>
-          <div className="w-full bg-gray-800 rounded-full h-2">
-            <div className="bg-purple-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
+        <div className="flex flex-col items-center gap-3 p-8 bg-violet-50 border border-violet-200 rounded-2xl mx-4">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+            <p className="text-violet-700 font-semibold text-sm">Analisi in corso — risultati tra 2-3 minuti</p>
           </div>
+          <div className="w-full max-w-sm bg-violet-200 rounded-full h-2.5 overflow-hidden">
+            <div className="bg-violet-600 h-2.5 rounded-full" style={{ animation: 'progressFill 180s ease-in-out forwards', width: '5%' }} />
+          </div>
+          <p className="text-[11px] text-violet-500">Stiamo analizzando siti web, social e tecnologie di ogni azienda.</p>
         </div>
       ) : null}
 
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-          <span className="shrink-0">🤖 Suggerimenti AI:</span>
+          <span className="shrink-0 font-semibold text-slate-700">💡 Prova una ricerca:</span>
           {[
             'Hotel a Roma senza Pixel',
             'Agenzie a Milano con errori SEO',
@@ -1413,7 +1420,7 @@ export default function DashboardShell() {
                 setQuery(text)
                 await processSemanticSearch(text)
               }}
-              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 disabled:opacity-60 shadow-sm"
             >
               {text}
             </button>
@@ -1426,10 +1433,11 @@ export default function DashboardShell() {
           type="button"
           disabled={isLoading}
           onClick={handleExpandedSearchClick}
-          className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
+          className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
         >
           Ricerca Espansa
         </button>
+        <p className="text-[11px] text-slate-500 mt-1.5 max-w-md">Trova più risultati cercando in tempo reale. Usa più crediti ma restituisce lead aggiornati e più completi.</p>
       </div>
 
       {!isLoading && results.length === 0 ? (
@@ -1452,19 +1460,50 @@ export default function DashboardShell() {
               </div>
             </div>
 
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Analisi in tempo reale in corso...</h3>
-            <p className="text-slate-500 text-sm mb-6 max-w-sm leading-relaxed">
-              Sto estraendo centinaia di dati.
-              <br />
-              <strong className="text-slate-700">Attendere fino a 15–20 minuti.</strong>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Stiamo trovando i tuoi lead...</h3>
+            <p className="text-slate-600 text-sm mb-2 max-w-sm leading-relaxed">
+              L'intelligenza artificiale sta analizzando centinaia di aziende per trovare quelle più in linea con la tua ricerca.
+            </p>
+            <p className="text-slate-800 text-sm font-semibold mb-6">
+              Tempo stimato: 5-15 minuti. Non chiudere la pagina.
             </p>
 
-            <div className="w-64 bg-slate-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="h-2 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 animate-pulse"
-                style={{ width: '60%' }}
-              />
+            <div className="w-80 max-w-full">
+              <div className="bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
+                <div
+                  className="h-3 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-violet-600"
+                  style={{
+                    animation: 'progressFill 20s ease-in-out forwards',
+                    width: '5%',
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[11px] text-slate-500 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Ricerca aziende nel database...
+                </p>
+                <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-slate-300" />
+                  Analisi siti web e tecnologie
+                </p>
+                <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-slate-300" />
+                  Calcolo opportunità e punteggi
+                </p>
+              </div>
             </div>
+            <style>{`
+              @keyframes progressFill {
+                0% { width: 5%; }
+                10% { width: 15%; }
+                30% { width: 35%; }
+                50% { width: 55%; }
+                70% { width: 70%; }
+                85% { width: 82%; }
+                100% { width: 92%; }
+              }
+            `}</style>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -1485,9 +1524,17 @@ export default function DashboardShell() {
               </div>
             </div>
 
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Pronto. Scrivi il tuo target.</h3>
-            <p className="text-slate-500 text-sm mb-6 max-w-sm leading-relaxed">
-              Descrivi chi stai cercando in linguaggio naturale. L'AI trova i lead più profilati nel database.
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Trova i tuoi prossimi clienti</h3>
+            <p className="text-slate-600 text-sm mb-3 max-w-md leading-relaxed">
+              Scrivi in linguaggio naturale chi stai cercando. Ad esempio:
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center mb-4">
+              <span className="text-[11px] px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">"Ristoranti a Roma senza sito"</span>
+              <span className="text-[11px] px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">"Hotel a Milano senza Pixel"</span>
+              <span className="text-[11px] px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">"Agenzie con errori SEO"</span>
+            </div>
+            <p className="text-slate-400 text-xs max-w-sm">
+              L'AI analizza migliaia di aziende e ti mostra quelle con le migliori opportunità di vendita.
             </p>
           </div>
         )
@@ -1496,46 +1543,22 @@ export default function DashboardShell() {
           {Array.isArray(results) && results.length > 0 ? (
             <>
               {autoScrapeLoading && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    background: '#EEF2FF',
-                    border: '1px solid #C7D2FE',
-                    borderRadius: 10,
-                    padding: '10px 16px',
-                    marginBottom: 12,
-                    marginLeft: 16,
-                    marginRight: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      border: '2px solid #6366F1',
-                      borderTopColor: 'transparent',
-                      animation: 'spin 0.8s linear infinite',
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: '#6366F1',
-                      fontFamily: 'DM Sans, sans-serif',
-                    }}
-                  >
-                    Trovati {results.length} lead — Stiamo analizzando nuovi lead in tempo reale. Attendi 5-10 minuti per risultati più completi.
-                  </span>
+                <div className="flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 mb-3 mx-4">
+                  <div className="h-4 w-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-violet-700">
+                      {results.length} lead trovati — Stiamo cercando altri risultati
+                    </p>
+                    <p className="text-[11px] text-violet-500 mt-0.5">
+                      Analisi in tempo reale in corso. Attendi 5-10 minuti per risultati più completi. Puoi già consultare i lead trovati.
+                    </p>
+                  </div>
                 </div>
               )}
 
-              <div className="mb-3 flex items-center justify-end px-4">
+              <div className="mb-3 flex items-center justify-between px-4">
+                <p className="text-[11px] text-slate-400 hidden sm:block">Salva questi lead in una cartella per contattarli dopo o esportarli.</p>
                 <Button
-                  variant="outline"
                   onClick={async () => {
                     let sid = effectiveSearchId
                     if (!sid) {
@@ -1548,7 +1571,7 @@ export default function DashboardShell() {
                     setSaveToEnvSearchId(sid)
                     setIsSaveToEnvOpen(true)
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md hover:shadow-lg transition-all"
                 >
                   <Folder className="w-4 h-4" />
                   Salva in Ambiente

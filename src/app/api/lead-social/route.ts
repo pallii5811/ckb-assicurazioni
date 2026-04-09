@@ -403,6 +403,335 @@ function formatNumber(n: number | undefined): string | undefined {
   return String(n)
 }
 
+// ── Website Quality Analysis (FREE - analyzes already-fetched HTML) ──
+
+interface WebsiteScore {
+  score: number          // 0-100
+  has_meta_description: boolean
+  has_og_tags: boolean
+  has_favicon: boolean
+  has_viewport: boolean  // mobile-friendly
+  has_h1: boolean
+  has_structured_data: boolean
+  has_sitemap_link: boolean
+  has_robots: boolean
+  has_contact_form: boolean
+  has_chat_widget: boolean
+  has_blog: boolean
+  has_newsletter: boolean
+  has_phone_visible: boolean
+  has_email_visible: boolean
+  has_maps_embed: boolean
+  page_size_kb: number
+  external_scripts_count: number
+  image_count: number
+  issues: string[]
+  strengths: string[]
+}
+
+function analyzeWebsite(html: string, url: string): WebsiteScore {
+  const h = html.toLowerCase()
+  const has_meta_description = /meta\s+name=["']description/i.test(html) && !/content=["']\s*["']/i.test(html.match(/meta\s+name=["']description["'][^>]*>/i)?.[0] || '')
+  const has_og_tags = h.includes('property="og:') || h.includes("property='og:")
+  const has_favicon = h.includes('rel="icon"') || h.includes("rel='icon'") || h.includes('rel="shortcut icon"') || h.includes('favicon')
+  const has_viewport = h.includes('name="viewport"') || h.includes("name='viewport'")
+  const has_h1 = /<h1[\s>]/i.test(html)
+  const has_structured_data = h.includes('application/ld+json') || h.includes('itemtype="http')
+  const has_sitemap_link = h.includes('sitemap')
+  const has_robots = h.includes('name="robots"')
+  const has_contact_form = h.includes('<form') && (h.includes('email') || h.includes('contatt') || h.includes('contact') || h.includes('message') || h.includes('messaggio'))
+  const has_chat_widget = h.includes('tawk.to') || h.includes('crisp.chat') || h.includes('intercom') || h.includes('livechat') || h.includes('tidio') || h.includes('drift.com') || h.includes('zendesk') || h.includes('whatsapp') || h.includes('wa.me/')
+  const has_blog = h.includes('/blog') || h.includes('/news') || h.includes('/articol') || h.includes('/magazine')
+  const has_newsletter = h.includes('newsletter') || h.includes('iscriviti') || h.includes('subscribe') || h.includes('mailing')
+  const has_phone_visible = /(\+39|0[0-9]{1,4}[\s.-]?[0-9]{4,10}|tel:)/i.test(html)
+  const has_email_visible = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(html) && !h.includes('noreply@') && !h.includes('example@')
+  const has_maps_embed = h.includes('google.com/maps') || h.includes('maps.google') || h.includes('openstreetmap')
+  const page_size_kb = Math.round(html.length / 1024)
+  const external_scripts_count = (html.match(/<script[^>]+src=["']https?:\/\//gi) || []).length
+  const image_count = (html.match(/<img[\s]/gi) || []).length
+
+  // Calculate score
+  let score = 0
+  const checks: [boolean, number][] = [
+    [has_meta_description, 8], [has_og_tags, 6], [has_favicon, 4], [has_viewport, 10],
+    [has_h1, 6], [has_structured_data, 7], [has_contact_form, 8], [has_chat_widget, 5],
+    [has_blog, 5], [has_newsletter, 5], [has_phone_visible, 6], [has_email_visible, 6],
+    [has_maps_embed, 4], [url.startsWith('https'), 10], [has_sitemap_link, 3],
+    [has_robots, 2], [page_size_kb < 500, 5],
+  ]
+  for (const [check, pts] of checks) if (check) score += pts
+
+  const issues: string[] = []
+  const strengths: string[] = []
+  if (!has_meta_description) issues.push('Manca meta description (SEO)')
+  if (!has_viewport) issues.push('Non ottimizzato per mobile')
+  if (!has_og_tags) issues.push('Manca Open Graph (anteprima social scarsa)')
+  if (!has_h1) issues.push('Manca tag H1 (SEO)')
+  if (!url.startsWith('https')) issues.push('Nessun HTTPS (sicurezza)')
+  if (!has_contact_form) issues.push('Nessun form di contatto')
+  if (!has_structured_data) issues.push('Nessun dato strutturato (Schema.org)')
+  if (!has_phone_visible) issues.push('Telefono non visibile')
+  if (!has_chat_widget) issues.push('Nessuna live chat')
+  if (!has_newsletter) issues.push('Nessuna newsletter')
+  if (!has_blog) issues.push('Nessun blog/news')
+  if (page_size_kb > 500) issues.push(`Pagina pesante (${page_size_kb}KB)`)
+
+  if (has_viewport) strengths.push('Mobile-friendly')
+  if (url.startsWith('https')) strengths.push('HTTPS attivo')
+  if (has_meta_description) strengths.push('SEO base presente')
+  if (has_structured_data) strengths.push('Dati strutturati')
+  if (has_contact_form) strengths.push('Form contatto')
+  if (has_chat_widget) strengths.push('Live chat attiva')
+  if (has_blog) strengths.push('Blog/News attivo')
+  if (has_newsletter) strengths.push('Newsletter attiva')
+  if (has_og_tags) strengths.push('Open Graph configurato')
+  if (has_maps_embed) strengths.push('Mappa integrata')
+
+  return {
+    score, has_meta_description, has_og_tags, has_favicon, has_viewport, has_h1,
+    has_structured_data, has_sitemap_link, has_robots, has_contact_form, has_chat_widget,
+    has_blog, has_newsletter, has_phone_visible, has_email_visible, has_maps_embed,
+    page_size_kb, external_scripts_count, image_count, issues, strengths,
+  }
+}
+
+// ── LinkedIn OG data (FREE - public meta tags) ──────────────────
+
+interface LinkedInData {
+  url: string
+  company_name?: string
+  description?: string
+  followers?: number
+  followers_display?: string
+  industry?: string
+  logo?: string
+  error?: string
+}
+
+async function scrapeLinkedIn(url: string): Promise<LinkedInData | null> {
+  if (!url) return null
+  try {
+    const html = await fetchHtml(url, 8000)
+    if (!html || html.length < 500) return { url, error: 'non_accessibile' }
+    const result: LinkedInData = { url }
+    // OG tags
+    const ogTitle = html.match(/property=["']og:title["']\s+content=["']([^"']+)/i)
+    if (ogTitle) result.company_name = ogTitle[1].replace(/\s*\|.*$/, '').replace(/\s*[-–].*LinkedIn.*$/i, '').trim()
+    const ogDesc = html.match(/property=["']og:description["']\s+content=["']([^"']+)/i)
+    if (ogDesc) {
+      result.description = ogDesc[1].substring(0, 200)
+      // "Company Name | X,XXX followers on LinkedIn..."
+      const folM = ogDesc[1].match(/([\d,.]+[KkMm]?)\s*follower/i)
+      if (folM) {
+        result.followers = parseCount(folM[1])
+        result.followers_display = formatNumber(result.followers)
+      }
+      // Try extracting industry
+      const indM = ogDesc[1].match(/(?:industry|settore)[:\s]*([^.|,]+)/i)
+      if (indM) result.industry = indM[1].trim()
+    }
+    const ogImg = html.match(/property=["']og:image["']\s+content=["']([^"']+)/i)
+    if (ogImg) result.logo = ogImg[1]
+    // Title fallback for followers
+    if (!result.followers) {
+      const titleM = html.match(/<title>([^<]+)/i)
+      if (titleM) {
+        const folM = titleM[1].match(/([\d,.]+[KkMm]?)\s*follower/i)
+        if (folM) {
+          result.followers = parseCount(folM[1])
+          result.followers_display = formatNumber(result.followers)
+        }
+      }
+    }
+    return result
+  } catch { return { url, error: 'errore_scraping' } }
+}
+
+// ── Facebook page data (FREE - public OG tags) ─────────────────
+
+interface FacebookData {
+  url: string
+  page_name?: string
+  description?: string
+  likes?: number
+  likes_display?: string
+  category?: string
+  logo?: string
+  error?: string
+}
+
+async function scrapeFacebook(url: string): Promise<FacebookData | null> {
+  if (!url) return null
+  try {
+    const html = await fetchHtml(url, 8000)
+    if (!html || html.length < 500) return { url, error: 'non_accessibile' }
+    const result: FacebookData = { url }
+    const ogTitle = html.match(/property=["']og:title["']\s+content=["']([^"']+)/i)
+    if (ogTitle) result.page_name = ogTitle[1].trim()
+    const ogDesc = html.match(/property=["']og:description["']\s+content=["']([^"']+)/i)
+    if (ogDesc) {
+      result.description = ogDesc[1].substring(0, 200)
+      // "X,XXX likes · Y talking about this"
+      const likesM = ogDesc[1].match(/([\d,.]+[KkMm]?)\s*(?:likes?|piace|mi piace)/i)
+      if (likesM) {
+        result.likes = parseCount(likesM[1])
+        result.likes_display = formatNumber(result.likes)
+      }
+    }
+    const ogImg = html.match(/property=["']og:image["']\s+content=["']([^"']+)/i)
+    if (ogImg) result.logo = ogImg[1]
+    // Try meta keywords for category
+    const metaKw = html.match(/name=["']keywords["']\s+content=["']([^"']+)/i)
+    if (metaKw) result.category = metaKw[1].split(',')[0]?.trim()
+    return result
+  } catch { return { url, error: 'errore_scraping' } }
+}
+
+// ── Wayback Machine domain age (FREE) ───────────────────────────
+
+interface DomainInfo {
+  domain: string
+  first_seen?: string
+  domain_age_years?: number
+  snapshots?: number
+}
+
+async function getDomainAge(domain: string): Promise<DomainInfo | null> {
+  if (!domain) return null
+  try {
+    const clean = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+    const res = await fetch(
+      `https://web.archive.org/cdx/search/cdx?url=${clean}&output=json&limit=1&fl=timestamp&from=19960101`,
+      { signal: AbortSignal.timeout(6000) }
+    )
+    if (!res.ok) return { domain: clean }
+    const json = await res.json()
+    if (!Array.isArray(json) || json.length < 2) return { domain: clean }
+    const ts = json[1]?.[0]
+    if (!ts || typeof ts !== 'string') return { domain: clean }
+    const year = parseInt(ts.substring(0, 4))
+    const month = parseInt(ts.substring(4, 6))
+    const day = parseInt(ts.substring(6, 8))
+    const firstDate = new Date(year, month - 1, day)
+    const ageYears = parseFloat(((Date.now() - firstDate.getTime()) / (365.25 * 86400000)).toFixed(1))
+
+    // Also get total snapshots count
+    let snapshots: number | undefined
+    try {
+      const countRes = await fetch(
+        `https://web.archive.org/cdx/search/cdx?url=${clean}&output=json&limit=0&showNumPages=true`,
+        { signal: AbortSignal.timeout(4000) }
+      )
+      if (countRes.ok) {
+        const countText = await countRes.text()
+        const n = parseInt(countText)
+        if (!isNaN(n)) snapshots = n
+      }
+    } catch { /* ok */ }
+
+    return {
+      domain: clean,
+      first_seen: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      domain_age_years: ageYears,
+      snapshots,
+    }
+  } catch { return { domain } }
+}
+
+// ── Digital Maturity Score (aggregate) ──────────────────────────
+
+interface DigitalScore {
+  score: number           // 0-100
+  level: string           // 'Eccellente' | 'Buono' | 'Nella media' | 'Da migliorare' | 'Critico'
+  color: string           // for frontend badge
+  breakdown: { area: string; score: number; max: number }[]
+  opportunities: string[]
+}
+
+function computeDigitalScore(
+  websiteScore: WebsiteScore | null,
+  tech: TechDetection | null,
+  ig: InstagramData | null,
+  tt: TikTokData | null,
+  li: LinkedInData | null,
+  fb: FacebookData | null,
+  domainInfo: DomainInfo | null,
+): DigitalScore {
+  const breakdown: { area: string; score: number; max: number }[] = []
+  const opportunities: string[] = []
+  let total = 0, maxTotal = 0
+
+  // 1. Website quality (max 25)
+  const webPts = websiteScore ? Math.round(websiteScore.score * 25 / 100) : 0
+  breakdown.push({ area: 'Sito Web', score: webPts, max: 25 })
+  total += webPts; maxTotal += 25
+  if (!websiteScore || websiteScore.score < 50) opportunities.push('Migliorare qualità sito web (SEO, mobile, form)')
+
+  // 2. Social presence (max 25)
+  let socialPts = 0
+  if (ig && ig.followers) socialPts += Math.min(10, Math.round(Math.log10(ig.followers + 1) * 2))
+  if (tt && tt.followers) socialPts += Math.min(5, Math.round(Math.log10(tt.followers + 1) * 1.2))
+  if (li && li.followers) socialPts += Math.min(5, Math.round(Math.log10(li.followers + 1) * 1.5))
+  if (fb && fb.likes) socialPts += Math.min(5, Math.round(Math.log10(fb.likes + 1) * 1.2))
+  socialPts = Math.min(25, socialPts)
+  breakdown.push({ area: 'Presenza Social', score: socialPts, max: 25 })
+  total += socialPts; maxTotal += 25
+  if (!ig && !tt) opportunities.push('Aprire profili social (Instagram, TikTok)')
+  else if (ig && !ig.followers) opportunities.push('Aumentare follower Instagram')
+  if (ig && ig.engagement_rate !== undefined && ig.engagement_rate < 1) opportunities.push('Migliorare engagement Instagram (< 1%)')
+  if (ig && ig.last_post_days_ago !== undefined && ig.last_post_days_ago > 30) opportunities.push('Riprendere a postare su Instagram (ultimo post > 30 giorni fa)')
+  if (!li) opportunities.push('Creare pagina LinkedIn aziendale')
+
+  // 3. Marketing & Ads (max 25)
+  let mktPts = 0
+  if (tech) {
+    if (tech.meta_pixel) mktPts += 5
+    if (tech.google_analytics || tech.google_tag_manager) mktPts += 5
+    if (tech.google_ads) mktPts += 4
+    if (tech.tiktok_pixel) mktPts += 3
+    if (tech.hotjar || tech.microsoft_clarity) mktPts += 3
+    if (tech.hubspot) mktPts += 3
+    if (tech.mailchimp) mktPts += 2
+  }
+  mktPts = Math.min(25, mktPts)
+  breakdown.push({ area: 'Marketing Digitale', score: mktPts, max: 25 })
+  total += mktPts; maxTotal += 25
+  if (!tech?.meta_pixel && !tech?.google_ads) opportunities.push('Attivare campagne Ads (Meta/Google)')
+  if (!tech?.google_analytics && !tech?.google_tag_manager) opportunities.push('Installare Google Analytics/Tag Manager')
+  if (!tech?.hotjar && !tech?.microsoft_clarity) opportunities.push('Aggiungere heatmap (Hotjar/Clarity)')
+  if (!tech?.mailchimp && !tech?.hubspot) opportunities.push('Implementare email marketing')
+
+  // 4. Domain maturity (max 15)
+  let domPts = 0
+  if (domainInfo?.domain_age_years) {
+    domPts = Math.min(10, Math.round(domainInfo.domain_age_years * 1.5))
+  }
+  if (tech?.has_ssl) domPts += 3
+  if (tech?.has_cookie_banner) domPts += 1
+  if (tech?.has_privacy_policy) domPts += 1
+  domPts = Math.min(15, domPts)
+  breakdown.push({ area: 'Maturità Dominio', score: domPts, max: 15 })
+  total += domPts; maxTotal += 15
+  if (!tech?.has_cookie_banner) opportunities.push('Aggiungere cookie banner (GDPR)')
+  if (!tech?.has_privacy_policy) opportunities.push('Aggiungere privacy policy')
+
+  // 5. E-commerce (max 10)
+  let ecPts = 0
+  if (tech?.has_ecommerce) ecPts += 10
+  breakdown.push({ area: 'E-commerce', score: ecPts, max: 10 })
+  total += ecPts; maxTotal += 10
+
+  const score = maxTotal > 0 ? Math.round(total / maxTotal * 100) : 0
+  let level: string, color: string
+  if (score >= 80) { level = 'Eccellente'; color = 'emerald' }
+  else if (score >= 60) { level = 'Buono'; color = 'blue' }
+  else if (score >= 40) { level = 'Nella media'; color = 'amber' }
+  else if (score >= 20) { level = 'Da migliorare'; color = 'orange' }
+  else { level = 'Critico'; color = 'red' }
+
+  return { score, level, color, breakdown, opportunities: opportunities.slice(0, 8) }
+}
+
 // ── Main route ───────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -416,9 +745,14 @@ export async function POST(req: NextRequest) {
     tech: null,
     instagram: null,
     tiktok: null,
+    linkedin: null,
+    facebook: null,
+    website_score: null,
+    domain_info: null,
+    digital_score: null,
   }
 
-  // Step 1: Fetch website HTML → extract social links + detect tech
+  // Step 1: Fetch website HTML → extract social links + detect tech + analyze quality
   let siteHtml = ''
   let siteUrl = ''
   if (website) {
@@ -426,9 +760,15 @@ export async function POST(req: NextRequest) {
     siteHtml = await fetchHtml(siteUrl)
   }
 
+  let tech: TechDetection | null = null
+  let websiteScore: WebsiteScore | null = null
+
   if (siteHtml) {
     response.social_links = extractSocialLinks(siteHtml)
-    response.tech = detectTech(siteHtml, siteUrl)
+    tech = detectTech(siteHtml, siteUrl)
+    response.tech = tech
+    websiteScore = analyzeWebsite(siteHtml, siteUrl)
+    response.website_score = websiteScore
   }
 
   // Use social links from lead data if not found in HTML
@@ -436,11 +776,16 @@ export async function POST(req: NextRequest) {
     || extractUsernameFromUrl(lead?.instagram, 'instagram.com')
   const ttUsername = response.social_links.tiktok
     || extractUsernameFromUrl(lead?.tiktok, 'tiktok.com/@')
+  const liUrl = response.social_links.linkedin || lead?.linkedin || null
+  const fbUrl = response.social_links.facebook || lead?.facebook || null
 
-  // Step 2 & 3: Scrape Instagram and TikTok in parallel
-  const [igData, ttData] = await Promise.all([
+  // Step 2: Scrape ALL social + domain data IN PARALLEL
+  const [igData, ttData, liData, fbData, domainInfo] = await Promise.all([
     igUsername ? scrapeInstagram(igUsername) : Promise.resolve(null),
     ttUsername ? scrapeTikTok(ttUsername) : Promise.resolve(null),
+    liUrl ? scrapeLinkedIn(liUrl) : Promise.resolve(null),
+    fbUrl ? scrapeFacebook(fbUrl) : Promise.resolve(null),
+    siteUrl ? getDomainAge(siteUrl) : Promise.resolve(null),
   ])
 
   if (igData) {
@@ -466,6 +811,13 @@ export async function POST(req: NextRequest) {
       url: `https://tiktok.com/@${ttData.username}`,
     }
   }
+
+  if (liData) response.linkedin = liData
+  if (fbData) response.facebook = fbData
+  if (domainInfo) response.domain_info = domainInfo
+
+  // Step 3: Compute Digital Maturity Score
+  response.digital_score = computeDigitalScore(websiteScore, tech, igData, ttData, liData, fbData, domainInfo)
 
   return NextResponse.json(response)
 }

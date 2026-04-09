@@ -111,7 +111,8 @@ export function SaveToEnvironmentModal({ open, onClose, searchId }: Props) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Salva in Ambiente</DialogTitle>
+          <DialogTitle>Salva i lead in una cartella</DialogTitle>
+          <p className="text-sm text-slate-500 mt-1">Scegli dove salvare questi lead per ritrovarli facilmente, esportarli o contattarli in seguito.</p>
         </DialogHeader>
 
         {successMsg ? (
@@ -161,18 +162,22 @@ export function SaveToEnvironmentModal({ open, onClose, searchId }: Props) {
                   }`}
                 >
                   <Plus className="w-4 h-4 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-600">Crea nuovo ambiente</span>
+                  <span className="text-sm font-medium text-gray-700">Crea nuova cartella</span>
                 </button>
 
                 {showNewEnv ? (
-                  <input
-                    type="text"
-                    placeholder="Nome nuovo ambiente..."
-                    value={newEnvName}
-                    onChange={(e) => setNewEnvName(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    autoFocus
-                  />
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Nome della cartella</label>
+                    <input
+                      type="text"
+                      placeholder="Es. Clienti Milano, Ristoranti Roma..."
+                      value={newEnvName}
+                      onChange={(e) => setNewEnvName(e.target.value)}
+                      className="w-full border-2 border-purple-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder:text-slate-400"
+                      autoFocus
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Scegli un nome che ti aiuti a riconoscere questa lista.</p>
+                  </div>
                 ) : null}
 
                 <div className="flex gap-3 pt-2">
@@ -182,9 +187,9 @@ export function SaveToEnvironmentModal({ open, onClose, searchId }: Props) {
                   <Button
                     onClick={handleSave}
                     disabled={disableSave}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 font-bold text-sm py-2.5"
                   >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salva'}
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salva i lead'}
                   </Button>
                 </div>
               </>

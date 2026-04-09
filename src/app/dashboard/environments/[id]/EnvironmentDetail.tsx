@@ -112,33 +112,37 @@ export function EnvironmentDetail({ environment, initialLeads }: Props) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-            <Users className="w-4 h-4" />
+        <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-600 text-sm font-semibold mb-2">
+            <Users className="w-4 h-4 text-violet-500" />
             Lead Totali
           </div>
-          <div className="text-2xl font-bold">{stats?.total_leads || 0}</div>
+          <div className="text-3xl font-black text-slate-900">{stats?.total_leads || 0}</div>
+          <p className="text-[11px] text-slate-400 mt-1">Numero di aziende in questo ambiente</p>
         </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-            <TrendingUp className="w-4 h-4" />
+        <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-600 text-sm font-semibold mb-2">
+            <TrendingUp className="w-4 h-4 text-amber-500" />
             Score Medio
           </div>
-          <div className="text-2xl font-bold">{stats?.avg_score || 0}</div>
+          <div className="text-3xl font-black text-slate-900">{stats?.avg_score || 0}<span className="text-base font-bold text-slate-400">/100</span></div>
+          <p className="text-[11px] text-slate-400 mt-1">Opportunità media di vendita</p>
         </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-            <Mail className="w-4 h-4" />
+        <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-600 text-sm font-semibold mb-2">
+            <Mail className="w-4 h-4 text-emerald-500" />
             Con Email
           </div>
-          <div className="text-2xl font-bold">{stats?.leads_with_email || 0}</div>
+          <div className="text-3xl font-black text-emerald-600">{stats?.leads_with_email || 0}</div>
+          <p className="text-[11px] text-slate-400 mt-1">Lead contattabili via email</p>
         </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-            <AlertCircle className="w-4 h-4" />
+        <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-600 text-sm font-semibold mb-2">
+            <AlertCircle className="w-4 h-4 text-orange-500" />
             Senza Pixel
           </div>
-          <div className="text-2xl font-bold text-green-600">{stats?.leads_no_pixel || 0}</div>
+          <div className="text-3xl font-black text-orange-600">{stats?.leads_no_pixel || 0}</div>
+          <p className="text-[11px] text-slate-400 mt-1">Aziende senza tracking (potenziali clienti)</p>
         </div>
       </div>
 
@@ -146,12 +150,12 @@ export function EnvironmentDetail({ environment, initialLeads }: Props) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left p-4 font-medium text-gray-600">Nome</th>
-                <th className="text-left p-4 font-medium text-gray-600">Contatti</th>
-                <th className="text-left p-4 font-medium text-gray-600">Città</th>
-                <th className="text-left p-4 font-medium text-gray-600">Categoria</th>
-                <th className="text-left p-4 font-medium text-gray-600">Score</th>
+              <tr className="bg-slate-100 border-b-2 border-slate-200">
+                <th className="text-left p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Nome</th>
+                <th className="text-left p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Contatti</th>
+                <th className="text-left p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Città</th>
+                <th className="text-left p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Categoria</th>
+                <th className="text-left p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Score</th>
               </tr>
             </thead>
             <tbody>

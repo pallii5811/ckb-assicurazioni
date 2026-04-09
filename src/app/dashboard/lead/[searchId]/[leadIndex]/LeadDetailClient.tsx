@@ -1025,26 +1025,167 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   </div>
                 )}
 
-                {/* Other social links */}
-                {(social.social_links?.facebook || social.social_links?.linkedin || social.social_links?.youtube) && (
+                {/* Digital Maturity Score */}
+                {social.digital_score && (
+                  <div className={`p-4 rounded-xl border-2 ${
+                    social.digital_score.score >= 80 ? 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100' :
+                    social.digital_score.score >= 60 ? 'border-blue-300 bg-gradient-to-br from-blue-50 to-blue-100' :
+                    social.digital_score.score >= 40 ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100' :
+                    social.digital_score.score >= 20 ? 'border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100' :
+                    'border-red-300 bg-gradient-to-br from-red-50 to-red-100'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-bold text-slate-800">Punteggio Digitale</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-2xl font-black ${
+                          social.digital_score.score >= 80 ? 'text-emerald-600' :
+                          social.digital_score.score >= 60 ? 'text-blue-600' :
+                          social.digital_score.score >= 40 ? 'text-amber-600' :
+                          social.digital_score.score >= 20 ? 'text-orange-600' : 'text-red-600'
+                        }`}>{social.digital_score.score}</span>
+                        <span className="text-[10px] text-slate-500">/100</span>
+                      </div>
+                    </div>
+                    <span className={`inline-block text-[11px] px-2.5 py-1 rounded-full font-bold mb-3 ${
+                      social.digital_score.score >= 80 ? 'bg-emerald-200 text-emerald-800' :
+                      social.digital_score.score >= 60 ? 'bg-blue-200 text-blue-800' :
+                      social.digital_score.score >= 40 ? 'bg-amber-200 text-amber-800' :
+                      social.digital_score.score >= 20 ? 'bg-orange-200 text-orange-800' : 'bg-red-200 text-red-800'
+                    }`}>{social.digital_score.level}</span>
+                    <div className="space-y-1.5 mb-3">
+                      {social.digital_score.breakdown?.map((b: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-600 w-28 truncate">{b.area}</span>
+                          <div className="flex-1 h-2 bg-white/60 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${
+                              b.score / b.max >= 0.7 ? 'bg-emerald-400' : b.score / b.max >= 0.4 ? 'bg-amber-400' : 'bg-red-400'
+                            }`} style={{ width: `${Math.round(b.score / b.max * 100)}%` }} />
+                          </div>
+                          <span className="text-[10px] text-slate-500 w-10 text-right">{b.score}/{b.max}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {social.digital_score.opportunities?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Opportunità di vendita</p>
+                        <div className="flex flex-wrap gap-1">
+                          {social.digital_score.opportunities.map((o: string, i: number) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white/70 text-slate-700 border border-slate-200">{o}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* LinkedIn */}
+                {social.linkedin && !social.linkedin.error ? (
+                  <div className="p-4 rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Linkedin className="w-4 h-4 text-sky-600" />
+                        <span className="text-sm font-bold text-slate-800">LinkedIn</span>
+                      </div>
+                      <a href={social.linkedin.url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-700">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                    {social.linkedin.company_name && <p className="text-xs text-slate-600 mb-2">{social.linkedin.company_name}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      {social.linkedin.followers_display && (
+                        <span className="text-[11px] px-2 py-1 rounded-full bg-white/70 text-slate-700 font-medium border border-sky-100">
+                          {social.linkedin.followers_display} follower
+                        </span>
+                      )}
+                      {social.linkedin.industry && (
+                        <span className="text-[11px] px-2 py-1 rounded-full bg-sky-100 text-sky-700 font-medium">
+                          {social.linkedin.industry}
+                        </span>
+                      )}
+                    </div>
+                    {social.linkedin.description && <p className="text-[11px] text-slate-500 mt-2 line-clamp-2">{social.linkedin.description}</p>}
+                  </div>
+                ) : social.social_links?.linkedin ? (
+                  <a href={social.social_links.linkedin} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-medium hover:bg-sky-100 transition-colors w-fit">
+                    <Linkedin className="w-3 h-3" /> LinkedIn
+                  </a>
+                ) : null}
+
+                {/* Facebook */}
+                {social.facebook && !social.facebook.error ? (
+                  <div className="p-3 rounded-xl border border-blue-200 bg-blue-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Facebook className="w-4 h-4 text-blue-600" />
+                      <div>
+                        <span className="text-sm font-bold text-slate-800">{social.facebook.page_name || 'Facebook'}</span>
+                        {social.facebook.likes_display && (
+                          <span className="ml-2 text-[11px] text-blue-600 font-medium">{social.facebook.likes_display} like</span>
+                        )}
+                      </div>
+                    </div>
+                    <a href={social.facebook.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                ) : social.social_links?.facebook ? (
+                  <a href={social.social_links.facebook} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors w-fit">
+                    <Facebook className="w-3 h-3" /> Facebook
+                  </a>
+                ) : null}
+
+                {/* YouTube */}
+                {social.social_links?.youtube && (
+                  <a href={social.social_links.youtube} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors w-fit">
+                    <Video className="w-3 h-3" /> YouTube
+                  </a>
+                )}
+
+                {/* Website Quality Score */}
+                {social.website_score && (
+                  <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-bold text-slate-800">Qualità Sito Web</span>
+                      <span className={`text-lg font-black ${
+                        social.website_score.score >= 70 ? 'text-emerald-600' :
+                        social.website_score.score >= 40 ? 'text-amber-600' : 'text-red-600'
+                      }`}>{social.website_score.score}/100</span>
+                    </div>
+                    {social.website_score.strengths?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {social.website_score.strengths.map((s: string, i: number) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">{s}</span>
+                        ))}
+                      </div>
+                    )}
+                    {social.website_score.issues?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {social.website_score.issues.slice(0, 6).map((s: string, i: number) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">{s}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex gap-3 text-[10px] text-slate-400">
+                      <span>{social.website_score.page_size_kb}KB</span>
+                      <span>{social.website_score.image_count} img</span>
+                      <span>{social.website_score.external_scripts_count} script</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Age */}
+                {social.domain_info && social.domain_info.first_seen && (
                   <div className="flex flex-wrap gap-2">
-                    {social.social_links.facebook && (
-                      <a href={social.social_links.facebook} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
-                        <Facebook className="w-3 h-3" /> Facebook
-                      </a>
-                    )}
-                    {social.social_links.linkedin && (
-                      <a href={social.social_links.linkedin} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-medium hover:bg-sky-100 transition-colors">
-                        <Linkedin className="w-3 h-3" /> LinkedIn
-                      </a>
-                    )}
-                    {social.social_links.youtube && (
-                      <a href={social.social_links.youtube} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors">
-                        <Video className="w-3 h-3" /> YouTube
-                      </a>
+                    <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium border border-indigo-200">
+                      Online dal {social.domain_info.first_seen}
+                      {social.domain_info.domain_age_years && ` (${social.domain_info.domain_age_years} anni)`}
+                    </span>
+                    {social.domain_info.snapshots && (
+                      <span className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
+                        {social.domain_info.snapshots} snapshot Wayback
+                      </span>
                     )}
                   </div>
                 )}
