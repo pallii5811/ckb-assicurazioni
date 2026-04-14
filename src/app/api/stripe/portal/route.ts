@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@/utils/supabase/server'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-02-25.clover',
-})
-
 export async function POST() {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe non configurato' }, { status: 503 })
+    }
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {

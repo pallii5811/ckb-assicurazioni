@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/utils/supabase/server'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-02-25.clover',
-})
-
 const PLAN_CREDITS: Record<string, number> = {
   starter: 500,
   pro: 3000,
@@ -13,6 +9,11 @@ const PLAN_CREDITS: Record<string, number> = {
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json({ error: 'Stripe non configurato' }, { status: 503 })
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
+
   const body = await req.text()
   const sig = req.headers.get('stripe-signature')
 

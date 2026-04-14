@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@/utils/supabase/server'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-02-25.clover',
-})
-
 // Map plan IDs to Stripe Price IDs (create these in Stripe Dashboard)
 const PLAN_PRICE_MAP: Record<string, string> = {
   starter: process.env.STRIPE_PRICE_STARTER || '',
@@ -15,6 +11,11 @@ const PLAN_PRICE_MAP: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe non configurato' }, { status: 503 })
+    }
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' })
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
