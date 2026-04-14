@@ -1589,12 +1589,12 @@ export default function DashboardShell() {
             </p>
 
             <div className="w-80 max-w-full">
-              <div className="bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
+              <div className="bg-slate-200 rounded-full h-3 overflow-hidden mb-3 relative">
                 <div
                   className="h-3 rounded-full bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600"
                   style={{
-                    animation: 'progressFill 20s ease-in-out forwards',
-                    width: '5%',
+                    animation: 'scrapingPulse 2.5s ease-in-out infinite',
+                    width: '60%',
                   }}
                 />
               </div>
@@ -1614,14 +1614,10 @@ export default function DashboardShell() {
               </div>
             </div>
             <style>{`
-              @keyframes progressFill {
-                0% { width: 5%; }
-                10% { width: 15%; }
-                30% { width: 35%; }
-                50% { width: 55%; }
-                70% { width: 70%; }
-                85% { width: 82%; }
-                100% { width: 92%; }
+              @keyframes scrapingPulse {
+                0% { width: 30%; opacity: 0.7; }
+                50% { width: 75%; opacity: 1; }
+                100% { width: 30%; opacity: 0.7; }
               }
             `}</style>
           </div>
@@ -1683,16 +1679,19 @@ export default function DashboardShell() {
         <>
           {Array.isArray(results) && results.length > 0 ? (
             <>
-              {autoScrapeLoading && (
+              {(isScraping || autoScrapeLoading) && (
                 <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-3 mx-4">
-                  <div className="h-4 w-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-violet-700">
-                      {results.length} lead trovati — Stiamo cercando altri risultati
+                  <div className="h-5 w-5 rounded-full border-[2.5px] border-blue-300 border-t-blue-600 animate-spin flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-blue-700">
+                      {results.length} lead trovati — Scraping in corso...
                     </p>
                     <p className="text-[11px] text-blue-500 mt-0.5">
-                      Analisi in tempo reale in corso. Attendi 5-10 minuti per risultati più completi. Puoi già consultare i lead trovati.
+                      Nuovi risultati appariranno automaticamente. Puoi già consultare i lead trovati.
                     </p>
+                    <div className="mt-2 bg-blue-200 rounded-full h-1.5 overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-blue-500" style={{ animation: 'scrapingPulse 2.5s ease-in-out infinite', width: '60%' }} />
+                    </div>
                   </div>
                 </div>
               )}
