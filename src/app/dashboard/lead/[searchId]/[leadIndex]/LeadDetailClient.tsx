@@ -938,25 +938,53 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 ))}
                 {/* Divider */}
                 {(clayData.allEmails?.length > 0 && clayData.allPhones?.length > 0) && <div className="border-t border-slate-100 my-1" />}
-                {/* Mobile phone */}
-                {clayData.mobilePhone && (
-                  <div className="flex items-center gap-2">
-                    <a href={`tel:${clayData.mobilePhone}`} className="flex items-center gap-2 text-xs text-emerald-600 hover:text-emerald-800 font-medium">
-                      <Phone className="w-3.5 h-3.5" />
-                      {clayData.mobilePhone}
-                    </a>
-                    <a href={`https://wa.me/39${clayData.mobilePhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold no-underline hover:bg-green-200">WA</a>
-                  </div>
-                )}
-                {/* All other phones */}
-                {clayData.allPhones?.filter((p: any) => p.number !== clayData.mobilePhone).slice(0, 3).map((p: any, i: number) => (
-                  <a key={i} href={`tel:${p.number}`} className="flex items-center gap-2 text-xs text-slate-600">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    {p.number}
-                    <span className="text-[8px] bg-slate-100 text-slate-500 px-1 rounded">{p.type}</span>
-                    {p.source && <span className="text-[7px] text-slate-400">{p.source.replace('website:','sito')}</span>}
-                  </a>
-                ))}
+                {/* Phones — only REAL validated numbers */}
+                {(() => {
+                  const isRealItPhone = (n: string) => {
+                    const d = n.replace(/\D/g, '')
+                    const local = d.startsWith('39') && d.length > 10 ? d.slice(2) : d
+                    if (local.length < 9 || local.length > 11) return false
+                    if (/^(\d)\1{5,}$/.test(local)) return false
+                    if (/^3[0-9]\d{8}$/.test(local)) return true
+                    if (/^0[1-9]\d{6,9}$/.test(local)) return true
+                    return false
+                  }
+                  const phones: { number: string; source: string; type: string; isMobile: boolean }[] = []
+                  const seen = new Set<string>()
+                  const addPhone = (num: string, src: string, type: string) => {
+                    if (!num || !isRealItPhone(num)) return
+                    const key = num.replace(/\D/g, '').slice(-9)
+                    if (seen.has(key)) return
+                    seen.add(key)
+                    const d = num.replace(/\D/g, '')
+                    const local = d.startsWith('39') && d.length > 10 ? d.slice(2) : d
+                    phones.push({ number: num, source: src, type, isMobile: /^3[0-9]/.test(local) })
+                  }
+                  // Lead original phone
+                  const origPhone = telefono || ''
+                  origPhone.split(/[\/,;]+/).forEach((p: string) => {
+                    const c = p.trim()
+                    if (c) addPhone(c, 'Maps', c.replace(/\D/g, '').startsWith('3') ? 'mobile' : 'fisso')
+                  })
+                  // Mobile phone from enrichment
+                  if (clayData.mobilePhone) addPhone(clayData.mobilePhone, 'enrichment', 'mobile')
+                  // All enrichment phones
+                  for (const p of (clayData.allPhones || [])) addPhone(p.number, p.source || 'enrichment', p.type || 'unknown')
+                  if (phones.length === 0) return null
+                  return phones.slice(0, 4).map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <a href={`tel:${p.number}`} className={`flex items-center gap-2 text-xs ${p.isMobile ? 'text-emerald-600 hover:text-emerald-800 font-medium' : 'text-slate-600'}`}>
+                        <Phone className={`w-3.5 h-3.5 ${p.isMobile ? '' : 'text-slate-400'}`} />
+                        {p.number}
+                      </a>
+                      <span className={`text-[8px] px-1 rounded font-bold ${p.isMobile ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{p.isMobile ? 'mobile' : 'fisso'}</span>
+                      {p.source && <span className="text-[7px] text-slate-400">{p.source.replace('website:','sito')}</span>}
+                      {p.isMobile && (
+                        <a href={`https://wa.me/39${p.number.replace(/\D/g, '').replace(/^39/, '')}`} target="_blank" rel="noreferrer" className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold no-underline hover:bg-green-200">WA</a>
+                      )}
+                    </div>
+                  ))
+                })()}
                 {/* Social links */}
                 <div className="border-t border-slate-100 my-1" />
                 <div className="flex flex-wrap gap-2">
