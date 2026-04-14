@@ -23,6 +23,7 @@ const PIVA_RE = [
   /(?:P\.?\s*I\.?V\.?A\.?|Partita\s*IVA)[\/\s:.\-]*(?:IT)?[\s]?(\d{11})/gi,
   /(?:C\.?\s*F\.?\s*(?:e\s*)?P\.?\s*I\.?V\.?A\.?)[\/\s:.\-]*(?:IT)?[\s]?(\d{11})/gi,
   /\bIT(\d{11})\b/g,
+  /\bP\.?\s?I\.?[\s:.\-]+(?:IT)?[\s]?(\d{11})/gi,
 ]
 
 function extractPivaFromHtml(html: string): string | null {
@@ -31,7 +32,7 @@ function extractPivaFromHtml(html: string): string | null {
     const m = re.exec(html)
     if (m?.[1]) return m[1]
   }
-  const area = html.match(/(?:P\.?\s*I\.?V\.?A|Partita\s*IVA|codice\s*fiscale).{0,100}/gi)
+  const area = html.match(/(?:P\.?\s*I\.?V\.?A|P\.?\s?I\.?\s|Partita\s*IVA|codice\s*fiscale).{0,100}/gi)
   if (area) {
     for (const a of area) {
       const d = a.match(/\b(\d{11})\b/)
