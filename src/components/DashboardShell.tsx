@@ -393,7 +393,7 @@ export default function DashboardShell() {
     try { sessionStorage.setItem('ckb_aiDebug', JSON.stringify(aiDebug)) } catch {}
   }, [aiDebug, isRestored])
 
-  const [searchMode, setSearchMode] = useState<'maps' | 'database'>('maps')
+  const [searchMode, setSearchMode] = useState<'maps' | 'database' | 'ambiente'>('maps')
   const [autoScrapeTriggered, setAutoScrapeTriggered] = useState(false)
   const [autoScrapeLoading, setAutoScrapeLoading] = useState(false)
   const [autoScrapeMessage, setAutoScrapeMessage] = useState<string | null>(null)
@@ -1419,21 +1419,18 @@ export default function DashboardShell() {
   return (
     <>
       {/* ── Tab switcher ── */}
-      <div className="flex items-center gap-1 mb-4 bg-slate-100 rounded-xl p-1 max-w-md">
+      <div className="flex items-center gap-1 mb-4 bg-slate-100 rounded-xl p-1 max-w-2xl overflow-x-auto">
         <button
-          onClick={() => setSearchMode('database')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            searchMode === 'database'
-              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
+          disabled
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-400 cursor-not-allowed opacity-60 relative"
         >
           <Database className="w-4 h-4" />
           Ricerca Referenti
+          <span className="absolute -top-1.5 -right-1 text-[7px] bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full font-bold uppercase">WIP</span>
         </button>
         <button
           onClick={() => setSearchMode('maps')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
             searchMode === 'maps'
               ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
               : 'text-slate-500 hover:text-slate-700'
@@ -1442,15 +1439,91 @@ export default function DashboardShell() {
           <MapPin className="w-4 h-4" />
           Ricerca per Categoria e Città
         </button>
+        <button
+          onClick={() => setSearchMode('ambiente')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+            searchMode === 'ambiente'
+              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          Ricerca Ambiente
+        </button>
       </div>
 
-      {/* ── Database Search Mode ── */}
-      {searchMode === 'database' ? (
-        <DatabaseSearchSection />
-      ) : (
+      {/* ── Database Search Mode (WIP) ── */}
+      {searchMode === 'database' && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
+            <Database className="w-7 h-7 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Ricerca Referenti — In Arrivo</h3>
+          <p className="text-slate-500 text-sm max-w-md mb-1">Questa funzionalità sarà disponibile tra qualche giorno.</p>
+          <p className="text-slate-400 text-xs">Cerca per ruolo/settore + città e ottieni nome, cognome, email, telefono, LinkedIn e molto altro.</p>
+        </div>
+      )}
+
+      {/* ── Ambiente Search Mode ── */}
+      {searchMode === 'ambiente' && (
+        <div className="mb-6 space-y-6 bg-slate-50 border border-slate-200 rounded-2xl p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+               Ricerca Ambiente (AI Deep Search)
+            </h2>
+            <p className="text-sm text-slate-500">
+              Usa l&apos;intelligenza artificiale per cercare aziende correlate in base a topic specifici.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-slate-700">Topic di Ricerca (Es. &quot;Imprese Edili Roma&quot;)</label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <input
+                type="text"
+                placeholder="Es. agenzie assicurative milano"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleExpandedSearchClick()
+                  }
+                }}
+                className="flex-1 px-4 py-3 text-sm text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-400"
+              />
+              <select
+                value={maxLeads}
+                onChange={(e) => setMaxLeads(Number(e.target.value))}
+                className="px-3 py-3 text-sm text-slate-700 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n} lead</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={handleExpandedSearchClick}
+                className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105 whitespace-nowrap"
+              >
+                <Sparkles className="w-5 h-5" />
+                Avvia Ricerca AI
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 max-w-lg leading-relaxed mt-1">
+              Troveremo centinaia di aziende collegate alla tua parola chiave. Questa ricerca richiede 2-3 minuti.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Maps Search Mode (+ Shared Results Render) ── */}
+      {searchMode !== 'database' && (
       <>
 
-      {/* ── Spiegazione + Filter chips ── */}
+      {/* ── Maps-specific: Spiegazione + Filter chips + Search ── */}
+      {searchMode === 'maps' && (
+      <>
       <div className="mb-3 px-1">
         <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
           <strong className="text-slate-700">Come cercare:</strong> scrivi <strong>categoria + città</strong> (es. &quot;Edilizia a Milano&quot;) per vedere le aziende.
@@ -1489,6 +1562,7 @@ export default function DashboardShell() {
         </div>
       </div>
 
+      {/* ── Selezione ricerca espansa (maps only) ── */}
       <SniperArea
         query={query}
         onQueryChange={setQuery}
@@ -1533,6 +1607,8 @@ export default function DashboardShell() {
           Analizza sito
         </button>
       </div>
+      </>
+      )}
 
       {aiAnalyzing ? (
         <div className="mb-4 flex items-center gap-2 text-xs text-slate-600">
