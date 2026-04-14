@@ -576,6 +576,18 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             <span style={{ margin: '0 8px', color: '#CBD5E1' }}>•</span>
             {categoria || category || '—'}
           </div>
+          {registry?.stima_premio?.totale_stimato && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#EEF2FF', border: '1px solid #C7D2FE',
+              borderRadius: 8, padding: '4px 12px', marginTop: 6,
+              fontSize: 12, fontWeight: 700, color: '#4338CA',
+              fontFamily: 'DM Sans, sans-serif',
+            }}>
+              <DollarSign size={13} />
+              Potenziale stimato: {registry.stima_premio.totale_stimato}/anno
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -813,6 +825,50 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           </div>
         </div>
       </div>
+
+      {/* ── Quick Insurance Summary (at-a-glance for broker) ── */}
+      {registry && !loadingRegistry && (registry.forma_giuridica || registry.codice_ateco || registry.fatturato || registry.dipendenti) && (
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 shadow-sm">
+          <div className="flex items-center flex-wrap gap-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Profilo rapido</span>
+            {registry.forma_giuridica && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                {registry.forma_giuridica}
+              </span>
+            )}
+            {registry.codice_ateco && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                ATECO {registry.codice_ateco}
+              </span>
+            )}
+            {registry.fatturato && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                € {registry.fatturato}
+              </span>
+            )}
+            {registry.dipendenti && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200">
+                {registry.dipendenti} dipendenti
+              </span>
+            )}
+            {registry.classificazione_eu?.classe && (
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
+                registry.classificazione_eu.classe === 'grande' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                registry.classificazione_eu.classe === 'media' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                registry.classificazione_eu.classe === 'piccola' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                'bg-slate-50 text-slate-600 border-slate-200'
+              }`}>
+                {registry.classificazione_eu.label}
+              </span>
+            )}
+            {registry.obblighi_assicurativi?.polizze_obbligatorie?.slice(0, 2).map((p: string, i: number) => (
+              <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200">
+                {p.length > 40 ? p.slice(0, 37) + '...' : p}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Clay Enrichment Data ── */}
       {loadingClay ? (
@@ -1895,8 +1951,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     <div>
                       <p className="text-xs text-gray-500">
                         Fatturato
-                        {registry.fatturato_fonte === 'registro_imprese' ? (
-                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ Registro Imprese</span>
+                        {registry.fatturato_fonte ? (
+                          <span className={`ml-1.5 font-semibold ${
+                            registry.fatturato_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'
+                          }`}>✓ {
+                            registry.fatturato_fonte === 'companyreports.it' ? 'CompanyReports.it' :
+                            registry.fatturato_fonte === 'openapi.it' ? 'OpenAPI.it' :
+                            'Registro Imprese'
+                          }</span>
                         ) : null}
                       </p>
                       <p className="text-sm font-semibold text-slate-900">
@@ -1911,8 +1973,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     <div>
                       <p className="text-xs text-gray-500">
                         Dipendenti
-                        {registry.dipendenti_fonte === 'registro_imprese' ? (
-                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ Registro Imprese</span>
+                        {registry.dipendenti_fonte ? (
+                          <span className={`ml-1.5 font-semibold ${
+                            registry.dipendenti_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'
+                          }`}>✓ {
+                            registry.dipendenti_fonte === 'companyreports.it' ? 'CompanyReports.it' :
+                            registry.dipendenti_fonte === 'openapi.it' ? 'OpenAPI.it' :
+                            'Registro Imprese'
+                          }</span>
                         ) : null}
                       </p>
                       <p className="text-sm font-semibold text-slate-900">{registry.dipendenti}</p>
@@ -1933,7 +2001,26 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   {registry.data_costituzione ? (
                     <div>
                       <p className="text-xs text-gray-500">Data costituzione</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.data_costituzione}</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {registry.data_costituzione}
+                        {(() => {
+                          const y = parseInt(String(registry.data_costituzione).match(/\d{4}/)?.[0] || '0')
+                          if (y > 1900 && y <= new Date().getFullYear()) {
+                            const anni = new Date().getFullYear() - y
+                            return (
+                              <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${
+                                anni >= 20 ? 'bg-emerald-100 text-emerald-700' :
+                                anni >= 10 ? 'bg-blue-100 text-blue-700' :
+                                anni >= 5 ? 'bg-amber-100 text-amber-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {anni} anni di attività
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
+                      </p>
                     </div>
                   ) : null}
                   {registry.sede_legale ? (

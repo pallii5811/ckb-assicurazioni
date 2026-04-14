@@ -331,7 +331,8 @@ export async function POST(req: NextRequest) {
     const baseUrl = website.startsWith('http') ? website : `https://${website}`
     const origin = (() => { try { return new URL(baseUrl).origin } catch { return baseUrl } })()
     const mainHtml = await fetchHtmlSafe(baseUrl, 6000)
-    websitePiva = extractPivaFromHtml(mainHtml)
+    const sitePiva = extractPivaFromHtml(mainHtml)
+    if (sitePiva) websitePiva = sitePiva
     if (!websitePiva) {
       const pages = ['/contatti', '/contacts', '/privacy', '/privacy-policy', '/chi-siamo']
       const fetches = await Promise.allSettled(pages.slice(0, 3).map(p => fetchHtmlSafe(`${origin}${p}`, 4000)))
@@ -402,15 +403,29 @@ export async function POST(req: NextRequest) {
     profile.forma_giuridica = formaFromName
   }
 
-  // REAL fatturato & dipendenti
-  if (src.fatturato) {
-    profile.fatturato = src.fatturato
-    if (src.fatturato_anno) profile.fatturato_anno = src.fatturato_anno
-    profile.fatturato_fonte = src.fatturato_fonte || 'registro_imprese'
+  // REAL fatturato & dipendenti — track exact source
+  if (crData?.fatturato) {
+    profile.fatturato = crData.fatturato
+    if (crData.fatturato_anno) profile.fatturato_anno = crData.fatturato_anno
+    profile.fatturato_fonte = 'companyreports.it'
+  } else if (oaData?.fatturato) {
+    profile.fatturato = oaData.fatturato
+    if (oaData.fatturato_anno) profile.fatturato_anno = oaData.fatturato_anno
+    profile.fatturato_fonte = 'openapi.it'
+  } else if (backendData?.fatturato) {
+    profile.fatturato = backendData.fatturato
+    if (backendData.fatturato_anno) profile.fatturato_anno = backendData.fatturato_anno
+    profile.fatturato_fonte = 'registro_imprese'
   }
-  if (src.dipendenti) {
-    profile.dipendenti = src.dipendenti
-    profile.dipendenti_fonte = src.dipendenti_fonte || 'registro_imprese'
+  if (crData?.dipendenti) {
+    profile.dipendenti = crData.dipendenti
+    profile.dipendenti_fonte = 'companyreports.it'
+  } else if (oaData?.dipendenti) {
+    profile.dipendenti = oaData.dipendenti
+    profile.dipendenti_fonte = 'openapi.it'
+  } else if (backendData?.dipendenti) {
+    profile.dipendenti = backendData.dipendenti
+    profile.dipendenti_fonte = 'registro_imprese'
   }
   if (src.costo_personale) profile.costo_personale = src.costo_personale
   if (src.capitale_sociale) profile.capitale_sociale = src.capitale_sociale
