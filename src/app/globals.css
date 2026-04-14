@@ -205,24 +205,24 @@ a {
   }
 }
 
-img[src*="mirax-logo"],
-img[alt="MiraX"],
-img[alt="Mirax"] {
+img[src*="ckb-logo"],
+img[alt="CKB"],
+img[alt="CKB Assicurazione"] {
   width: 220px !important;
   height: auto !important;
   min-width: 180px;
 }
 
 @media (max-width: 768px) {
-  img[src*="mirax-logo"],
-  img[alt="MiraX"],
-  img[alt="Mirax"] {
+  img[src*="ckb-logo"],
+  img[alt="CKB"],
+  img[alt="CKB Assicurazione"] {
     width: 150px !important;
     min-width: 150px;
   }
  }
 
- /* ===== MIRAX PREMIUM ANIMATIONS ===== */
+ /* ===== CKB PREMIUM ANIMATIONS ===== */
  @keyframes fadeInUp {
    from { opacity: 0; transform: translateY(24px); }
    to { opacity: 1; transform: translateY(0); }
@@ -343,47 +343,47 @@ img[alt="Mirax"] {
  .delay-600 { animation-delay: 600ms; }
 
 /* ============================================
-   MIRAX DESIGN SYSTEM
-   Inspired by ZoomInfo + Lusha + WeTracked
+   CKB DESIGN SYSTEM
+   Insurance Intelligence Platform
    ============================================ */
 
 /* Import fonts */
 
 :root {
   /* Brand Colors */
-  --mirax-black: #080B11;
-  --mirax-dark: #0D1117;
-  --mirax-card: #111827;
-  --mirax-card-hover: #1a2235;
-  --mirax-border: rgba(255,255,255,0.06);
-  --mirax-border-hover: rgba(255,255,255,0.12);
+  --ckb-black: #080B11;
+  --ckb-dark: #0D1117;
+  --ckb-card: #111827;
+  --ckb-card-hover: #1a2235;
+  --ckb-border: rgba(255,255,255,0.06);
+  --ckb-border-hover: rgba(255,255,255,0.12);
   
   /* Accent — Electric Blue come ZoomInfo */
-  --mirax-blue: #2563EB;
-  --mirax-blue-light: #3B82F6;
-  --mirax-blue-glow: rgba(37,99,235,0.15);
+  --ckb-blue: #2563EB;
+  --ckb-blue-light: #3B82F6;
+  --ckb-blue-glow: rgba(37,99,235,0.15);
   
   /* Secondary Accent */
-  --mirax-cyan: #06B6D4;
-  --mirax-cyan-glow: rgba(6,182,212,0.1);
+  --ckb-cyan: #06B6D4;
+  --ckb-cyan-glow: rgba(6,182,212,0.1);
 
   /* Text */
-  --mirax-text-primary: #F8FAFC;
-  --mirax-text-secondary: #94A3B8;
-  --mirax-text-muted: #475569;
+  --ckb-text-primary: #F8FAFC;
+  --ckb-text-secondary: #94A3B8;
+  --ckb-text-muted: #475569;
 
   /* Gradients */
-  --mirax-gradient-hero: radial-gradient(
+  --ckb-gradient-hero: radial-gradient(
     ellipse 80% 50% at 50% -10%,
     rgba(37,99,235,0.25) 0%,
     transparent 70%
   );
-  --mirax-gradient-card: linear-gradient(
+  --ckb-gradient-card: linear-gradient(
     135deg,
     rgba(255,255,255,0.05) 0%,
     rgba(255,255,255,0.02) 100%
   );
-  --mirax-gradient-button: linear-gradient(
+  --ckb-gradient-button: linear-gradient(
     135deg,
     #2563EB 0%,
     #1D4ED8 100%
@@ -392,8 +392,8 @@ img[alt="Mirax"] {
 
 /* Base */
 body {
-  background-color: var(--mirax-black) !important;
-  color: var(--mirax-text-primary) !important;
+  background-color: var(--ckb-black) !important;
+  color: var(--ckb-text-primary) !important;
   font-family: 'DM Sans', sans-serif !important;
 }
 
@@ -405,26 +405,26 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Hero gradient background */
 .hero-gradient {
-  background: var(--mirax-gradient-hero);
+  background: var(--ckb-gradient-hero);
 }
 
 /* Cards */
-.mirax-card {
-  background: var(--mirax-gradient-card);
-  border: 1px solid var(--mirax-border);
+.ckb-card {
+  background: var(--ckb-gradient-card);
+  border: 1px solid var(--ckb-border);
   backdrop-filter: blur(12px);
   transition: all 0.3s ease;
 }
-.mirax-card:hover {
-  border-color: var(--mirax-border-hover);
+.ckb-card:hover {
+  border-color: var(--ckb-border-hover);
   transform: translateY(-2px);
   box-shadow: 0 20px 40px rgba(0,0,0,0.3),
               0 0 0 1px rgba(37,99,235,0.1);
 }
 
 /* Buttons */
-.mirax-btn-primary {
-  background: var(--mirax-gradient-button) !important;
+.ckb-btn-primary {
+  background: var(--ckb-gradient-button) !important;
   color: white !important;
   border: none !important;
   font-family: 'DM Sans', sans-serif !important;
@@ -434,14 +434,14 @@ h1, h2, h3, h4, h5, h6 {
               inset 0 1px 0 rgba(255,255,255,0.1) !important;
   transition: all 0.2s ease !important;
 }
-.mirax-btn-primary:hover {
+.ckb-btn-primary:hover {
   box-shadow: 0 8px 25px rgba(37,99,235,0.5),
               inset 0 1px 0 rgba(255,255,255,0.15) !important;
   transform: translateY(-1px) !important;
 }
 
 /* Badges e tag */
-.mirax-badge {
+.ckb-badge {
   background: rgba(37,99,235,0.12);
   border: 1px solid rgba(37,99,235,0.25);
   color: #93C5FD;
@@ -453,12 +453,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Glow effects */
-.mirax-glow-blue {
+.ckb-glow-blue {
   box-shadow: 0 0 40px rgba(37,99,235,0.2);
 }
 
 /* Grid lines background come ZoomInfo */
-.mirax-grid-bg {
+.ckb-grid-bg {
   background-image: 
     linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
@@ -466,7 +466,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Animated gradient text */
-.mirax-gradient-text {
+.ckb-gradient-text {
   background: linear-gradient(135deg, #F8FAFC 0%, #93C5FD 50%, #06B6D4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -474,7 +474,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Noise texture overlay */
-.mirax-noise::after {
+.ckb-noise::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -484,33 +484,33 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Animazioni */
-@keyframes mirax-fade-up {
+@keyframes ckb-fade-up {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes mirax-glow-pulse {
+@keyframes ckb-glow-pulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
-@keyframes mirax-float {
+@keyframes ckb-float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }
 }
 
-.mirax-animate-fade-up {
-  animation: mirax-fade-up 0.6s ease forwards;
+.ckb-animate-fade-up {
+  animation: ckb-fade-up 0.6s ease forwards;
 }
-.mirax-animate-glow {
-  animation: mirax-glow-pulse 3s ease infinite;
+.ckb-animate-glow {
+  animation: ckb-glow-pulse 3s ease infinite;
 }
-.mirax-animate-float {
-  animation: mirax-float 4s ease infinite;
+.ckb-animate-float {
+  animation: ckb-float 4s ease infinite;
 }
 
 /* Scrollbar custom */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--mirax-dark); }
+::-webkit-scrollbar-track { background: var(--ckb-dark); }
 ::-webkit-scrollbar-thumb { 
-  background: var(--mirax-blue);
+  background: var(--ckb-blue);
   border-radius: 3px;
 }

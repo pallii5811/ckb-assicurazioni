@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Termini di Servizio | MIRAX',
-  description: 'Termini e condizioni di utilizzo della piattaforma MIRAX.',
+  title: 'Termini di Servizio | CKB Assicurazione',
+  description: 'Termini e condizioni di utilizzo della piattaforma CKB Assicurazione.',
 }
 
 export default function TermsPage() {
@@ -12,7 +12,7 @@ export default function TermsPage() {
       <nav className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-lg font-bold text-slate-900" style={{ fontFamily: 'Syne, sans-serif' }}>
-            MIRAX
+            CKB Assicurazione
           </Link>
           <Link href="/" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
             ← Torna alla home
@@ -30,7 +30,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">1. Accettazione dei Termini</h2>
             <p>
-              Accedendo e utilizzando la piattaforma MIRAX (&quot;Servizio&quot;), accetti di essere vincolato
+              Accedendo e utilizzando la piattaforma CKB Assicurazione (&quot;Servizio&quot;), accetti di essere vincolato
               dai presenti Termini di Servizio. Se non accetti questi termini, non utilizzare il Servizio.
               L&apos;uso continuato della piattaforma dopo eventuali modifiche costituisce accettazione dei termini aggiornati.
             </p>
@@ -39,7 +39,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">2. Descrizione del Servizio</h2>
             <p>
-              MIRAX è una piattaforma SaaS di lead generation B2B che consente agli utenti di:
+              CKB Assicurazione è una piattaforma SaaS di lead generation B2B che consente agli utenti di:
             </p>
             <ul className="list-disc pl-6 space-y-1 mt-2">
               <li>Ricercare aziende per categoria e localizzazione geografica</li>
@@ -93,7 +93,7 @@ export default function TermsPage() {
             <p>
               Offriamo una garanzia di 14 giorni dalla prima sottoscrizione di un piano a pagamento.
               Se non sei soddisfatto, puoi richiedere il rimborso completo scrivendo a{' '}
-              <a href="mailto:supporto@mirax.it" className="text-violet-600 hover:underline">supporto@mirax.it</a>{' '}
+              <a href="mailto:supporto@ckbassicurazione.it" className="text-violet-600 hover:underline">supporto@ckbassicurazione.it</a>{' '}
               entro 14 giorni dalla data di acquisto.
             </p>
           </section>
@@ -114,7 +114,7 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">8. Proprietà Intellettuale</h2>
             <p>
               Tutti i contenuti, il software, i loghi, la grafica e i marchi presenti sulla piattaforma
-              sono di proprietà esclusiva di MIRAX o dei rispettivi titolari. È vietata qualsiasi riproduzione,
+              sono di proprietà esclusiva di CKB Assicurazione o dei rispettivi titolari. È vietata qualsiasi riproduzione,
               distribuzione o modifica non autorizzata.
             </p>
           </section>
@@ -122,7 +122,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">9. Limitazione di Responsabilità</h2>
             <p>
-              MIRAX fornisce il Servizio &quot;così com&apos;è&quot; (as is). Non garantiamo che:
+              CKB Assicurazione fornisce il Servizio &quot;così com&apos;è&quot; (as is). Non garantiamo che:
             </p>
             <ul className="list-disc pl-6 space-y-1 mt-2">
               <li>I dati dei lead siano sempre completi, aggiornati o accurati al 100%</li>
@@ -130,7 +130,7 @@ export default function TermsPage() {
               <li>I risultati ottenuti portino a specifici risultati commerciali</li>
             </ul>
             <p className="mt-2">
-              In nessun caso MIRAX sarà responsabile per danni indiretti, consequenziali, punitivi o
+              In nessun caso CKB Assicurazione sarà responsabile per danni indiretti, consequenziali, punitivi o
               perdite di profitto derivanti dall&apos;uso del Servizio.
             </p>
           </section>
@@ -157,7 +157,7 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">12. Contatti</h2>
             <p>
               Per domande relative ai presenti Termini, contattaci a{' '}
-              <a href="mailto:supporto@mirax.it" className="text-violet-600 hover:underline">supporto@mirax.it</a>.
+              <a href="mailto:supporto@ckbassicurazione.it" className="text-violet-600 hover:underline">supporto@ckbassicurazione.it</a>.
             </p>
           </section>
         </div>

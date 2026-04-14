@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   if (secret) {
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex')
-    headers['X-MiraX-Signature'] = `sha256=${signature}`
+    headers['X-CKB-Signature'] = `sha256=${signature}`
   }
 
   try {

@@ -270,7 +270,7 @@ export default function ProductShowcase() {
           </h2>
           <p className="text-lg text-slate-400 font-['DM_Sans'] max-w-xl mx-auto">
             Dalla ricerca al contatto, tutto in un flusso continuo.
-            Vedi esattamente cosa fa MIRAX per te.
+            Vedi esattamente cosa fa CKB per te.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 # Backend Mirror
 
-Copia locale dei file backend/worker dal server `116.203.137.39`.
+Copia locale dei file backend/worker dal server CKB dedicato `46.225.189.40`.
 
 **Data snapshot**: 9 Aprile 2026, 15:42 UTC+2
 

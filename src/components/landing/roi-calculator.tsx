@@ -49,7 +49,7 @@ export function ROICalculator() {
           </span>
           <br />
           <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
-            Zero con MIRAX.
+            Zero con CKB.
           </span>
         </motion.h2>
 

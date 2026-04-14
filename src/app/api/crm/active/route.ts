@@ -16,7 +16,10 @@ export async function GET(_: NextRequest) {
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Table might not exist yet — return null instead of 500
+    return Response.json({ integration: null })
+  }
 
   const list = Array.isArray(data) ? data : []
   const preferred = list.find((i) => i.type === 'hubspot') ?? list.find((i) => i.type === 'webhook') ?? null

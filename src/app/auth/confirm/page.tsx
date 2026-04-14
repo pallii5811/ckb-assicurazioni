@@ -15,7 +15,7 @@ export default function AuthConfirmPage() {
             <Card className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_30px_120px_-60px_rgba(0,0,0,0.9)] backdrop-blur-xl">
               <div className="flex flex-col items-center mb-6">
                 <div className="w-full flex items-center justify-center">
-                  <img src="/mirax-logo-white.svg" alt="MiraX" style={{ width: '220px', height: 'auto' }} />
+                  <img src="/ckb-logo-white.svg" alt="CKB Assicurazione" style={{ width: '220px', height: 'auto' }} />
                 </div>
                 <div className="mt-2 text-sm text-white/60">Conferma email</div>
               </div>

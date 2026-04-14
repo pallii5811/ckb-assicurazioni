@@ -70,13 +70,13 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
                 onClick={() => handleNavigate(item.href)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150 text-[13px] ${
                   pathname === item.href
-                    ? 'bg-violet-50 text-violet-700 font-bold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                    ? 'bg-blue-50 text-blue-700 font-bold'
+                    : 'text-slate-600 hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-medium'
                 }`}
               >
                 <item.icon
                   className={`w-[18px] h-[18px] flex-shrink-0 ${
-                    pathname === item.href ? 'text-violet-600' : 'text-slate-400'
+                    pathname === item.href ? 'text-blue-500' : 'text-slate-400'
                   }`}
                 />
                 <span>{item.label}</span>
@@ -91,7 +91,7 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[12px] font-bold text-slate-700">Crediti</span>
-            <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200 text-[10px] px-1.5 py-0">
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] px-1.5 py-0">
               {planLabel}
             </Badge>
           </div>
@@ -109,7 +109,7 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
             type="button"
             onClick={() => handleNavigate('/dashboard/billing')}
             size="sm"
-            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[12px] shadow-sm"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-[12px] shadow-sm"
           >
             Upgrade
           </Button>

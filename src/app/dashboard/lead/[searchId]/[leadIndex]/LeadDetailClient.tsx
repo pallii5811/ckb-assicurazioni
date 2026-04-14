@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -27,9 +27,23 @@ import {
   Video,
   Check,
   Loader2,
+  Phone,
+  Shield,
+  Users,
+  Briefcase,
+  MapPin,
+  Globe,
+  AlertTriangle,
+  Zap,
+  Clock,
+  Newspaper,
+  UserPlus,
+  DollarSign,
+  Scale,
 } from 'lucide-react'
 import { calcOpportunityScore } from '@/components/ResultsTable'
 import { generatePitchAction } from '@/app/dashboard/actions'
+import { analyzeReviewsForRisk } from '@/lib/insurance-analysis'
 
 type LeadDetailClientProps = {
   lead: any | null
@@ -69,23 +83,48 @@ function formatFollowers(n: number | null): string {
   return String(Math.round(n))
 }
 
+function formatVisibleSource(source: string): string {
+  const s = source.toLowerCase()
+  if (s.includes('registro')) return 'Registro Imprese'
+  if (s.includes('vies')) return 'VIES'
+  if (s.includes('linkedin')) return 'LinkedIn'
+  if (s.includes('inipec') || s.includes('ini-pec') || s.includes('pec')) return 'INI-PEC'
+  if (s.includes('apollo') || s.includes('snov') || s.includes('hunter')) return 'Fonti professionali'
+  if (s.includes('google') || s.includes('maps')) return 'Fonti pubbliche'
+  if (s.includes('website') || s.includes('web')) return 'Sito web'
+  return source.replace(/[_-]/g, ' ').trim()
+}
+
 export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, category, location }: LeadDetailClientProps) {
-  // Fallback: read from sessionStorage if lead was not provided by the server
+  // Primary source: the exact lead saved when user clicked "Dettaglio Lead"
+  // This bypasses any index mismatch between filtered display and unfiltered Supabase array
   const [sessionLead, setSessionLead] = useState<any>(null)
   useEffect(() => {
-    if (leadProp) return
     try {
-      const raw = sessionStorage.getItem('ckb_results')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed) && parsed[leadIndex]) {
-          setSessionLead(parsed[leadIndex])
+      // 1. Check for the exact lead saved on click (most reliable)
+      const activeLead = sessionStorage.getItem('ckb_active_lead')
+      if (activeLead) {
+        const parsed = JSON.parse(activeLead)
+        if (parsed && typeof parsed === 'object') {
+          setSessionLead(parsed)
+          return
+        }
+      }
+      // 2. Fallback: look up by index in cached results array
+      if (!leadProp) {
+        const raw = sessionStorage.getItem('ckb_results')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed) && parsed[leadIndex]) {
+            setSessionLead(parsed[leadIndex])
+          }
         }
       }
     } catch {}
   }, [leadProp, leadIndex])
 
-  const lead = leadProp || sessionLead
+  // sessionLead (from click) takes priority over server prop (may have wrong index)
+  const lead = sessionLead || leadProp
 
   const score = useMemo(() => {
     try {
@@ -142,7 +181,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         ? 'text-emerald-600'
         : loadSpeedSeconds <= 4
           ? 'text-amber-600'
-          : 'text-rose-600'
+          : 'text-indigo-600'
       : 'text-slate-500'
 
   const seoErrors: string[] = Array.isArray(lead?.html_errors)
@@ -154,17 +193,27 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const opportunityItems = useMemo(() => {
     if (!lead) return []
     const out: string[] = []
-    if (!sslOk) out.push('SSL non attivo')
-    if (!hasPixel) out.push('Meta Pixel assente')
-    if (!hasGtm) out.push('Google Tag Manager assente')
-    if (!hasGoogleAds) out.push('Google Ads assente')
-    if (typeof loadSpeedSeconds === 'number' && Number.isFinite(loadSpeedSeconds) && loadSpeedSeconds > 3) out.push('Sito lento')
-    if (seoErrors.length > 0) out.push('Errori SEO/HTML presenti')
-    if (techStack.length > 0) out.push('Tech stack identificato')
+    const cat = ((lead as any)?.categoria || (lead as any)?.category || '').toLowerCase()
+    const nome = ((lead as any)?.nome || (lead as any)?.name || '').toLowerCase()
+    const combined = `${nome} ${cat}`
+    if (/costruzion|edili|edile|impian|cantier/.test(combined)) out.push('Settore ad alto rischio infortuni')
+    if (/s\.?r\.?l|s\.?p\.?a/.test(nome)) out.push('Società di capitali — serve D&O e Cyber')
+    if (/medic|dentist|clinic|farmaci/.test(combined)) out.push('Settore sanitario — RC Medica obbligatoria')
+    if (/ristorant|bar |pizz|aliment|panific/.test(combined)) out.push('Rischio incendio e RC Terzi elevato')
+    if (/trasport|logistic|spedizion/.test(combined)) out.push('Flotta veicoli e merci da assicurare')
+    if (/avvocat|commerciali|notai|architect|ingegner|consulen/.test(combined)) out.push('RC Professionale obbligatoria')
+    if (out.length === 0) out.push('Analisi rischi disponibile nel dettaglio')
     return out
-  }, [lead, hasGoogleAds, hasGtm, hasPixel, loadSpeedSeconds, seoErrors.length, sslOk, techStack.length])
+  }, [lead])
 
   const [reviews, setReviews] = useState<any>(null)
+  const reviewRiskSignals = useMemo(() => {
+    if (!reviews?.reviews || !Array.isArray(reviews.reviews)) return null
+    const texts = reviews.reviews.map((r: any) => r?.text || '').filter(Boolean)
+    if (texts.length === 0) return null
+    const result = analyzeReviewsForRisk(texts)
+    return result.found ? result : null
+  }, [reviews])
   const [social, setSocial] = useState<any>(null)
   const [ads, setAds] = useState<any>(null)
   const [competitors, setCompetitors] = useState<any>(null)
@@ -176,6 +225,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const [loadingCompetitors, setLoadingCompetitors] = useState(true)
   const [loadingTrends, setLoadingTrends] = useState(true)
   const [loadingRegistry, setLoadingRegistry] = useState(true)
+  const [clayData, setClayData] = useState<any>(null)
+  const [loadingClay, setLoadingClay] = useState(true)
+  const [triggersData, setTriggersData] = useState<any>(null)
+  const [loadingTriggers, setLoadingTriggers] = useState(false)
+  const [peopleData, setPeopleData] = useState<any>(null)
+  const [loadingPeople, setLoadingPeople] = useState(false)
 
   const [monitorStatus, setMonitorStatus] = useState<'idle' | 'saving' | 'monitored' | 'error'>('idle')
   const [monitorError, setMonitorError] = useState<string | null>(null)
@@ -273,14 +328,106 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       .then((d) => setRegistry(d))
       .catch(() => setRegistry(null))
       .finally(() => setLoadingRegistry(false))
+
+    // Clay-style enrichment (all sources)
+    setLoadingClay(true)
+    fetch('/api/enrich-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lead: {
+          nome: lead?.nome || lead?.azienda || lead?.business_name || '',
+          sito: lead?.sito || lead?.website || lead?.url || '',
+          telefono: lead?.telefono || lead?.phone || '',
+          email: lead?.email || '',
+          citta: lead?.citta || lead?.city || location || '',
+          categoria: lead?.categoria || lead?.category || category || '',
+          indirizzo: lead?.indirizzo || lead?.address || lead?.via || '',
+        },
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => setClayData(d))
+      .catch(() => setClayData(null))
+      .finally(() => setLoadingClay(false))
   }, [lead, category])
+
+  // Fetch B2B triggers once registry data is available
+  useEffect(() => {
+    if (!lead || loadingRegistry) return
+    setLoadingTriggers(true)
+    fetch('/api/lead-triggers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lead: {
+          nome: lead?.nome || lead?.azienda || lead?.business_name || '',
+          citta: lead?.citta || lead?.city || location || '',
+          categoria: lead?.categoria || lead?.category || category || '',
+          sito: lead?.sito || lead?.website || lead?.url || '',
+        },
+        registry: registry || {},
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => setTriggersData(d))
+      .catch(() => setTriggersData(null))
+      .finally(() => setLoadingTriggers(false))
+
+    // Fetch people enrichment in parallel
+    setLoadingPeople(true)
+    fetch('/api/lead-people', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyName: lead?.nome || lead?.azienda || lead?.business_name || '',
+        ragioneSociale: registry?.ragione_sociale || clayData?.ragioneSociale || clayData?.ragineSociale || null,
+        city: lead?.citta || lead?.city || location || '',
+        piva: registry?.partita_iva || clayData?.partitaIva || null,
+        categoria: lead?.categoria || lead?.category || category || '',
+        formaGiuridica: registry?.forma_giuridica || clayData?.formaGiuridica || null,
+        website: lead?.sito || lead?.website || lead?.url || '',
+        teamMembers: clayData?.teamMembers || [],
+        personName: clayData?.personName || null,
+        personRole: clayData?.personRole || null,
+        linkedinPerson: clayData?.linkedinPerson || null,
+        linkedinCompany: clayData?.linkedinCompany || null,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => setPeopleData(d))
+      .catch(() => setPeopleData(null))
+      .finally(() => setLoadingPeople(false))
+  }, [lead, registry, loadingRegistry, category, location])
 
   useEffect(() => {
     const baseName = nome || 'Ciao'
-    setColdEmail(
-      `Oggetto: Una proposta per ${baseName}\n\nCiao ${baseName},\n\nHo notato alcune opportunità sul vostro sito e credo si possa migliorare rapidamente performance e tracciamenti.\n\nSe ti va, posso mandarti un audit rapido (gratuito) con 3 interventi prioritari.\n\nTi interessa parlarne?\n\nGrazie,\n[Il tuo nome]`
-    )
-  }, [nome])
+    const settore = registry?.obblighi_assicurativi?.settore || categoria || ''
+    const formaGiur = registry?.forma_giuridica || ''
+    const gapTop = registry?.gap_analysis?.gaps?.[0]?.area || ''
+    const polizzaPrincipale = registry?.bisogni_assicurativi_verificati?.playbook_commerciale?.prodotto_principale || ''
+
+    let body = `Oggetto: Analisi gratuita coperture assicurative per ${baseName}\n\nGentile ${baseName},\n\n`
+    if (settore) {
+      body += `Mi occupo di consulenza assicurativa specializzata nel settore ${settore}`
+      if (formaGiur) body += ` per aziende con forma ${formaGiur}`
+      body += `.\n\n`
+    } else {
+      body += `Mi occupo di consulenza assicurativa per imprese.\n\n`
+    }
+    if (gapTop) {
+      body += `Dalla nostra analisi preliminare, emerge che un'area critica per la vostra realtà è: ${gapTop}. Spesso le coperture standard non coprono adeguatamente questo rischio.\n\n`
+    } else {
+      body += `Ho analizzato il vostro settore: emergono alcuni rischi specifici che spesso non sono adeguatamente coperti.\n\n`
+    }
+    if (polizzaPrincipale) {
+      body += `Posso inviarvi un'analisi gratuita focalizzata su ${polizzaPrincipale} con 3 raccomandazioni prioritarie?\n\n`
+    } else {
+      body += `Posso inviarvi un'analisi gratuita delle vostre coperture attuali con 3 raccomandazioni prioritarie?\n\n`
+    }
+    body += `Resta inteso che non c'è alcun impegno.\n\nCordiali saluti,\n[Il tuo nome]\nCKB Assicurazione`
+    setColdEmail(body)
+  }, [nome, registry, categoria])
 
   if (!lead) {
     return (
@@ -574,127 +721,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           </div>
         </div>
 
-        {/* Analisi Tecnica */}
-        <div style={{
-          background: 'white', border: '1px solid #F1F5F9',
-          borderRadius: 16, padding: '24px',
-          boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
-        }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, color: '#94A3B8',
-            textTransform: 'uppercase', letterSpacing: '0.1em',
-            fontFamily: 'DM Sans, sans-serif', marginBottom: 16,
-          }}>
-            Analisi Tecnica
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {[
-              { label: 'SSL', ok: sslOk },
-              { label: 'Meta Pixel', ok: hasPixel },
-              { label: 'Google Tag Manager', ok: hasGtm },
-              { label: 'Google Ads', ok: hasGoogleAds },
-            ].map(({ label, ok }) => (
-              <div key={label} style={{
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 0',
-                borderBottom: '1px solid #F8FAFC',
-              }}>
-                <span style={{
-                  fontSize: 13, fontWeight: 500, color: '#334155',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {label}
-                </span>
-                <span style={{
-                  fontSize: 11, fontWeight: 700,
-                  padding: '3px 10px', borderRadius: 999,
-                  background: ok ? '#F0FDF4' : '#FEF2F2',
-                  color: ok ? '#16A34A' : '#DC2626',
-                  border: `1px solid ${ok ? '#BBF7D0' : '#FECACA'}`,
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {ok ? '✓ Attivo' : '✗ Assente'}
-                </span>
-              </div>
-            ))}
-            <div style={{
-              display: 'flex', alignItems: 'center',
-              justifyContent: 'space-between', padding: '10px 0',
-            }}>
-              <span style={{
-                fontSize: 13, fontWeight: 500, color: '#334155',
-                fontFamily: 'DM Sans, sans-serif',
-              }}>
-                Velocità
-              </span>
-              <span style={{
-                fontSize: 13, fontWeight: 700,
-                color: typeof loadSpeedSeconds === 'number' && Number.isFinite(loadSpeedSeconds)
-                  ? loadSpeedSeconds < 2 ? '#16A34A' : loadSpeedSeconds <= 4 ? '#D97706' : '#DC2626'
-                  : '#94A3B8',
-                fontFamily: 'DM Sans, sans-serif',
-              }}>
-                {typeof loadSpeedSeconds === 'number' && Number.isFinite(loadSpeedSeconds)
-                  ? `${loadSpeedSeconds.toFixed(1)}s` : '—'}
-              </span>
-            </div>
-          </div>
-
-          {techStack.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{
-                fontSize: 11, fontWeight: 700, color: '#475569',
-                marginBottom: 8, fontFamily: 'DM Sans, sans-serif',
-              }}>
-                Tech Stack
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {techStack.map((t, idx) => (
-                  <span key={`${t}-${idx}`} style={{
-                    fontSize: 10, fontWeight: 600,
-                    padding: '2px 8px', borderRadius: 4,
-                    background: t.includes('MISSING') || t.includes('NO ')
-                      ? '#FEF2F2' : t.includes('SSL') || t.includes('MOBILE')
-                      ? '#F0FDF4' : '#F8FAFC',
-                    color: t.includes('MISSING') || t.includes('NO ')
-                      ? '#DC2626' : t.includes('SSL') || t.includes('MOBILE')
-                      ? '#16A34A' : '#475569',
-                    border: '1px solid',
-                    borderColor: t.includes('MISSING') || t.includes('NO ')
-                      ? '#FECACA' : t.includes('SSL') || t.includes('MOBILE')
-                      ? '#BBF7D0' : '#E2E8F0',
-                    fontFamily: 'DM Sans, sans-serif',
-                  }}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {seoErrors.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{
-                fontSize: 11, fontWeight: 700, color: '#475569',
-                marginBottom: 8, fontFamily: 'DM Sans, sans-serif',
-              }}>
-                Errori SEO
-              </div>
-              <ul style={{ paddingLeft: 16, margin: 0 }}>
-                {seoErrors.slice(0, 8).map((e, idx) => (
-                  <li key={idx} style={{
-                    fontSize: 12, color: '#64748B',
-                    fontFamily: 'DM Sans, sans-serif',
-                    marginBottom: 4, wordBreak: 'break-word',
-                  }}>
-                    {e}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        {/* Sezione Analisi Tecnica nascosta — non rilevante per assicurazioni */}
 
         {/* Score */}
         <div style={{
@@ -756,9 +783,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 {opportunityItems.map((o, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="mt-0.5 w-5 h-5 rounded-full 
-                      bg-violet-100 border border-violet-200 
+                      bg-blue-100 border border-blue-200 
                       flex items-center justify-center 
-                      text-violet-600 text-xs font-black shrink-0">
+                      text-blue-600 text-xs font-black shrink-0">
                       !
                     </span>
                     <span className="text-slate-800">{o}</span>
@@ -772,6 +799,501 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
       </div>
 
+      {/* ── Clay Enrichment Data ── */}
+      {loadingClay ? (
+        <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-6 flex items-center gap-3">
+          <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+          <div>
+            <p className="text-sm font-semibold text-blue-700">Arricchimento dati in corso...</p>
+            <p className="text-xs text-blue-500">Scraping sito web, social professionali, INIPEC, Registro Imprese e fonti business verificate</p>
+          </div>
+        </div>
+      ) : clayData && !clayData.error ? (
+        <div className="mb-6 space-y-4">
+          {/* Sources bar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Fonti:</span>
+            {(clayData.enrichmentSources || []).map((s: string) => (
+              <span key={s} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 uppercase">{formatVisibleSource(s)}</span>
+            ))}
+            <span className="text-[10px] text-slate-400 ml-auto">
+              Qualità: <strong className={clayData.enrichmentQuality >= 60 ? 'text-emerald-600' : clayData.enrichmentQuality >= 30 ? 'text-amber-600' : 'text-slate-500'}>{clayData.enrichmentQuality}/100</strong>
+              {clayData.pagesScraped > 0 && <> · {clayData.pagesScraped} pagine scrapate</>}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+            {/* Card: Referente / Persona */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-4 h-4 text-blue-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Referente</span>
+              </div>
+              {clayData.personName ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    {clayData.personPhoto ? (
+                      <img src={clayData.personPhoto} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-200" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                        {clayData.personName[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{clayData.personName}</p>
+                      {clayData.personRole && <p className="text-xs text-slate-500">{clayData.personRole}</p>}
+                    </div>
+                  </div>
+                  {clayData.personSeniority && (
+                    <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                      Seniority: {clayData.personSeniority}
+                    </span>
+                  )}
+                  {clayData.employmentType && (
+                    <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ml-1 ${
+                      clayData.employmentType === 'Imprenditore' ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : clayData.employmentType.includes('P.IVA') ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                      : 'bg-slate-50 text-slate-600 border border-slate-200'
+                    }`}>
+                      {clayData.employmentType}
+                    </span>
+                  )}
+                  {clayData.linkedinPerson && (
+                    <a href={clayData.linkedinPerson} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800">
+                      <Linkedin className="w-3 h-3" /> Profilo LinkedIn
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">Nessun referente trovato</p>
+              )}
+
+              {/* Team members */}
+              {clayData.teamMembers?.length > 1 && (
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Team ({clayData.teamMembers.length})</p>
+                  <div className="space-y-1.5">
+                    {clayData.teamMembers.slice(0, 5).map((m: any, i: number) => (
+                      <div key={i} className="text-xs">
+                        <span className="font-medium text-slate-800">{m.name}</span>
+                        {m.role && <span className="text-slate-400"> · {m.role}</span>}
+                      </div>
+                    ))}
+                    {clayData.teamMembers.length > 5 && (
+                      <p className="text-[10px] text-slate-400">+{clayData.teamMembers.length - 5} altri</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Card: Tutti i Contatti */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Phone className="w-4 h-4 text-emerald-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tutti i Contatti</span>
+              </div>
+              <div className="space-y-2">
+                {/* Best email */}
+                {clayData.bestEmail && (
+                  <a href={`mailto:${clayData.bestEmail}`} className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="truncate">{clayData.bestEmail}</span>
+                    {clayData.allEmails?.find((e: any) => e.email === clayData.bestEmail && e.verified) && (
+                      <span className="text-[8px] bg-green-100 text-green-700 px-1 rounded font-bold">✓</span>
+                    )}
+                  </a>
+                )}
+                {/* PEC */}
+                {clayData.pecEmail && clayData.pecEmail !== clayData.bestEmail && (
+                  <a href={`mailto:${clayData.pecEmail}`} className="flex items-center gap-2 text-xs text-purple-600 hover:text-purple-800">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="truncate">{clayData.pecEmail}</span>
+                    <span className="text-[8px] bg-purple-100 text-purple-700 px-1 rounded font-bold">PEC</span>
+                  </a>
+                )}
+                {/* All other emails */}
+                {clayData.allEmails?.filter((e: any) => e.email !== clayData.bestEmail && e.email !== clayData.pecEmail).slice(0, 3).map((e: any, i: number) => (
+                  <a key={i} href={`mailto:${e.email}`} className="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-800">
+                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="truncate">{e.email}</span>
+                    <span className="text-[8px] bg-slate-100 text-slate-500 px-1 rounded">{e.type}</span>
+                  </a>
+                ))}
+                {/* Divider */}
+                {(clayData.allEmails?.length > 0 && clayData.allPhones?.length > 0) && <div className="border-t border-slate-100 my-1" />}
+                {/* Mobile phone */}
+                {clayData.mobilePhone && (
+                  <div className="flex items-center gap-2">
+                    <a href={`tel:${clayData.mobilePhone}`} className="flex items-center gap-2 text-xs text-emerald-600 hover:text-emerald-800 font-medium">
+                      <Phone className="w-3.5 h-3.5" />
+                      {clayData.mobilePhone}
+                    </a>
+                    <a href={`https://wa.me/39${clayData.mobilePhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold no-underline hover:bg-green-200">WA</a>
+                  </div>
+                )}
+                {/* All other phones */}
+                {clayData.allPhones?.filter((p: any) => p.number !== clayData.mobilePhone).slice(0, 3).map((p: any, i: number) => (
+                  <a key={i} href={`tel:${p.number}`} className="flex items-center gap-2 text-xs text-slate-600">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    {p.number}
+                    <span className="text-[8px] bg-slate-100 text-slate-500 px-1 rounded">{p.type}</span>
+                    {p.source && <span className="text-[7px] text-slate-400">{p.source.replace('website:','sito')}</span>}
+                  </a>
+                ))}
+                {/* Social links */}
+                <div className="border-t border-slate-100 my-1" />
+                <div className="flex flex-wrap gap-2">
+                  {clayData.linkedinCompany && (
+                    <a href={clayData.linkedinCompany} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg no-underline hover:bg-sky-100">
+                      <Linkedin className="w-3 h-3" /> LinkedIn
+                    </a>
+                  )}
+                  {clayData.facebook && (
+                    <a href={clayData.facebook} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg no-underline hover:bg-blue-100">
+                      <Facebook className="w-3 h-3" /> Facebook
+                    </a>
+                  )}
+                  {clayData.instagram && (
+                    <a href={clayData.instagram} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg no-underline hover:bg-pink-100">
+                      <Instagram className="w-3 h-3" /> {clayData.instagramHandle || 'Instagram'}
+                    </a>
+                  )}
+                  {clayData.tiktok && (
+                    <a href={clayData.tiktok} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg no-underline hover:bg-slate-100">
+                      <Video className="w-3 h-3" /> TikTok
+                    </a>
+                  )}
+                  {clayData.youtube && (
+                    <a href={clayData.youtube} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-lg no-underline hover:bg-red-100">
+                      <Video className="w-3 h-3" /> YouTube
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Card: Intelligence & Segnali */}
+            {(clayData.triggers?.length > 0 || clayData.estimatedPotential || clayData.employmentHistory?.length > 0) && (
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-4 h-4 text-amber-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Intelligence & Segnali</span>
+              </div>
+
+              {/* Triggers */}
+              {clayData.triggers?.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {clayData.triggers.map((t: string, i: number) => (
+                      <span key={i} className="text-[9px] font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Estimated potential */}
+              {clayData.estimatedPotential && (
+                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Potenziale stimato</span>
+                  <span className="text-sm font-bold text-emerald-600">{clayData.estimatedPotential}</span>
+                </div>
+              )}
+
+              {/* Employment history */}
+              {clayData.employmentHistory?.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Briefcase className="w-3 h-3 text-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Esperienza</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {clayData.employmentHistory.slice(0, 4).map((job: any, i: number) => (
+                      <div key={i} className="text-xs">
+                        <span className="font-medium text-slate-800">{job.title}</span>
+                        <span className="text-slate-400"> · {job.company}</span>
+                        {job.current && <span className="text-emerald-600 font-bold"> • Attuale</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Persone Chiave + Polizze Personali ── */}
+      {loadingPeople ? (
+        <div className="mb-6 flex items-center gap-3 p-4 bg-violet-50 border border-violet-200 rounded-2xl">
+          <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
+          <div>
+            <p className="text-sm font-semibold text-violet-700">Ricerca persone chiave...</p>
+            <p className="text-xs text-violet-500">Scraping registro imprese, fonti pubbliche</p>
+          </div>
+        </div>
+      ) : peopleData?.persone?.length > 0 ? (
+        <div className="mb-6 rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center">
+                <Users className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Persone Chiave — Polizze Personali</h3>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">
+                  {peopleData.fonti?.join(' · ')} — {peopleData.totale_trovate > 0 ? `${peopleData.totale_trovate} persone identificate` : 'Profili obbligatori per forma giuridica'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Team recommendations */}
+          {peopleData.raccomandazioni_team?.length > 0 && (
+            <div className="mb-4 p-3 rounded-xl bg-violet-100/50 border border-violet-200">
+              <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">Raccomandazioni per il team</p>
+              {peopleData.raccomandazioni_team.map((r: string, i: number) => (
+                <p key={i} className="text-[11px] text-violet-800 flex items-start gap-1.5">
+                  <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                  {r}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Person cards */}
+          <div className="space-y-3">
+            {peopleData.persone.map((p: any, i: number) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${
+                      p.ruolo_normalizzato === 'titolare' ? 'bg-gradient-to-br from-amber-200 to-orange-200 text-orange-800' :
+                      p.ruolo_normalizzato === 'amministratore' ? 'bg-gradient-to-br from-blue-200 to-indigo-200 text-indigo-800' :
+                      p.ruolo_normalizzato === 'professionista' ? 'bg-gradient-to-br from-emerald-200 to-green-200 text-green-800' :
+                      p.ruolo_normalizzato === 'socio' ? 'bg-gradient-to-br from-purple-200 to-violet-200 text-violet-800' :
+                      'bg-gradient-to-br from-slate-200 to-gray-200 text-slate-700'
+                    }`}>
+                      {p.nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{p.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">{p.ruolo}</span>
+                        <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.fonte}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {p.note && (
+                    <span className={`text-[9px] font-bold px-2 py-1 rounded-lg ${
+                      p.ruolo_normalizzato === 'titolare' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                      p.ruolo_normalizzato === 'professionista' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                      'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}>{p.note}</span>
+                  )}
+                </div>
+
+                {p.polizze_personali?.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Polizze personali</p>
+                    <div className="space-y-1">
+                      {p.polizze_personali.map((pol: any, j: number) => (
+                        <div key={j} className="flex items-start gap-2">
+                          <span className={`mt-0.5 shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded ${
+                            pol.priorita === 'obbligatoria' ? 'bg-red-100 text-red-700' :
+                            pol.priorita === 'critica' ? 'bg-orange-100 text-orange-700' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>{pol.priorita === 'obbligatoria' ? 'OBBL.' : pol.priorita === 'critica' ? 'CRIT.' : 'RACC.'}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-slate-700">{pol.polizza}</p>
+                            <p className="text-[10px] text-slate-500">{pol.motivo}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {p.rischi_personali?.length > 0 && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <p className="text-[9px] font-bold text-red-400 uppercase tracking-wider mb-1">Rischi personali</p>
+                    <div className="flex flex-wrap gap-1">
+                      {p.rischi_personali.map((r: string, j: number) => (
+                        <span key={j} className="text-[9px] font-medium px-2 py-0.5 rounded-lg bg-red-50 border border-red-100 text-red-600">{r}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Disclaimer accuratezza */}
+          <div className="mt-4 p-3 rounded-xl bg-amber-50/60 border border-amber-200/50">
+            <p className="text-[9px] text-amber-700 leading-relaxed">
+              <span className="font-bold">&#9888; Nota:</span> I nomi provengono da fonti pubbliche (Registro Imprese, privacy policy) e potrebbero contenere imprecisioni. Le polizze personali sono <span className="font-bold">raccomandazioni basate sul ruolo e sulla forma giuridica</span>, non preventivi reali. Verificare sempre i dati prima di contattare il lead.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── B2B Trigger Assicurativi ── */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+            <Zap className="w-5 h-5 text-amber-500" />
+          </div>
+          <div>
+            <h2 style={{
+              fontSize: 15, fontWeight: 700, color: '#0F172A',
+              fontFamily: 'Syne, sans-serif', margin: 0,
+            }}>
+              Trigger Assicurativi B2B
+            </h2>
+            <p style={{
+              fontSize: 12, color: '#94A3B8',
+              fontFamily: 'DM Sans, sans-serif', margin: 0,
+            }}>
+              Segnali finanziari, assunzioni, variazioni societarie e news rilevanti per la vendita
+            </p>
+          </div>
+          {triggersData?.summary && (
+            <div className="ml-auto flex items-center gap-2">
+              {triggersData.summary.high > 0 && (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">
+                  {triggersData.summary.high} CRITICI
+                </span>
+              )}
+              {triggersData.summary.medium > 0 && (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                  {triggersData.summary.medium} MEDI
+                </span>
+              )}
+              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                triggersData.summary.riskLevel === 'critical' ? 'bg-red-600 text-white' :
+                triggersData.summary.riskLevel === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
+                triggersData.summary.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                'bg-emerald-100 text-emerald-700 border border-emerald-200'
+              }`}>
+                RISCHIO {triggersData.summary.riskLevel === 'critical' ? 'CRITICO' :
+                  triggersData.summary.riskLevel === 'high' ? 'ALTO' :
+                  triggersData.summary.riskLevel === 'medium' ? 'MEDIO' : 'BASSO'}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {loadingTriggers ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+            <div>
+              <p className="text-sm font-semibold text-amber-700">Analisi trigger in corso...</p>
+              <p className="text-xs text-amber-500">Scanning annunci lavoro, registro imprese, notizie, analisi AI</p>
+            </div>
+          </div>
+        ) : triggersData?.triggers?.length > 0 ? (
+          <div className="space-y-3">
+            {triggersData.triggers.map((trigger: any, idx: number) => {
+              const sevKey = (trigger.severity as string) || 'low'
+              const severityMap: Record<string, { bg: string; border: string; badge: string; dot: string; iconColor: string }> = {
+                high: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700 border-red-200', dot: 'bg-red-500', iconColor: 'text-red-500' },
+                medium: { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500', iconColor: 'text-amber-500' },
+                low: { bg: 'bg-slate-50', border: 'border-slate-200', badge: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400', iconColor: 'text-slate-400' },
+              }
+              const severityConfig = severityMap[sevKey] || severityMap.low
+
+              const typeKey = (trigger.type as string) || 'risk_signal'
+              const iconMap: Record<string, React.ReactNode> = {
+                hiring: <UserPlus className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+                admin_change: <Users className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+                financial: <DollarSign className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+                expansion: <TrendingUp className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+                risk_signal: <AlertTriangle className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+                legal: <Scale className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+                news: <Newspaper className={`w-4 h-4 ${severityConfig.iconColor}`} />,
+              }
+              const typeIcon = iconMap[typeKey] || iconMap.risk_signal
+
+              const labelMap: Record<string, string> = {
+                hiring: 'Assunzioni',
+                admin_change: 'Variazione Societaria',
+                financial: 'Finanziario',
+                expansion: 'Espansione',
+                risk_signal: 'Rischio Settoriale',
+                legal: 'Legale',
+                news: 'Notizia',
+              }
+              const typeLabel = labelMap[typeKey] || typeKey
+
+              return (
+                <div key={idx} className={`${severityConfig.bg} border ${severityConfig.border} rounded-xl p-4 relative`}>
+                  <div className="flex items-start gap-3">
+                    {/* Timeline dot */}
+                    <div className="flex flex-col items-center gap-1 pt-0.5">
+                      <div className={`w-3 h-3 rounded-full ${severityConfig.dot} ring-4 ring-white shadow-sm`} />
+                      {idx < triggersData.triggers.length - 1 && (
+                        <div className="w-0.5 h-8 bg-slate-200" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {typeIcon}
+                        <span className="text-sm font-bold text-slate-900">{trigger.title}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${severityConfig.badge}`}>
+                          {trigger.severity === 'high' ? 'ALTO' : trigger.severity === 'medium' ? 'MEDIO' : 'BASSO'}
+                        </span>
+                        <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-white text-slate-500 border border-slate-200">
+                          {typeLabel}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 mb-2">{trigger.description}</p>
+
+                      {/* Insurance relevance */}
+                      <div className="flex items-start gap-1.5 bg-white/70 rounded-lg px-3 py-2 border border-white">
+                        <Shield className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                        <span className="text-[11px] text-blue-700 font-medium">{trigger.insuranceRelevance}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
+                        {trigger.date && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {trigger.date}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          Fonte: {trigger.source}
+                        </span>
+                        {trigger.ai_generated ? (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 border border-purple-200">
+                            ⚡ AI
+                          </span>
+                        ) : (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
+                            ✓ VERIFICATO
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : !loadingTriggers && triggersData ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
+            <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500 font-medium">Nessun trigger rilevato</p>
+            <p className="text-xs text-slate-400">Non sono stati trovati segnali B2B rilevanti per questa azienda</p>
+          </div>
+        ) : null}
+      </div>
+
       {/* Analisi AI */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ marginBottom: 20 }}>
@@ -779,13 +1301,13 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             fontSize: 15, fontWeight: 700, color: '#0F172A',
             fontFamily: 'Syne, sans-serif', margin: '0 0 4px',
           }}>
-            Analisi AI
+            Analisi Rischio & Patrimonio
           </h2>
           <p style={{
             fontSize: 13, color: '#94A3B8',
             fontFamily: 'DM Sans, sans-serif', margin: 0,
           }}>
-            Recensioni, social, ads, competitor, trend e profilo aziendale
+            Rischi settoriali, dati camerali, fatturato, recensioni e insight per la polizza
           </p>
         </div>
 
@@ -842,6 +1364,36 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     </div>
                   ))}
                 </div>
+
+                {/* Segnali di rischio dalle recensioni */}
+                {reviewRiskSignals && (
+                  <div style={{ marginTop: 16, padding: '12px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <AlertTriangle size={14} color="#DC2626" />
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'DM Sans, sans-serif' }}>
+                        Segnali di rischio rilevati
+                      </span>
+                    </div>
+                    {reviewRiskSignals.signals.map((s: any, i: number) => (
+                      <div key={i} style={{ padding: '8px 0', borderTop: i > 0 ? '1px solid #FEE2E2' : 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6,
+                            background: s.severity === 'high' ? '#FEE2E2' : '#FEF3C7',
+                            color: s.severity === 'high' ? '#991B1B' : '#92400E',
+                            textTransform: 'uppercase',
+                          }}>{s.severity === 'high' ? 'ALTO' : 'MEDIO'}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#1E293B', fontFamily: 'DM Sans, sans-serif' }}>{s.keyword}</span>
+                        </div>
+                        <p style={{ fontSize: 10, color: '#64748B', fontFamily: 'DM Sans, sans-serif', margin: '2px 0' }}>{s.description}</p>
+                        <p style={{ fontSize: 10, color: '#059669', fontWeight: 600, fontFamily: 'DM Sans, sans-serif' }}>{s.insurance_relevance}</p>
+                        {s.review_excerpt && (
+                          <p style={{ fontSize: 9, color: '#94A3B8', fontStyle: 'italic', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>"{s.review_excerpt}"</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <p style={{ fontSize: 13, color: '#94A3B8', fontFamily: 'DM Sans, sans-serif' }}>
@@ -983,7 +1535,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       <div className="flex items-center gap-2">
                         <Video className="w-4 h-4 text-slate-800" />
                         <span className="text-sm font-bold text-slate-800">TikTok</span>
-                        {social.tiktok.is_verified && <span className="text-blue-500 text-xs">✓</span>}
                       </div>
                       <a href={social.tiktok.url} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-700">
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -1025,62 +1576,11 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   </div>
                 )}
 
-                {/* Digital Maturity Score */}
-                {social.digital_score && (
-                  <div className={`p-4 rounded-xl border-2 ${
-                    social.digital_score.score >= 80 ? 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100' :
-                    social.digital_score.score >= 60 ? 'border-blue-300 bg-gradient-to-br from-blue-50 to-blue-100' :
-                    social.digital_score.score >= 40 ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100' :
-                    social.digital_score.score >= 20 ? 'border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100' :
-                    'border-red-300 bg-gradient-to-br from-red-50 to-red-100'
-                  }`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold text-slate-800">Punteggio Digitale</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-2xl font-black ${
-                          social.digital_score.score >= 80 ? 'text-emerald-600' :
-                          social.digital_score.score >= 60 ? 'text-blue-600' :
-                          social.digital_score.score >= 40 ? 'text-amber-600' :
-                          social.digital_score.score >= 20 ? 'text-orange-600' : 'text-red-600'
-                        }`}>{social.digital_score.score}</span>
-                        <span className="text-[10px] text-slate-500">/100</span>
-                      </div>
-                    </div>
-                    <span className={`inline-block text-[11px] px-2.5 py-1 rounded-full font-bold mb-3 ${
-                      social.digital_score.score >= 80 ? 'bg-emerald-200 text-emerald-800' :
-                      social.digital_score.score >= 60 ? 'bg-blue-200 text-blue-800' :
-                      social.digital_score.score >= 40 ? 'bg-amber-200 text-amber-800' :
-                      social.digital_score.score >= 20 ? 'bg-orange-200 text-orange-800' : 'bg-red-200 text-red-800'
-                    }`}>{social.digital_score.level}</span>
-                    <div className="space-y-1.5 mb-3">
-                      {social.digital_score.breakdown?.map((b: any, i: number) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-600 w-28 truncate">{b.area}</span>
-                          <div className="flex-1 h-2 bg-white/60 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${
-                              b.score / b.max >= 0.7 ? 'bg-emerald-400' : b.score / b.max >= 0.4 ? 'bg-amber-400' : 'bg-red-400'
-                            }`} style={{ width: `${Math.round(b.score / b.max * 100)}%` }} />
-                          </div>
-                          <span className="text-[10px] text-slate-500 w-10 text-right">{b.score}/{b.max}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {social.digital_score.opportunities?.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Opportunità di vendita</p>
-                        <div className="flex flex-wrap gap-1">
-                          {social.digital_score.opportunities.map((o: string, i: number) => (
-                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white/70 text-slate-700 border border-slate-200">{o}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Punteggio Digitale nascosto — non rilevante per assicurazioni */}
 
                 {/* LinkedIn */}
                 {social.linkedin && !social.linkedin.error ? (
-                  <div className="p-4 rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50">
+                  <div className="p-4 rounded-xl border border-indigo-200 bg-gradient-to-br from-sky-50 to-blue-50">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Linkedin className="w-4 h-4 text-sky-600" />
@@ -1107,7 +1607,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   </div>
                 ) : social.social_links?.linkedin ? (
                   <a href={social.social_links.linkedin} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-medium hover:bg-sky-100 transition-colors w-fit">
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-sky-700 text-xs font-medium hover:bg-sky-100 transition-colors w-fit">
                     <Linkedin className="w-3 h-3" /> LinkedIn
                   </a>
                 ) : null}
@@ -1138,42 +1638,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 {/* YouTube */}
                 {social.social_links?.youtube && (
                   <a href={social.social_links.youtube} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors w-fit">
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs font-medium hover:bg-red-100 transition-all w-fit">
                     <Video className="w-3 h-3" /> YouTube
                   </a>
                 )}
 
-                {/* Website Quality Score */}
-                {social.website_score && (
-                  <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold text-slate-800">Qualità Sito Web</span>
-                      <span className={`text-lg font-black ${
-                        social.website_score.score >= 70 ? 'text-emerald-600' :
-                        social.website_score.score >= 40 ? 'text-amber-600' : 'text-red-600'
-                      }`}>{social.website_score.score}/100</span>
-                    </div>
-                    {social.website_score.strengths?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {social.website_score.strengths.map((s: string, i: number) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">{s}</span>
-                        ))}
-                      </div>
-                    )}
-                    {social.website_score.issues?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {social.website_score.issues.slice(0, 6).map((s: string, i: number) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">{s}</span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-2 flex gap-3 text-[10px] text-slate-400">
-                      <span>{social.website_score.page_size_kb}KB</span>
-                      <span>{social.website_score.image_count} img</span>
-                      <span>{social.website_score.external_scripts_count} script</span>
-                    </div>
-                  </div>
-                )}
+                {/* Qualità Sito Web nascosta — non rilevante per assicurazioni */}
 
                 {/* Domain Age */}
                 {social.domain_info && social.domain_info.first_seen && (
@@ -1190,124 +1660,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   </div>
                 )}
 
-                {/* Tech & Pixel Detection */}
-                {social.tech && (
-                  <div className="mt-2 pt-3 border-t border-slate-100">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pixel & Tecnologie rilevate</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {social.tech.tiktok_pixel && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-bold">TikTok Pixel ✓</span>
-                      )}
-                      {social.tech.meta_pixel && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 text-white text-[10px] font-bold">Meta Pixel ✓</span>
-                      )}
-                      {social.tech.google_analytics && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500 text-white text-[10px] font-bold">Google Analytics ✓</span>
-                      )}
-                      {social.tech.google_tag_manager && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-500 text-white text-[10px] font-bold">GTM ✓</span>
-                      )}
-                      {social.tech.google_ads && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-600 text-white text-[10px] font-bold">Google Ads ✓</span>
-                      )}
-                      {social.tech.hotjar && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500 text-white text-[10px] font-bold">Hotjar ✓</span>
-                      )}
-                      {social.tech.microsoft_clarity && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-violet-500 text-white text-[10px] font-bold">Clarity ✓</span>
-                      )}
-                      {social.tech.hubspot && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-orange-600 text-white text-[10px] font-bold">HubSpot ✓</span>
-                      )}
-                      {social.tech.mailchimp && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-600 text-white text-[10px] font-bold">Mailchimp ✓</span>
-                      )}
-                      {social.tech.cms && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200">{social.tech.cms}</span>
-                      )}
-                      {social.tech.has_ecommerce && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">E-commerce ✓</span>
-                      )}
-                      {social.tech.has_ssl === false && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 text-[10px] font-bold border border-red-200">No SSL ⚠</span>
-                      )}
-                      {social.tech.has_cookie_banner === false && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">No Cookie Banner ⚠</span>
-                      )}
-                      {social.tech.has_privacy_policy === false && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">No Privacy Policy ⚠</span>
-                      )}
-                      {!social.tech.tiktok_pixel && !social.tech.meta_pixel && !social.tech.google_analytics && !social.tech.google_tag_manager && !social.tech.google_ads && !social.tech.hotjar && !social.tech.microsoft_clarity && !social.tech.hubspot && !social.tech.mailchimp && !social.tech.cms && !social.tech.has_ecommerce && (
-                        <span className="text-xs text-slate-400">Nessun pixel o tool di marketing rilevato</span>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* Pixel & Tecnologie nascoste — non rilevante per assicurazioni */}
               </div>
             ) : (
               <p className="text-gray-400 text-sm">Dati social non disponibili</p>
             )}
           </div>
 
-          <div className="bg-white rounded-2xl border 
-            border-slate-200 p-6 shadow-sm 
-            hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-8 h-8 rounded-xl 
-                bg-orange-50 border border-orange-200 
-                flex items-center justify-center">
-                <Megaphone className="w-4 h-4 text-orange-500" />
-              </div>
-              <h3 className="font-bold text-base text-slate-900">
-                Attività Pubblicitaria
-              </h3>
-            </div>
-            {loadingAds ? (
-              <div className="animate-pulse space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
-              </div>
-            ) : ads ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div
-                    className={`p-3 rounded-lg border ${ads.facebookAds?.isRunning ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}
-                  >
-                    <p className="text-sm font-medium text-slate-900">Facebook Ads</p>
-                    <p className={`text-xs ${ads.facebookAds?.isRunning ? 'text-green-700' : 'text-red-700'}`}>
-                      {ads.facebookAds?.isRunning
-                        ? `Attivo${ads.facebookAds.estimatedBudget ? ' · ' + ads.facebookAds.estimatedBudget : ''}`
-                        : 'Non attivo'}
-                    </p>
-                  </div>
-                  <div
-                    className={`p-3 rounded-lg border ${ads.googleAds?.isRunning ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}
-                  >
-                    <p className="text-sm font-medium text-slate-900">Google Ads</p>
-                    <p className={`text-xs ${ads.googleAds?.isRunning ? 'text-green-700' : 'text-red-700'}`}>
-                      {ads.googleAds?.isRunning
-                        ? `Attivo${ads.googleAds.estimatedBudget ? ' · ' + ads.googleAds.estimatedBudget : ''}`
-                        : 'Non attivo'}
-                    </p>
-                  </div>
-                </div>
-                {ads.opportunities?.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-purple-700 mb-1">💡 Opportunità Ads</p>
-                    <div className="flex flex-wrap gap-1">
-                      {ads.opportunities.map((o: string, i: number) => (
-                        <span key={i} className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
-                          {o}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-400 text-sm">Dati pubblicitari non disponibili</p>
-            )}
-          </div>
+          {/* Attività Pubblicitaria nascosta — non rilevante per assicurazioni */}
 
           <div className="bg-white rounded-2xl border 
             border-slate-200 p-6 shadow-sm 
@@ -1329,21 +1689,20 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               </div>
             ) : Array.isArray(competitors?.competitors) && competitors.competitors.length > 0 ? (
               <div className="space-y-3">
-                {(competitors.competitors || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {(competitors.competitors || []).slice(0, 8).map((c: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-medium text-slate-900">{c?.name || '—'}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-yellow-600">★ {typeof c?.rating === 'number' ? c.rating : '—'}</span>
-                          <span className="text-xs text-gray-600">({typeof c?.reviews_count === 'number' ? c.reviews_count : 0})</span>
-                        </div>
+                <div className="space-y-2">
+                  {(competitors.competitors || []).slice(0, 8).map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-900">{c?.name || '—'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-yellow-600">★ {typeof c?.rating === 'number' ? c.rating : '—'}</span>
+                        <span className="text-xs text-gray-600">({typeof c?.reviews_count === 'number' ? c.reviews_count : 0})</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm">Nessun competitor trovato</p>
-                )}
+                    </div>
+                  ))}
+                </div>
+                <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200">
+                  <p className="text-[10px] text-blue-700 font-medium">💡 Consiglio: se i competitor sono più strutturati (&gt;50 recensioni), è probabile che abbiano già un broker. Usa questo come leva: offri un check-up coperture gratuito per differenziarti.</p>
+                </div>
               </div>
             ) : (
               <p className="text-gray-400 text-sm">Dati competitor non disponibili</p>
@@ -1355,12 +1714,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             hover:shadow-md transition-shadow">
             <div className="flex items-center gap-2 mb-5">
               <div className="w-8 h-8 rounded-xl 
-                bg-violet-50 border border-violet-200 
+                bg-blue-50 border border-blue-200 
                 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-violet-500" />
+                <TrendingUp className="w-4 h-4 text-blue-500" />
               </div>
               <h3 className="font-bold text-base text-slate-900">
-                Trend di Mercato
+                Rischi di Settore
               </h3>
             </div>
             {loadingTrends ? (
@@ -1373,20 +1732,26 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <span className={`text-2xl ${trends.trend === 'growing' ? '📈' : trends.trend === 'declining' ? '📉' : '➡️'}`} />
                   <span
                     className={`font-semibold ${
-                      trends.trend === 'growing' ? 'text-green-600' : trends.trend === 'declining' ? 'text-red-600' : 'text-yellow-600'
+                      trends.trend === 'growing' ? 'text-red-600' : trends.trend === 'declining' ? 'text-green-600' : 'text-amber-600'
                     }`}
                   >
                     {trends.trend === 'growing'
-                      ? `In crescita${trends.growthPercentage ? ' +' + trends.growthPercentage + '%' : ''}`
+                      ? 'Sinistri in Aumento'
                       : trends.trend === 'declining'
-                        ? 'In calo'
-                        : 'Stabile'}
+                        ? 'Sinistri in Calo'
+                        : 'Sinistri Stabili'}
                   </span>
                 </div>
                 {trends.bestContactTime && (
                   <div className="bg-blue-50 rounded-lg p-3">
-                    <p className="text-xs text-blue-700 font-medium">🕐 Momento migliore per contattare</p>
-                    <p className="text-sm text-blue-900">{trends.bestContactTime}</p>
+                    <p className="text-xs text-blue-700 font-medium">🛡️ Polizza Raccomandata</p>
+                    <p className="text-sm text-blue-900 font-bold">{trends.bestContactTime}</p>
+                  </div>
+                )}
+                {trends.marketOpportunity && (
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                    <p className="text-xs text-red-700 font-medium">⚠️ Rischio Principale Non Coperto</p>
+                    <p className="text-sm text-red-900 font-bold">{trends.marketOpportunity}</p>
                   </div>
                 )}
                 {trends.insights?.length > 0 && (
@@ -1398,6 +1763,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     ))}
                   </div>
                 )}
+                <p className="text-[8px] text-slate-400 mt-2 pt-2 border-t border-slate-100">Analisi generata da AI sulla base del settore e della zona — dati indicativi, non statistiche ufficiali</p>
               </div>
             ) : (
               <p className="text-gray-400 text-sm">Trend non disponibili</p>
@@ -1439,7 +1805,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 ) : registry.fonte === 'google_maps' ? (
                   <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
                     <Target className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="text-xs text-blue-700 font-medium">Dati da Google Maps</span>
+                    <span className="text-xs text-blue-700 font-medium">Dati da fonti pubbliche aziendali</span>
                   </div>
                 ) : null}
                 <div className="grid grid-cols-1 gap-2">
@@ -1565,6 +1931,518 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
       </div>
 
+      {/* ── Rischio Territoriale (dati Protezione Civile) ── */}
+      {registry?.rischio_territoriale && (
+        <div className="mb-6 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-orange-100 border border-orange-200 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900">Rischio Territoriale</h3>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider">{registry.rischio_territoriale.fonte}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Zona sismica */}
+            <div className={`p-4 rounded-xl border-2 ${
+              registry.rischio_territoriale.zona_sismica === 1 ? 'border-red-300 bg-red-50' :
+              registry.rischio_territoriale.zona_sismica === 2 ? 'border-orange-300 bg-orange-50' :
+              registry.rischio_territoriale.zona_sismica === 3 ? 'border-amber-200 bg-amber-50' :
+              'border-green-200 bg-green-50'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-600 uppercase">Zona Sismica</span>
+                <span className={`text-2xl font-black ${
+                  registry.rischio_territoriale.zona_sismica === 1 ? 'text-red-600' :
+                  registry.rischio_territoriale.zona_sismica === 2 ? 'text-orange-600' :
+                  registry.rischio_territoriale.zona_sismica === 3 ? 'text-amber-600' :
+                  'text-green-600'
+                }`}>{registry.rischio_territoriale.zona_sismica}</span>
+              </div>
+              <p className="text-xs font-semibold text-slate-700">{registry.rischio_territoriale.zona_sismica_label}</p>
+            </div>
+
+            {/* Rischio idrogeologico */}
+            <div className={`p-4 rounded-xl border-2 ${
+              registry.rischio_territoriale.rischio_idrogeologico === 'alto' ? 'border-blue-300 bg-blue-50' :
+              registry.rischio_territoriale.rischio_idrogeologico === 'medio' ? 'border-sky-200 bg-sky-50' :
+              'border-slate-200 bg-slate-50'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-600 uppercase">Rischio Idrogeologico</span>
+                <span className={`text-sm font-black uppercase ${
+                  registry.rischio_territoriale.rischio_idrogeologico === 'alto' ? 'text-blue-600' :
+                  registry.rischio_territoriale.rischio_idrogeologico === 'medio' ? 'text-sky-600' :
+                  'text-slate-500'
+                }`}>{registry.rischio_territoriale.rischio_idrogeologico}</span>
+              </div>
+              {registry.rischio_territoriale.dettaglio_idrogeologico && (
+                <p className="text-xs text-slate-600">{registry.rischio_territoriale.dettaglio_idrogeologico}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Polizze consigliate dal rischio territoriale */}
+          {registry.rischio_territoriale.polizze_consigliate?.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-orange-200">
+              <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-2">Polizze consigliate per il territorio</p>
+              <div className="flex flex-wrap gap-1.5">
+                {registry.rischio_territoriale.polizze_consigliate.map((p: string, i: number) => (
+                  <span key={i} className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white border border-orange-200 text-orange-800">{p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Data accuracy footer */}
+          <div className="mt-4 pt-3 border-t border-orange-200/50">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
+                ✓ DATI UFFICIALI
+              </span>
+              <span className="text-[9px] text-orange-500">
+                Zona sismica: OPCM 3274/2003 + delibere regionali — Rischio idrogeologico: ISPRA + PAI regionali
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Obblighi Assicurativi ATECO (normativa INAIL/IVASS) ── */}
+      {registry?.obblighi_assicurativi && (
+        <div className="mb-6 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center">
+              <Scale className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900">Obblighi Assicurativi — {registry.obblighi_assicurativi.settore}</h3>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider">{registry.obblighi_assicurativi.fonte}</p>
+            </div>
+          </div>
+
+          {/* INAIL risk class */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xs font-bold text-slate-600">Classe INAIL:</span>
+            <span className={`text-xs font-black px-2.5 py-1 rounded-full uppercase ${
+              registry.obblighi_assicurativi.classe_inail === 'molto_alto' ? 'bg-red-100 text-red-700 border border-red-200' :
+              registry.obblighi_assicurativi.classe_inail === 'alto' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
+              registry.obblighi_assicurativi.classe_inail === 'medio' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+              'bg-green-100 text-green-700 border border-green-200'
+            }`}>{registry.obblighi_assicurativi.classe_inail.replace('_', ' ')}</span>
+            <span className="text-xs text-slate-500">Tasso indicativo: {registry.obblighi_assicurativi.tasso_inail_indicativo}</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Polizze OBBLIGATORIE */}
+            <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50">
+              <p className="text-[10px] font-black text-red-700 uppercase tracking-wider mb-2">Polizze Obbligatorie per Legge</p>
+              <ul className="space-y-1.5">
+                {registry.obblighi_assicurativi.polizze_obbligatorie.map((p: string, i: number) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="mt-0.5 w-4 h-4 rounded-full bg-red-200 flex items-center justify-center text-red-700 text-[9px] font-black shrink-0">!</span>
+                    <span className="text-xs text-slate-700">{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Polizze RACCOMANDATE */}
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50">
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-2">Polizze Raccomandate</p>
+              <ul className="space-y-1.5">
+                {registry.obblighi_assicurativi.polizze_raccomandate.map((p: string, i: number) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="mt-0.5 w-4 h-4 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-[9px] font-black shrink-0">+</span>
+                    <span className="text-xs text-slate-700">{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Rischi principali */}
+          <div className="mt-4 pt-3 border-t border-emerald-200">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Rischi principali del settore</p>
+            <div className="flex flex-wrap gap-1.5">
+              {registry.obblighi_assicurativi.rischi_principali.map((r: string, i: number) => (
+                <span key={i} className="text-[10px] font-medium px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-600">{r}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Normativa */}
+          <div className="mt-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Riferimenti normativi</p>
+            <div className="space-y-0.5">
+              {registry.obblighi_assicurativi.normativa.map((n: string, i: number) => (
+                <p key={i} className="text-[10px] text-slate-400">{n}</p>
+              ))}
+            </div>
+          </div>
+
+          {/* Data accuracy footer */}
+          <div className="mt-4 pt-3 border-t border-emerald-200/50">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
+                ✓ NORMATIVA REALE
+              </span>
+              <span className="text-[9px] text-emerald-500">
+                Obblighi basati su codice ATECO e normativa INAIL/IVASS vigente — {registry.obblighi_assicurativi.fonte}
+              </span>
+              {registry.ateco_stimato && (
+                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 border border-amber-200">
+                  ATECO STIMATO
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {registry?.bisogni_assicurativi_verificati && (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-cyan-50 p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-sky-100 border border-sky-200 flex items-center justify-center">
+                <Target className="w-4 h-4 text-sky-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Bisogni Assicurativi Verificati</h3>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">solo fatti verificati + derivazioni commerciali</p>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Priorità commerciale</p>
+              <div className={`mt-1 inline-flex items-center gap-2 rounded-xl px-3 py-2 border ${
+                registry.bisogni_assicurativi_verificati.priorita_commerciale.level === 'altissima' ? 'bg-red-100 border-red-200 text-red-700' :
+                registry.bisogni_assicurativi_verificati.priorita_commerciale.level === 'alta' ? 'bg-orange-100 border-orange-200 text-orange-700' :
+                registry.bisogni_assicurativi_verificati.priorita_commerciale.level === 'media' ? 'bg-amber-100 border-amber-200 text-amber-700' :
+                'bg-slate-100 border-slate-200 text-slate-600'
+              }`}>
+                <span className="text-sm font-black uppercase">{registry.bisogni_assicurativi_verificati.priorita_commerciale.level}</span>
+                <span className="text-lg font-black">{registry.bisogni_assicurativi_verificati.priorita_commerciale.score}</span>
+              </div>
+            </div>
+          </div>
+
+          {registry.bisogni_assicurativi_verificati.playbook_commerciale && (
+            <div className="mb-4 p-4 rounded-2xl border border-indigo-200 bg-white/90 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900">Playbook Commerciale Immediato</h4>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">cosa vendere, a chi, e con che apertura</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <div className="p-3 rounded-xl border border-indigo-100 bg-indigo-50">
+                  <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider mb-1">Prodotto #1</p>
+                  <p className="text-sm font-bold text-slate-900">{registry.bisogni_assicurativi_verificati.playbook_commerciale.prodotto_principale || 'Da definire'}</p>
+                </div>
+                <div className="p-3 rounded-xl border border-sky-100 bg-sky-50">
+                  <p className="text-[10px] font-black text-sky-700 uppercase tracking-wider mb-1">Cross-sell</p>
+                  <p className="text-sm font-bold text-slate-900">{registry.bisogni_assicurativi_verificati.playbook_commerciale.cross_sell || 'Nessun cross-sell prioritario'}</p>
+                </div>
+                <div className="p-3 rounded-xl border border-emerald-100 bg-emerald-50">
+                  <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-1">Decision maker</p>
+                  <p className="text-sm font-bold text-slate-900">{registry.bisogni_assicurativi_verificati.playbook_commerciale.target_principale || 'Titolare / referente da identificare'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">Angolo di attacco</p>
+                  <p className="text-[11px] text-slate-700">{registry.bisogni_assicurativi_verificati.playbook_commerciale.angolo_attacco}</p>
+                </div>
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">Apertura call consigliata</p>
+                  <p className="text-[11px] text-slate-700">{registry.bisogni_assicurativi_verificati.playbook_commerciale.apertura_consigliata}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1">Obiettivo della call</p>
+                <p className="text-[11px] text-slate-800 font-medium">{registry.bisogni_assicurativi_verificati.playbook_commerciale.call_to_action}</p>
+              </div>
+            </div>
+          )}
+
+          {registry.bisogni_assicurativi_verificati.priorita_commerciale.reasons?.length > 0 && (
+            <div className="mb-4 p-3 rounded-xl bg-white/80 border border-sky-100">
+              <p className="text-[10px] font-bold text-sky-700 uppercase tracking-wider mb-2">Perché questo lead è prioritario</p>
+              <div className="space-y-1">
+                {registry.bisogni_assicurativi_verificati.priorita_commerciale.reasons.map((reason: string, i: number) => (
+                  <p key={i} className="text-[11px] text-slate-700 flex items-start gap-2">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" />
+                    {reason}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <div className="p-4 rounded-xl border border-sky-200 bg-white/80">
+              <p className="text-[10px] font-black text-sky-700 uppercase tracking-wider mb-2">Fatti verificati</p>
+              <div className="space-y-2">
+                {registry.bisogni_assicurativi_verificati.fatti_verificati?.map((fact: any) => (
+                  <div key={fact.id} className="p-2 rounded-lg border border-slate-200 bg-white">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-bold text-slate-800">{fact.label}</span>
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                        fact.confidence === 'alta' ? 'bg-emerald-100 text-emerald-700' :
+                        fact.confidence === 'media' ? 'bg-amber-100 text-amber-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>{fact.confidence}</span>
+                    </div>
+                    <p className="text-xs text-slate-700 font-medium">{fact.value}</p>
+                    <p className="text-[10px] text-slate-400">{fact.source}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-cyan-200 bg-white/80">
+              <p className="text-[10px] font-black text-cyan-700 uppercase tracking-wider mb-2">Dati da verificare per aumentare la conversione</p>
+              {registry.bisogni_assicurativi_verificati.dati_da_verificare?.length > 0 ? (
+                <div className="space-y-2">
+                  {registry.bisogni_assicurativi_verificati.dati_da_verificare.map((item: any, i: number) => (
+                    <div key={i} className="p-2 rounded-lg border border-amber-200 bg-amber-50">
+                      <p className="text-xs font-bold text-amber-800">{item.field}</p>
+                      <p className="text-[11px] text-slate-700">{item.reason}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Impatto: {item.impact}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-800 font-medium">
+                  Dataset già molto completo per una proposta commerciale mirata.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {registry.bisogni_assicurativi_verificati.bisogni_raccomandati?.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-2">Cosa vendere esattamente a questa azienda</p>
+              <div className="space-y-2">
+                {registry.bisogni_assicurativi_verificati.bisogni_raccomandati.map((need: any) => (
+                  <div key={need.id} className="p-3 rounded-xl border border-slate-200 bg-white">
+                    <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-slate-900">{need.product}</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                          need.priority === 'immediata' ? 'bg-red-100 text-red-700' :
+                          need.priority === 'alta' ? 'bg-orange-100 text-orange-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>{need.priority}</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                          need.confidence === 'alta' ? 'bg-emerald-100 text-emerald-700' :
+                          need.confidence === 'media' ? 'bg-sky-100 text-sky-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>{need.confidence}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500">Target: {need.target}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-700 mb-1"><span className="font-semibold">Perché venderla:</span> {need.sales_reason}</p>
+                    <p className="text-[11px] text-emerald-700 font-medium"><span className="font-semibold">Perché adesso:</span> {need.why_now}</p>
+                    {need.evidence_ids?.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {need.evidence_ids.map((evidenceId: string) => (
+                          <span key={evidenceId} className="text-[10px] font-medium px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+                            evidenza: {evidenceId.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {registry.bisogni_assicurativi_verificati.prossime_domande?.length > 0 && (
+            <div className="pt-3 border-t border-sky-200">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Domande perfette per la prima call</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {registry.bisogni_assicurativi_verificati.prossime_domande.map((question: string, i: number) => (
+                  <div key={i} className="p-2 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-700">
+                    {question}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Gap Analysis Assicurativo ── */}
+      {registry?.gap_analysis && registry.gap_analysis.gaps?.length > 0 && (
+        <div className={`mb-6 rounded-2xl border-2 p-6 shadow-sm ${
+          registry.gap_analysis.livello_rischio === 'critico' ? 'border-red-300 bg-gradient-to-br from-red-50 to-rose-50' :
+          registry.gap_analysis.livello_rischio === 'alto' ? 'border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50' :
+          registry.gap_analysis.livello_rischio === 'medio' ? 'border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50' :
+          'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50'
+        }`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                registry.gap_analysis.livello_rischio === 'critico' ? 'bg-red-100 border border-red-200' :
+                registry.gap_analysis.livello_rischio === 'alto' ? 'bg-orange-100 border border-orange-200' :
+                'bg-amber-100 border border-amber-200'
+              }`}>
+                <AlertTriangle className={`w-4 h-4 ${
+                  registry.gap_analysis.livello_rischio === 'critico' ? 'text-red-600' :
+                  registry.gap_analysis.livello_rischio === 'alto' ? 'text-orange-600' :
+                  'text-amber-600'
+                }`} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Gap Analysis Assicurativo</h3>
+                <p className="text-xs text-slate-500">{registry.gap_analysis.sommario}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                registry.gap_analysis.livello_rischio === 'critico' ? 'bg-red-200' :
+                registry.gap_analysis.livello_rischio === 'alto' ? 'bg-orange-200' :
+                registry.gap_analysis.livello_rischio === 'medio' ? 'bg-amber-200' :
+                'bg-green-200'
+              }`}>
+                <span className={`text-xl font-black ${
+                  registry.gap_analysis.livello_rischio === 'critico' ? 'text-red-700' :
+                  registry.gap_analysis.livello_rischio === 'alto' ? 'text-orange-700' :
+                  registry.gap_analysis.livello_rischio === 'medio' ? 'text-amber-700' :
+                  'text-green-700'
+                }`}>{registry.gap_analysis.score}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {registry.gap_analysis.gaps.map((gap: any, i: number) => (
+              <div key={i} className={`p-3 rounded-xl border ${
+                gap.gravita === 'critico' ? 'border-red-200 bg-white' :
+                gap.gravita === 'alto' ? 'border-orange-200 bg-white' :
+                gap.gravita === 'medio' ? 'border-amber-200 bg-white' :
+                'border-slate-200 bg-white'
+              }`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                    gap.gravita === 'critico' ? 'bg-red-100 text-red-700' :
+                    gap.gravita === 'alto' ? 'bg-orange-100 text-orange-700' :
+                    gap.gravita === 'medio' ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-600'
+                  }`}>{gap.gravita}</span>
+                  <span className="text-xs font-bold text-slate-800">{gap.area}</span>
+                </div>
+                <p className="text-[11px] text-slate-600 mb-1">{gap.descrizione}</p>
+                <p className="text-[11px] text-emerald-700 font-semibold">{gap.azione}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Stima Premio + Classificazione EU ── */}
+      {registry?.stima_premio && (
+        <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Stima Premio Annuale */}
+          <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Stima Premio Annuale</h3>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">{registry.stima_premio.fonte}</p>
+              </div>
+            </div>
+
+            <div className="text-center mb-4 p-3 rounded-xl bg-white border border-indigo-200">
+              <p className="text-2xl font-black text-indigo-700">{registry.stima_premio.totale_stimato}</p>
+              <p className="text-[10px] text-slate-400">premio annuale totale stimato</p>
+            </div>
+
+            <div className="space-y-2">
+              {registry.stima_premio.dettaglio.map((d: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/70 border border-indigo-100">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-700 truncate">{d.polizza}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{d.note}</p>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-600 whitespace-nowrap ml-2">
+                    €{new Intl.NumberFormat('it-IT').format(d.premio_min)} - €{new Intl.NumberFormat('it-IT').format(d.premio_max)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[9px] text-slate-400 mt-3 leading-relaxed">{registry.stima_premio.disclaimer}</p>
+          </div>
+
+          {/* Classificazione EU */}
+          {registry.classificazione_eu && (
+            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                  <Building2 className="w-4 h-4 text-slate-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">{registry.classificazione_eu.label}</h3>
+                  <p className="text-[10px] text-slate-400">Reg. UE 651/2014 — classificazione PMI</p>
+                </div>
+              </div>
+
+              <div className={`inline-block text-xs font-black px-3 py-1.5 rounded-full mb-4 ${
+                registry.classificazione_eu.classe === 'grande' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                registry.classificazione_eu.classe === 'media' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                registry.classificazione_eu.classe === 'piccola' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                'bg-slate-100 text-slate-600 border border-slate-200'
+              }`}>
+                {registry.classificazione_eu.classe.toUpperCase()}
+              </div>
+              <p className="text-xs text-slate-600 mb-4">{registry.classificazione_eu.descrizione}</p>
+
+              {registry.classificazione_eu.obblighi_extra?.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Obblighi normativi</p>
+                  <ul className="space-y-1">
+                    {registry.classificazione_eu.obblighi_extra.map((o: string, i: number) => (
+                      <li key={i} className="text-[11px] text-slate-600 flex items-start gap-1.5">
+                        <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                        {o}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {registry.classificazione_eu.opportunita_broker?.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-2">Opportunità commerciali</p>
+                  <ul className="space-y-1">
+                    {registry.classificazione_eu.opportunita_broker.map((o: string, i: number) => (
+                      <li key={i} className="text-[11px] text-emerald-700 flex items-start gap-1.5">
+                        <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                        {o}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {pitchError && (
         <div style={{
           background: '#FEF2F2', border: '1px solid #FECACA',
@@ -1590,7 +2468,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           <textarea
             value={coldEmail}
             onChange={(e) => setColdEmail(e.target.value)}
-            className="w-full min-h-[160px] rounded-md border border-slate-200 bg-white p-3 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="w-full min-h-[160px] rounded-md border border-blue-200 bg-blue-50 p-6 text-sm text-blue-800 font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-200"
           />
         </div>
 

@@ -16,7 +16,7 @@ const links = {
     { label: 'Cookie Policy', href: '/cookie-policy' },
   ],
   Supporto: [
-    { label: 'Contatti', href: 'mailto:supporto@mirax.it' },
+    { label: 'Contatti', href: 'mailto:supporto@ckbassicurazione.it' },
     { label: 'Dashboard', href: '/dashboard' },
   ],
 }
@@ -30,11 +30,11 @@ export default function LandingFooter() {
           {/* Brand */}
           <div>
             <div className="mb-5">
-              <img src="/mirax-logo-white.svg" alt="MiraX" className="h-9 w-auto" />
+              <MiraxLogo size={32} variant="dark" showWordmark={true} />
             </div>
             <p className="text-sm text-white/35 font-['DM_Sans'] leading-relaxed max-w-[240px] mb-6">
-              Il motore di intelligence B2B più potente d&apos;Italia.
-              Trova, analizza e chiudi. In 2 minuti.
+              La piattaforma di intelligence assicurativa per broker e consulenti.
+              Trova aziende, analizza rischi, genera proposte.
             </p>
             <div className="flex gap-2 flex-wrap">
               {['GDPR', 'EU Server', '99.9% uptime'].map((b) => (
@@ -72,7 +72,7 @@ export default function LandingFooter() {
         {/* Bottom row */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <span className="text-xs text-white/20 font-['DM_Sans']">
-            © {new Date().getFullYear()} MiraX. Tutti i diritti riservati.
+            © {new Date().getFullYear()} CKB Assicurazione. Tutti i diritti riservati.
           </span>
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" />

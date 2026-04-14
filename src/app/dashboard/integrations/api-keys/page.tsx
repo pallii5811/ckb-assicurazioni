@@ -67,7 +67,7 @@ export default function ApiKeysPage() {
         <Key className="w-6 h-6 text-purple-600" />
         <div>
           <h1 className="text-2xl font-bold">API Keys</h1>
-          <p className="text-gray-500 text-sm">Integra MiraX nel tuo workflow con la nostra API REST</p>
+          <p className="text-gray-500 text-sm">Integra CKB nel tuo workflow con la nostra API REST</p>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export default function ApiKeysPage() {
       <div className="mt-6 bg-gray-900 rounded-xl p-4 text-sm font-mono text-gray-300">
         <div className="text-gray-500 mb-2"># Esempio utilizzo API</div>
         <div>
-          <span className="text-purple-400">curl</span> https://mirax.app/api/v1/leads \
+          <span className="text-purple-400">curl</span> https://ckbassicurazione.it/api/v1/leads \
         </div>
         <div className="ml-4">-H <span className="text-green-400">"Authorization: Bearer mx_..."</span> \</div>
         <div className="ml-4">-G -d <span className="text-green-400">"categoria=agenzie seo"</span> \</div>

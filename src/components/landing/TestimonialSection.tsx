@@ -15,7 +15,7 @@ const testimonials = [
     gradient: 'from-indigo-500 to-violet-500',
   },
   {
-    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con MIRAX cerco "dentisti a Torino senza sito aggiornato" e mi escono 30 lead con email del titolare e pitch già pronto.',
+    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con CKB cerco "aziende edili a Torino senza RC" e mi escono 30 prospect con contatti titolare e proposta già pronta.',
     name: 'Sara B.',
     role: 'Consulente digitale · Torino',
     avatar: 'SB',
@@ -52,7 +52,7 @@ export function TestimonialSection() {
             <span className="text-xs font-semibold text-indigo-400 font-['DM_Sans'] uppercase tracking-wider">Risultati Reali</span>
           </div>
           <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-5 tracking-tight">
-            Chi usa MIRAX{' '}
+            Chi usa CKB{' '}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
               chiude di più.
             </span>

@@ -3126,7 +3126,6 @@ const buildPitchSystemPrompt = () => {
 }
 
 
-
 const openaiPitch = async (input: PitchInput): Promise<PitchResult> => {
 
   const apiKey = process.env.OPENAI_API_KEY
@@ -3149,7 +3148,43 @@ const openaiPitch = async (input: PitchInput): Promise<PitchResult> => {
 
     messages: [
 
-      { role: 'system', content: buildPitchSystemPrompt() },
+      { role: 'system', content: `
+
+Sei un consulente assicurativo corporate e risk manager di "CKB Insurance".
+
+Devi scrivere un'email a freddo (cold email) per contattare l'azienda indicata.
+
+L'obiettivo è ottenere un appuntamento telefonico (10-15 minuti) per discutere un'analisi gratuita dei rischi aziendali, cyber security, welfare aziendale o responsabilità degli amministratori.
+
+
+
+
+DATI AZIENDA:
+
+- Nome: ${input.nome || 'N/D'}
+
+- Città: ${input.citta || 'N/D'}
+
+- Settore: ${input.categoria || 'N/D'}
+
+- Tecnologie/Caratteristiche rilevate: ${input.tech_stack.length > 0 ? input.tech_stack.join(', ') : 'N/D'}
+
+
+
+
+REGOLE:
+
+1. Stile formale, consulenziale, conciso (massimo 4-5 frasi).
+
+2. Non nominare mai punteggi tecnici o SEO. Usa il settore dell'azienda per proporre polizze rilevanti (es. D&O per SRL/SPA, CAR per Edilizia, RC Professionale o Cyber Risk).
+
+3. Toni cortesi, diretti (usa il Lei). 
+
+4. Termina con una chiara ma non invadente call to action.
+
+5. Restituisci un JSON valido con due campi: { "subject": "Oggetto email", "body": "Testo email" }. Non includere markdown o altre formattazioni esterne al JSON.
+
+`.trim() },
 
       {
 
@@ -5474,7 +5509,7 @@ export async function expandAndSearch(query: string): Promise<{ subcategories: s
 
 export async function analyzeSiteAction(url: string): Promise<{ success: boolean; lead: any }> {
   try {
-    const res = await fetch('http://116.203.137.39:8001/audit-url', {
+    const res = await fetch('http://46.225.189.40:8001/audit-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url })

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     
     <div style="background:linear-gradient(135deg,#6366F1,#8B5CF6);padding:40px 32px;text-align:center;">
       <h1 style="color:white;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.02em;">
-        Benvenuto su mirax
+        Benvenuto su CKB Assicurazione
       </h1>
       <p style="color:rgba(255,255,255,0.8);font-size:15px;margin:0;">
         Il tuo account è stato creato con successo
@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
         Ciao <strong>${displayName}</strong>,
       </p>
       <p style="font-size:15px;color:#475569;line-height:1.7;margin:0 0 24px;">
-        Grazie per esserti registrato su MIRAX. Hai ricevuto <strong>100 crediti gratuiti</strong> 
-        per iniziare a trovare i tuoi primi lead qualificati.
+        Grazie per esserti registrato su CKB Assicurazione. Hai ricevuto <strong>100 crediti gratuiti</strong> 
+        per iniziare a trovare i tuoi primi prospect assicurativi.
       </p>
 
       <div style="background:#f1f5f9;border-radius:12px;padding:20px;margin:0 0 24px;">
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       </div>
 
       <div style="text-align:center;margin:32px 0;">
-        <a href="https://mirax.it/dashboard" 
+        <a href="https://ckbassicurazione.it/dashboard" 
            style="display:inline-block;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:white;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">
           Vai alla Dashboard →
         </a>
@@ -61,13 +61,13 @@ export async function POST(req: NextRequest) {
 
       <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0;border-top:1px solid #f1f5f9;padding-top:20px;">
         Hai domande? Rispondi direttamente a questa email o scrivi a 
-        <a href="mailto:supporto@mirax.it" style="color:#6366f1;">supporto@mirax.it</a>.
+        <a href="mailto:supporto@ckbassicurazione.it" style="color:#6366f1;">supporto@ckbassicurazione.it</a>.
       </p>
     </div>
 
     <div style="background:#f8fafc;padding:20px 32px;text-align:center;border-top:1px solid #f1f5f9;">
       <p style="font-size:12px;color:#94a3b8;margin:0;">
-        © ${new Date().getFullYear()} MIRAX — Tutti i diritti riservati
+        © ${new Date().getFullYear()} CKB Assicurazione — Tutti i diritti riservati
       </p>
     </div>
   </div>
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     await resend.emails.send({
       from,
       to: email,
-      subject: 'Benvenuto su MIRAX — I tuoi primi 100 crediti ti aspettano',
+      subject: 'Benvenuto su CKB Assicurazione — I tuoi primi 100 crediti ti aspettano',
       html,
     })
 

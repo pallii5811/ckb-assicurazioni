@@ -5,12 +5,12 @@ import { motion } from 'framer-motion'
 import CtaLink from '@/components/CtaLink'
 
 const comparisons = [
-  { label: 'Qualità dei lead', cold: 'Lista acquistata, dati vecchi', mirax: 'Profilati e auditati in tempo reale' },
-  { label: 'Tempo per 10 lead', cold: '3-4 ore di ricerca manuale', mirax: 'Meno di 2 minuti' },
-  { label: 'Conosci il problema?', cold: 'No — parli al buio', mirax: 'SEO, pixel, DMARC, velocità' },
-  { label: 'Pitch personalizzato', cold: 'Lo scrivi tu da zero', mirax: "Generato dall'AI in 1 click" },
-  { label: 'Contatto titolare', cold: 'Spesso centralino', mirax: 'Cellulare verificato + email' },
-  { label: 'Tasso di risposta', cold: '1-3%', mirax: '10-20%' },
+  { label: 'Qualità dei prospect', cold: 'Lista acquistata, dati vecchi', ckb: 'Profilati con gap assicurativi reali' },
+  { label: 'Tempo per 10 prospect', cold: '3-4 ore di ricerca manuale', ckb: 'Meno di 2 minuti' },
+  { label: 'Conosci i gap?', cold: 'No — parli al buio', ckb: 'Gap analysis + rischio territoriale' },
+  { label: 'Proposta personalizzata', cold: 'La scrivi tu da zero', ckb: 'Generata con AI + dati reali' },
+  { label: 'Contatto titolare', cold: 'Spesso centralino', ckb: 'Cellulare verificato + email + PEC' },
+  { label: 'Tasso di risposta', cold: '1-3%', ckb: '10-20%' },
 ]
 
 export function VsSection() {
@@ -27,7 +27,7 @@ export function VsSection() {
             <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">Il confronto</span>
           </div>
           <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-5">
-            MIRAX vs{' '}
+            CKB vs{' '}
             <span className="text-slate-300 line-through decoration-red-400 decoration-3">
               Lista Fredda
             </span>
@@ -73,7 +73,7 @@ export function VsSection() {
             </div>
           </motion.div>
 
-          {/* MIRAX card */}
+          {/* CKB card */}
           <motion.div
             className="bg-white rounded-2xl border-2 border-indigo-200 p-6 lg:p-8 relative overflow-hidden shadow-xl shadow-indigo-100/50"
             initial={{ opacity: 0, x: 30 }}
@@ -91,7 +91,7 @@ export function VsSection() {
                 <Check size={18} className="text-white" />
               </div>
               <div>
-                <h3 className="font-['Syne'] text-lg font-bold text-slate-900">MIRAX</h3>
+                <h3 className="font-['Syne'] text-lg font-bold text-slate-900">CKB Assicurazione</h3>
                 <div className="text-xs text-indigo-600 font-bold font-['DM_Sans']">10-20% tasso risposta</div>
               </div>
             </div>
@@ -103,7 +103,7 @@ export function VsSection() {
                   </span>
                   <div>
                     <div className="text-xs font-semibold text-slate-500 font-['DM_Sans'] mb-0.5">{c.label}</div>
-                    <div className="text-sm font-medium text-slate-800 font-['DM_Sans']">{c.mirax}</div>
+                    <div className="text-sm font-medium text-slate-800 font-['DM_Sans']">{c.ckb}</div>
                   </div>
                 </div>
               ))}
@@ -127,7 +127,7 @@ export function VsSection() {
             <ArrowRight size={24} className="text-white/40 rotate-90 sm:rotate-0" />
             <div>
               <div className="font-['Syne'] text-4xl lg:text-5xl font-bold text-white">10-20%</div>
-              <div className="text-sm text-white/70 font-['DM_Sans'] font-semibold">Con MIRAX</div>
+              <div className="text-sm text-white/70 font-['DM_Sans'] font-semibold">Con CKB</div>
             </div>
           </div>
         </motion.div>
@@ -136,7 +136,7 @@ export function VsSection() {
         <div className="text-center">
           <CtaLink>
             <span className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-semibold px-8 py-3.5 rounded-xl font-['DM_Sans'] shadow-lg shadow-indigo-500/30 transition-all cursor-pointer hover:-translate-y-0.5">
-              Prova MIRAX Gratis
+              Prova CKB Gratis
               <ArrowRight size={16} />
             </span>
           </CtaLink>

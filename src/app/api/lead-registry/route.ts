@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getTerritorialRisk } from '@/lib/territorial-risk'
+import { getAtecoInsurance } from '@/lib/ateco-insurance'
+import { classifyCompanySize, estimateAnnualPremium, analyzeInsuranceGaps } from '@/lib/insurance-analysis'
+import { buildInsuranceNeedsProfile } from '@/lib/insurance-needs-engine'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://116.203.137.39:8001'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://46.225.189.40:8001'
 const OPENAPI_IT_TOKEN = process.env.OPENAPI_IT_TOKEN || ''
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -301,8 +305,19 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Step 2: Extract P.IVA from company website ───────────────
+  // SKIP if website is a third-party platform (miodottore.it, paginegialle.it, etc.)
+  // — the P.IVA on those pages belongs to the PLATFORM, not the business
+  const PLATFORM_DOMAINS = ['miodottore.it','doctolib.it','paginegialle.it','paginebianche.it','tuttocitta.it','yelp.com','yelp.it','tripadvisor.it','tripadvisor.com','booking.com','airbnb.it','airbnb.com','subito.it','immobiliare.it','idealista.it','linkedin.com','facebook.com','instagram.com','youtube.com','twitter.com','tiktok.com','trustpilot.com','google.com','europages.it','kompass.com','hotfrog.it','cylex.it','virgilio.it','wix.com','wordpress.com','jimdo.com','weebly.com','shopify.com','etsy.com','amazon.it','amazon.com','ebay.it','ebay.com','topdoctors.it','dottori.it','medicitalia.it','pazienti.it','guidadottori.it','thefork.it','justeat.it','deliveroo.it','glovo.com','matrimonio.com']
+  const isThirdPartyPlatform = (() => {
+    if (!website) return false
+    try {
+      const hostname = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace(/^www\./, '')
+      return PLATFORM_DOMAINS.some(p => hostname === p || hostname.endsWith(`.${p}`))
+    } catch { return false }
+  })()
+
   let websitePiva: string | null = null
-  if (website) {
+  if (website && !isThirdPartyPlatform) {
     const baseUrl = website.startsWith('http') ? website : `https://${website}`
     const origin = (() => { try { return new URL(baseUrl).origin } catch { return baseUrl } })()
     const mainHtml = await fetchHtmlSafe(baseUrl, 6000)
@@ -402,7 +417,7 @@ export async function POST(req: NextRequest) {
   if (src.pec) profile.pec = src.pec
   if (src.data_costituzione) profile.data_costituzione = src.data_costituzione
 
-  profile.stato = src.stato || 'Attiva'
+  if (src.stato) profile.stato = src.stato
 
   // ─── Step 6: GPT ONLY for ATECO if not found from real sources
   if (!profile.codice_ateco) {
@@ -442,6 +457,69 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
       }
     }
   }
+
+  // ─── Step 7: Rischio Territoriale (GRATIS — dati Protezione Civile) ──
+  const cityForRisk = city || profile.sede_legale || ''
+  if (cityForRisk) {
+    const territorial = getTerritorialRisk(cityForRisk)
+    if (territorial.zona_sismica) {
+      profile.rischio_territoriale = territorial
+    }
+  }
+
+  // ─── Step 8: Obblighi Assicurativi ATECO (GRATIS — normativa INAIL/IVASS) ──
+  const atecoIns = getAtecoInsurance(profile.codice_ateco || null, category || null)
+  if (atecoIns) {
+    profile.obblighi_assicurativi = atecoIns
+  }
+
+  // ─── Step 9: Classificazione dimensionale EU + Gap Analysis + Stima Premi ──
+  const parseFatturato = (f: any): number | null => {
+    if (!f) return null
+    const n = Number(String(f).replace(/[^\d]/g, ''))
+    return isNaN(n) || n === 0 ? null : n
+  }
+  const parseDipendenti = (d: any): number | null => {
+    if (!d) return null
+    const s = String(d).match(/\d+/)
+    return s ? parseInt(s[0], 10) : null
+  }
+
+  const fatNum = parseFatturato(profile.fatturato)
+  const dipNum = parseDipendenti(profile.dipendenti)
+
+  // Classificazione dimensionale
+  profile.classificazione_eu = classifyCompanySize(fatNum, dipNum)
+
+  // Insurance Gap Analysis
+  profile.gap_analysis = analyzeInsuranceGaps(
+    fatNum,
+    dipNum,
+    profile.forma_giuridica || null,
+    profile.codice_ateco || null,
+    category || null,
+    profile.rischio_territoriale?.zona_sismica || null,
+    profile.rischio_territoriale?.rischio_idrogeologico || null,
+    !!(profile.pec),
+    !!website,
+  )
+
+  // Stima premio annuale
+  profile.stima_premio = estimateAnnualPremium(
+    fatNum,
+    dipNum,
+    atecoIns?.classe_inail || null,
+    profile.rischio_territoriale?.zona_sismica || null,
+    atecoIns?.settore || null,
+  )
+
+  profile.bisogni_assicurativi_verificati = buildInsuranceNeedsProfile({
+    profile,
+    category: category || null,
+    website: website || null,
+    atecoInsurance: atecoIns || null,
+    gapAnalysis: profile.gap_analysis || null,
+  })
 
   // Rimuovi campi null/vuoti
   for (const key of Object.keys(profile)) {

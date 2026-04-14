@@ -34,7 +34,7 @@ const SniperArea = ({ query, onQueryChange, onStart, isLoading, error, aiDebug, 
           <Search className="w-5 h-5 text-violet-500 flex-shrink-0" />
           <input
             type="text"
-            placeholder="Cerca aziende... es. Ristoranti a Roma senza sito"
+            placeholder="Cerca aziende... es. Imprese edili a Milano SRL"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             className="flex-1 bg-transparent text-[16px] sm:text-[18px] text-slate-900 placeholder:text-slate-400 outline-none py-4 sm:py-[18px] min-w-0 font-medium tracking-[-0.01em]"

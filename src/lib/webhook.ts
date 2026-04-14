@@ -13,7 +13,7 @@ export async function sendToWebhook({ webhookUrl, payload, timeoutMs = 6000 }: S
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'MIRAX/1.0',
+        'User-Agent': 'CKB-Assicurazione/1.0',
       },
       body: JSON.stringify(payload),
       signal: controller.signal,

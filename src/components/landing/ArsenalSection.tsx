@@ -244,7 +244,7 @@ export default function ArsenalSection() {
                 Pronto a chiudere i tuoi prossimi clienti?
               </h3>
               <p className="text-sm text-white/60 font-['DM_Sans']">
-                Unisciti a 200+ agency italiane che usano MIRAX ogni giorno.
+                Unisciti a 200+ agency italiane che usano CKB ogni giorno.
               </p>
             </div>
             <CtaLink>

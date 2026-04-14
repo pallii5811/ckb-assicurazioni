@@ -14,11 +14,13 @@ import { useToast } from '@/components/ToastProvider'
 
 import { analyzeSiteAction, expandAndSearch, processSemanticSearchAction, textToFilterSearchAction } from '@/app/dashboard/actions'
 
-import MiraxLogo from '@/components/MiraxLogo'
+import MiraxLogo from '@/components/MiraxLogo' // We will keep the filename for now but change the UI
 
 import { Button } from '@/components/ui/button'
 
-import { Folder, Sparkles, Search } from 'lucide-react'
+import { Folder, Sparkles, Search, Database, MapPin } from 'lucide-react'
+
+import DatabaseSearchSection from '@/components/DatabaseSearchSection'
 
 import { createClient } from '@/utils/supabase/client'
 
@@ -233,6 +235,15 @@ function _hasContact(lead: any): boolean {
   return _isVal(lead?.telefono ?? lead?.phone) || _isRealEmail(lead?.email)
 }
 
+function _isVisibleBusinessLead(lead: any): boolean {
+  if (_hasContact(lead)) return true
+  const _isVal = (v: any) => v && typeof v === 'string' && !['n/d','n/a','none','null',''].includes(v.trim().toLowerCase())
+  const name = lead?.azienda ?? lead?.nome ?? lead?.business_name ?? lead?.name
+  const website = lead?.sito ?? lead?.website
+  const address = lead?.indirizzo ?? lead?.address
+  return _isVal(name) && (_isVal(website) || _isVal(address))
+}
+
 function buildTechFilter(q: string): ((l: any) => boolean) | null {
   const filters: Array<(l: any) => boolean> = []
   const ql = q.toLowerCase()
@@ -340,7 +351,7 @@ export default function DashboardShell() {
       const savedQuery = sessionStorage.getItem('ckb_query')
       if (savedQuery) setQuery(savedQuery)
       const savedResults = sessionStorage.getItem('ckb_results')
-      if (savedResults) setResults((JSON.parse(savedResults) as any[]).filter(_hasContact))
+      if (savedResults) setResults((JSON.parse(savedResults) as any[]).filter(_isVisibleBusinessLead))
       const savedFilters = sessionStorage.getItem('ckb_filters')
       if (savedFilters) setActiveFilters(JSON.parse(savedFilters))
       const savedAiDebug = sessionStorage.getItem('ckb_aiDebug')
@@ -382,8 +393,10 @@ export default function DashboardShell() {
     try { sessionStorage.setItem('ckb_aiDebug', JSON.stringify(aiDebug)) } catch {}
   }, [aiDebug, isRestored])
 
+  const [searchMode, setSearchMode] = useState<'maps' | 'database'>('maps')
   const [autoScrapeTriggered, setAutoScrapeTriggered] = useState(false)
   const [autoScrapeLoading, setAutoScrapeLoading] = useState(false)
+  const [autoScrapeMessage, setAutoScrapeMessage] = useState<string | null>(null)
   const prevQueryRef = useRef('')
   const autoscrapePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const resultsCountRef = useRef(0)
@@ -400,6 +413,7 @@ export default function DashboardShell() {
       prevQueryRef.current = query
       setAutoScrapeTriggered(false)
       setAutoScrapeLoading(false)
+      setAutoScrapeMessage(null)
       if (autoscrapePollRef.current) {
         clearInterval(autoscrapePollRef.current)
         autoscrapePollRef.current = null
@@ -430,6 +444,7 @@ export default function DashboardShell() {
       try {
         setAutoScrapeTriggered(true)
         setAutoScrapeLoading(true)
+        setAutoScrapeMessage(null)
 
         const words = query.trim().split(/\s+/)
         // Prefer 'a'/'in' over 'di' — 'di' is often part of category ("negozi di elettronica")
@@ -504,6 +519,7 @@ export default function DashboardShell() {
           const needed = maxLeads - resultsCountRef.current
           if (needed <= 0) return true
           const batchSize = Math.max(needed * 2, 40)
+          const startResultsCount = resultsCountRef.current
 
           let jobId: string | null = null
           try {
@@ -531,6 +547,9 @@ export default function DashboardShell() {
             const maxPolls = 120
             let stalePolls = 0
             let lastResultCount = 0
+            let noGrowthPolls = 0
+            let lastUiCount = resultsCountRef.current
+            const maxNoGrowthPolls = 18
 
             if (autoscrapePollRef.current) clearInterval(autoscrapePollRef.current)
             const pollInterval = setInterval(async () => {
@@ -538,6 +557,9 @@ export default function DashboardShell() {
               if (pollCount >= maxPolls) {
                 clearInterval(pollInterval)
                 autoscrapePollRef.current = null
+                if (resultsCountRef.current === startResultsCount && resultsCountRef.current < maxLeads) {
+                  setAutoScrapeMessage('Nessun nuovo lead utile trovato automaticamente. Prova "Trova Aziende" per ampliare di più.')
+                }
                 resolve(resultsCountRef.current >= maxLeads)
                 return
               }
@@ -586,10 +608,11 @@ export default function DashboardShell() {
                   const allowed = newLeads.slice(0, Math.min(remaining, creditsRef.current))
                   if (allowed.length > 0) {
                     const prevLen = curArr.length
-                    const updated = (deduplicateResults([...curArr, ...allowed]) as any[]).filter(_hasContact)
+                    const updated = (deduplicateResults([...curArr, ...allowed]) as any[]).filter(_isVisibleBusinessLead)
                     resultsArrRef.current = updated
                     resultsCountRef.current = updated.length
                     setResults(updated)
+                    if (updated.length > prevLen) setAutoScrapeMessage(null)
                     const actualNewCount = updated.length - prevLen
                     if (actualNewCount > 0) deductCredits(actualNewCount)
                     if (updated.length >= maxLeads) {
@@ -601,10 +624,21 @@ export default function DashboardShell() {
                   }
                 }
 
-                if (jobData.status === 'completed' || jobData.status === 'error' || stalePolls >= 12) {
+                if (resultsCountRef.current === lastUiCount) noGrowthPolls++
+                else {
+                  noGrowthPolls = 0
+                  lastUiCount = resultsCountRef.current
+                }
+
+                if (jobData.status === 'completed' || jobData.status === 'error' || stalePolls >= 12 || noGrowthPolls >= maxNoGrowthPolls) {
                   console.log(`[AUTO-SCRAPE] done: status=${jobData.status} results=${scrapeResults.length} total=${resultsCountRef.current}/${maxLeads}`)
                   clearInterval(pollInterval)
                   autoscrapePollRef.current = null
+                  if (resultsCountRef.current === startResultsCount && resultsCountRef.current < maxLeads) {
+                    setAutoScrapeMessage('Nessun nuovo lead utile trovato automaticamente. Prova "Trova Aziende" per ampliare di più.')
+                  } else if (resultsCountRef.current < maxLeads) {
+                    setAutoScrapeMessage('Ricerca automatica completata. Nessun altro lead utile trovato al momento.')
+                  }
                   resolve(resultsCountRef.current >= maxLeads)
                   return
                 }
@@ -823,7 +857,7 @@ export default function DashboardShell() {
           if ((activeFilters as any)?.has_website === false) {
             arr = arr.filter((lead: any) => {
               const s = (typeof lead?.sito === 'string' ? lead.sito : typeof lead?.website === 'string' ? lead.website : '').trim()
-              return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.'
+              return !s || s === 'N/D' || s === 'N/A' || s === 'N.D.' || s === 'n/d'
             })
           } else if ((activeFilters as any)?.has_website === true) {
             arr = arr.filter((lead: any) => {
@@ -838,7 +872,7 @@ export default function DashboardShell() {
 
           // Merge with existing results (never reduce count)
           const existingArr = resultsArrRef.current as any[]
-          const mergedArr = (deduplicateResults([...existingArr, ...((_tf1 ? arr : arr.map(normalizeLeadFields)) as any[])]) as any[]).filter(_hasContact)
+          const mergedArr = (deduplicateResults([...existingArr, ...((_tf1 ? arr : arr.map(normalizeLeadFields)) as any[])]) as any[]).filter(_isVisibleBusinessLead)
           setResults(mergedArr.length >= existingArr.length ? mergedArr : existingArr)
 
           setSearchState('done')
@@ -927,7 +961,7 @@ export default function DashboardShell() {
           // Merge completed results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyAllFilters((parsed || []).map(normalizeLeadFields))) as any[]
           const existing = resultsArrRef.current as any[]
-          const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_hasContact)
+          const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_isVisibleBusinessLead)
           const cappedByMax = merged.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
@@ -957,7 +991,7 @@ export default function DashboardShell() {
           // Merge intermediate results with existing (never reduce count, preserve audited emails)
           const normalized = deduplicateResults(applyAllFilters(parsed.map(normalizeLeadFields))) as any[]
           const existing = resultsArrRef.current as any[]
-          const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_hasContact)
+          const merged = (deduplicateResults([...existing, ...normalized]) as any[]).filter(_isVisibleBusinessLead)
           const cappedByMax = merged.slice(0, maxLeads)
           const cappedByCredits = cappedByMax.slice(0, creditsRef.current)
           setResults(cappedByCredits)
@@ -1108,7 +1142,7 @@ export default function DashboardShell() {
 
       setPendingJobId(null)
 
-      const displayResults = (deduplicateResults(filtered) as any[]).filter(_hasContact)
+      const displayResults = (deduplicateResults(filtered) as any[]).filter(_isVisibleBusinessLead)
       setResults(displayResults)
 
       setActiveFilters(filters && typeof filters === 'object' ? (filters as Record<string, unknown>) : null)
@@ -1266,7 +1300,7 @@ export default function DashboardShell() {
 
       // Apply ALL filters before charging credits: deduplicate → contacts → tech filters → has_website → cap
       const deduplicated = deduplicateResults(Array.isArray(rawFiltered) ? rawFiltered : [])
-      let filtered = (deduplicated as any[]).map(normalizeLeadFields).filter(_hasContact)
+      let filtered = (deduplicated as any[]).map(normalizeLeadFields).filter(_isVisibleBusinessLead)
       // Apply tech filters (senza pixel, senza gtm, errori seo, etc.)
       const _tfSemantic = buildTechFilter(query)
       if (_tfSemantic) filtered = filtered.filter(_tfSemantic)
@@ -1356,7 +1390,7 @@ export default function DashboardShell() {
 
       const next = Array.isArray(res?.results) ? res.results : []
 
-      setResults((deduplicateResults(next) as any[]).filter(_hasContact))
+      setResults((deduplicateResults(next) as any[]).filter(_isVisibleBusinessLead))
 
       setSearchState('done')
 
@@ -1375,26 +1409,53 @@ export default function DashboardShell() {
 
   return (
     <>
+      {/* ── Tab switcher ── */}
+      <div className="flex items-center gap-1 mb-4 bg-slate-100 rounded-xl p-1 max-w-md">
+        <button
+          onClick={() => setSearchMode('database')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            searchMode === 'database'
+              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          Ricerca Referenti
+        </button>
+        <button
+          onClick={() => setSearchMode('maps')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            searchMode === 'maps'
+              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <MapPin className="w-4 h-4" />
+          Ricerca per Categoria e Città
+        </button>
+      </div>
+
+      {/* ── Database Search Mode ── */}
+      {searchMode === 'database' ? (
+        <DatabaseSearchSection />
+      ) : (
+      <>
+
       {/* ── Spiegazione + Filter chips ── */}
       <div className="mb-3 px-1">
         <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
-          <strong className="text-slate-700">Come cercare:</strong> scrivi <strong>categoria + città</strong> (es. &quot;Ristoranti a Roma&quot;) per vedere tutti i risultati.
-          Aggiungi un filtro per trovare aziende con problemi specifici (es. &quot;Ristoranti a Roma <strong>senza sito</strong>&quot;).
+          <strong className="text-slate-700">Come cercare:</strong> scrivi <strong>categoria + città</strong> (es. &quot;Edilizia a Milano&quot;) per vedere le aziende.
+          Puoi affinare per target assicurativo (es. &quot;Edilizia a Milano <strong>srl</strong>&quot;).
         </p>
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
-            { label: 'senza Pixel', tip: 'No Meta Pixel / retargeting' },
-            { label: 'senza Google Ads', tip: 'Non fanno pubblicità su Google' },
-            { label: 'senza sito', tip: 'Non hanno un sito web' },
-            { label: 'errori SEO', tip: 'Errori nel codice del sito' },
-            { label: 'senza SSL', tip: 'Sito non sicuro (no HTTPS)' },
-            { label: 'senza Instagram', tip: 'Nessun profilo Instagram' },
-            { label: 'senza Facebook', tip: 'Nessuna pagina Facebook' },
-            { label: 'sito lento', tip: 'Sito con caricamento lento' },
-            { label: 'senza GTM', tip: 'No Google Tag Manager' },
-            { label: 'senza Analytics', tip: 'No Google Analytics' },
-            { label: 'senza DMARC', tip: 'Email a rischio spam' },
-            { label: 'non mobile', tip: 'Sito non mobile-friendly' },
+            { label: 'SRL', tip: 'Società a Responsabilità Limitata (Target D&O, TFR)' },
+            { label: 'SPA', tip: 'Società per Azioni (Target Key Man, Cyber)' },
+            { label: 'senza sito', tip: 'Aziende poco strutturate online' },
+            { label: 'clinica', tip: 'Strutture Mediche (RC Medica)' },
+            { label: 'costruzioni', tip: 'Imprese edili (Polizza CAR)' },
+            { label: 'SNC', tip: 'Società in Nome Collettivo' },
+            { label: 'trasporti', tip: 'Aziende logistica/trasporti (RC Vettoriale)' },
           ].map((f) => (
             <button
               key={f.label}
@@ -1409,8 +1470,8 @@ export default function DashboardShell() {
               }}
               className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer disabled:opacity-50 ${
                 query.toLowerCase().includes(f.label.toLowerCase())
-                  ? 'bg-violet-100 border-violet-300 text-violet-700'
-                  : 'bg-white border-slate-200 text-slate-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50'
+                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                  : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50'
               }`}
             >
               {f.label}
@@ -1437,13 +1498,13 @@ export default function DashboardShell() {
           type="button"
           disabled={isLoading}
           onClick={handleExpandedSearchClick}
-          className="rounded-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 hover:shadow-xl disabled:opacity-50 flex items-center gap-2 transition-all duration-200 hover:scale-[1.02]"
+          className="rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:shadow-xl disabled:opacity-50 flex items-center gap-2 transition-all duration-200 hover:scale-[1.02]"
         >
           <Sparkles className="w-4 h-4" />
-          Ricerca Espansa
+          Trova Aziende
         </button>
         <p className="text-[11px] text-slate-500 max-w-sm hidden sm:block leading-snug">
-          Trova <strong>tutte le aziende correlate</strong> alla tua parola chiave. Es: &quot;comunicazione Milano&quot; ti mostrerà agenzie di comunicazione, uffici stampa, agenzie marketing e molto altro.
+          Trova <strong>tutte le aziende correlate</strong> alla tua parola chiave. Es: &quot;logistica Milano&quot; ti mostrerà imprese di trasporto, spedizioni, magazzini e molto altro — con analisi rischi inclusa.
         </p>
       </div>
 
@@ -1451,10 +1512,10 @@ export default function DashboardShell() {
       <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center px-1 mb-2">
         <input
           type="text"
-          placeholder="Oppure incolla URL sito (es. https://crystalweb.it)"
+          placeholder="Oppure cerca una singola azienda dal sito (es. https://crystalweb.it)"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
-          className="flex-1 px-3 py-2 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-slate-400"
+          className="flex-1 px-3 py-2 text-sm text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-400"
         />
         <button
           onClick={handleAnalyzeSite}
@@ -1472,21 +1533,21 @@ export default function DashboardShell() {
       ) : null}
 
       {pendingJobId ? (
-        <div className="mb-4 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-800">
+        <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           Sto analizzando in tempo reale... attendere 2-3 minuti
         </div>
       ) : null}
 
       {searchState === 'pending' ? (
-        <div className="flex flex-col items-center gap-3 p-8 bg-violet-50 border border-violet-200 rounded-2xl mx-4">
+        <div className="flex flex-col items-center gap-3 p-8 bg-blue-50 border border-blue-200 rounded-2xl mx-4">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-            <p className="text-violet-700 font-semibold text-sm">Analisi in corso — risultati tra 2-3 minuti</p>
+            <div className="h-4 w-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+            <p className="text-blue-700 font-semibold text-sm">Analisi in corso — risultati tra 2-3 minuti</p>
           </div>
-          <div className="w-full max-w-sm bg-violet-200 rounded-full h-2.5 overflow-hidden">
-            <div className="bg-violet-600 h-2.5 rounded-full" style={{ animation: 'progressFill 180s ease-in-out forwards', width: '5%' }} />
+          <div className="w-full max-w-sm bg-blue-200 rounded-full h-2.5 overflow-hidden">
+            <div className="bg-blue-600 h-2.5 rounded-full" style={{ animation: 'progressFill 180s ease-in-out forwards', width: '5%' }} />
           </div>
-          <p className="text-[11px] text-violet-500">Stiamo analizzando siti web, social e tecnologie di ogni azienda.</p>
+          <p className="text-[11px] text-blue-500">Stiamo analizzando siti web, social e tecnologie di ogni azienda.</p>
         </div>
       ) : null}
 
@@ -1494,13 +1555,13 @@ export default function DashboardShell() {
         isScraping ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="relative mb-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-600 flex items-center justify-center">
                 <div className="dashboard-logo-wrapper">
                   <div className="dashboard-pulse-outer" />
                   <div className="dashboard-pulse-box" />
                   <img
-                    src="/mirax-icon.svg"
-                    alt="MiraX Icon"
+                    src="/ckb-icon.svg"
+                    alt="CKB Icon"
                     style={{ width: '90px', height: '90px', position: 'relative', zIndex: 1, borderRadius: '20px' }}
                     onError={(e) => {
                       e.currentTarget.style.display = 'none'
@@ -1512,7 +1573,7 @@ export default function DashboardShell() {
 
             <h3 className="text-xl font-bold text-slate-800 mb-2">Stiamo trovando i tuoi lead...</h3>
             <p className="text-slate-600 text-sm mb-2 max-w-sm leading-relaxed">
-              L&apos;intelligenza artificiale sta analizzando centinaia di aziende per trovare quelle più in linea con la tua ricerca.
+              L'intelligenza artificiale sta analizzando centinaia di aziende per trovare quelle più in linea con la tua ricerca.
             </p>
             <p className="text-slate-800 text-sm font-semibold mb-6">
               Tempo stimato: 5-15 minuti. Non chiudere la pagina.
@@ -1521,7 +1582,7 @@ export default function DashboardShell() {
             <div className="w-80 max-w-full">
               <div className="bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
                 <div
-                  className="h-3 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-violet-600"
+                  className="h-3 rounded-full bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600"
                   style={{
                     animation: 'progressFill 20s ease-in-out forwards',
                     width: '5%',
@@ -1531,7 +1592,7 @@ export default function DashboardShell() {
               <div className="flex flex-col gap-1.5">
                 <p className="text-[11px] text-slate-500 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Ricerca aziende nel database...
+                  Ricerca aziende in corso...
                 </p>
                 <p className="text-[11px] text-slate-400 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-slate-300" />
@@ -1559,7 +1620,7 @@ export default function DashboardShell() {
           <div className="flex flex-col items-center justify-center py-16 text-center px-4">
             {/* Minimal empty state */}
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 flex items-center justify-center mb-5">
-              <Search className="w-6 h-6 text-violet-500" />
+              <Search className="w-6 h-6 text-blue-500" />
             </div>
 
             <h3 className="text-lg font-bold text-slate-800 mb-2">Trova i tuoi prossimi clienti</h3>
@@ -1572,10 +1633,10 @@ export default function DashboardShell() {
 
             <div className="flex flex-wrap gap-2 justify-center mb-6 max-w-lg">
               {[
-                'Ristoranti a Milano senza sito',
-                'Hotel a Roma senza Pixel',
-                'Agenzie a Napoli errori SEO',
-                'Dentisti a Firenze senza Google Ads',
+                'Logistica a Milano SRL',
+                'Costruzioni a Roma SPA',
+                'Studi Medici a Firenze',
+                'Sviluppo Software a Napoli Cyber',
               ].map((text) => (
                 <button
                   key={text}
@@ -1585,7 +1646,7 @@ export default function DashboardShell() {
                     setQuery(text)
                     await processSemanticSearch(text)
                   }}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 disabled:opacity-60 shadow-sm cursor-pointer"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 disabled:opacity-60 shadow-sm cursor-pointer"
                 >
                   {text}
                 </button>
@@ -1593,7 +1654,7 @@ export default function DashboardShell() {
             </div>
 
             {/* Ricerca Espansa inline */}
-            <div className="flex items-center gap-3 bg-violet-50/60 border border-violet-200/60 rounded-xl px-4 py-3 max-w-md">
+            <div className="flex items-center gap-3 bg-blue-50/60 border border-blue-200/60 rounded-xl px-4 py-3 max-w-md">
               <div className="flex-1 text-left">
                 <p className="text-[12px] font-semibold text-slate-700">Ricerca Espansa</p>
                 <p className="text-[10px] text-slate-500">Cerca in tempo reale sul web — più tempo ma lead più freschi.</p>
@@ -1602,7 +1663,7 @@ export default function DashboardShell() {
                 type="button"
                 disabled={isLoading}
                 onClick={handleExpandedSearchClick}
-                className="rounded-lg bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50 whitespace-nowrap flex-shrink-0"
+                className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50 whitespace-nowrap flex-shrink-0"
               >
                 Prova
               </button>
@@ -1614,16 +1675,22 @@ export default function DashboardShell() {
           {Array.isArray(results) && results.length > 0 ? (
             <>
               {autoScrapeLoading && (
-                <div className="flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 mb-3 mx-4">
-                  <div className="h-4 w-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin flex-shrink-0" />
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-3 mx-4">
+                  <div className="h-4 w-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin flex-shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-violet-700">
                       {results.length} lead trovati — Stiamo cercando altri risultati
                     </p>
-                    <p className="text-[11px] text-violet-500 mt-0.5">
+                    <p className="text-[11px] text-blue-500 mt-0.5">
                       Analisi in tempo reale in corso. Attendi 5-10 minuti per risultati più completi. Puoi già consultare i lead trovati.
                     </p>
                   </div>
+                </div>
+              )}
+              {!autoScrapeLoading && autoScrapeMessage && (
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 mx-4">
+                  <div className="h-2.5 w-2.5 rounded-full bg-amber-500 flex-shrink-0" />
+                  <p className="text-[12px] text-amber-800 font-medium">{autoScrapeMessage}</p>
                 </div>
               )}
 
@@ -1642,7 +1709,7 @@ export default function DashboardShell() {
                     setSaveToEnvSearchId(sid)
                     setIsSaveToEnvOpen(true)
                   }}
-                  className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md hover:shadow-lg transition-all"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md hover:shadow-lg transition-all"
                 >
                   <Folder className="w-4 h-4" />
                   Salva in Ambiente
@@ -1661,6 +1728,9 @@ export default function DashboardShell() {
             aiDebug={aiDebug}
           />
         </>
+      )}
+
+      </>
       )}
 
       <SaveToEnvironmentModal

@@ -18,7 +18,7 @@ export default function UseCasesSection() {
               Non Ti Diamo un Contatto. Ti Diamo il Momento Giusto.
             </h2>
             <p className="mt-4 text-lg text-slate-700">
-              Mirax analizza l'infrastruttura digitale dei tuoi
+              CKB analizza l'infrastruttura digitale dei tuoi
               prospect in tempo reale. Trovi i punti deboli prima ancora
               di presentarti.
             </p>
@@ -47,7 +47,7 @@ export default function UseCasesSection() {
               </div>
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
-              Mirax analizza SEO, Pixel, SSL, DMARC, velocità e social.
+              CKB analizza SEO, Pixel, SSL, DMARC, velocità e social.
               Sai cosa dire e perché stanno perdendo soldi, prima ancora della chiamata.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">

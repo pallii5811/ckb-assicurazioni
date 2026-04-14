@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
           email: email || '',
           city: citta || '',
           hs_lead_status: 'NEW',
-          description: `Lead MiraX — Score: ${score} — Opportunità: ${opp}`,
+          description: `Lead CKB — Score: ${score} — Opportunità: ${opp}`,
         },
       }),
     })

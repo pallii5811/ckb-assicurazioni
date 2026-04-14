@@ -52,7 +52,7 @@ export function Guarantee() {
           </h2>
 
           <p className="text-base text-slate-500 font-['DM_Sans'] max-w-md mx-auto mb-10 leading-relaxed">
-            Se MIRAX non ti fa risparmiare tempo e chiudere più clienti, non paghi nulla.
+            Se CKB non ti fa risparmiare tempo e chiudere più clienti, non paghi nulla.
           </p>
 
           {/* 3 guarantee cards */}

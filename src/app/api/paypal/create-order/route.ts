@@ -6,9 +6,9 @@ const PAYPAL_API = process.env.PAYPAL_MODE === 'live'
   : 'https://api-m.sandbox.paypal.com'
 
 const PLAN_PRICES: Record<string, { amount: string; name: string }> = {
-  starter: { amount: '29.00', name: 'Mirax Starter' },
-  pro: { amount: '99.00', name: 'Mirax PRO' },
-  agency: { amount: '249.00', name: 'Mirax Agency' },
+  starter: { amount: '29.00', name: 'CKB Starter' },
+  pro: { amount: '99.00', name: 'CKB PRO' },
+  agency: { amount: '249.00', name: 'CKB Agency' },
 }
 
 async function getPayPalAccessToken(): Promise<string> {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
           },
         ],
         application_context: {
-          brand_name: 'Mirax Group',
+          brand_name: 'CKB Assicurazione',
           return_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard/billing?paypal=success`,
           cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard/billing?paypal=canceled`,
         },

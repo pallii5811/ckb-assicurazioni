@@ -50,7 +50,7 @@ export default function HeroDashboardAnimation({ className }: { className?: stri
           <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
           <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
         </div>
-        <span className="text-xs font-semibold text-gray-400">Mirax</span>
+        <span className="text-xs font-semibold text-gray-400">CKB</span>
       </div>
 
       {/* ── Search bar ── */}

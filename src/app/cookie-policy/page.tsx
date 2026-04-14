@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Cookie Policy | MIRAX',
-  description: 'Informativa sull\'uso dei cookie su MIRAX.',
+  title: 'Cookie Policy | CKB Assicurazione',
+  description: 'Informativa sull\'uso dei cookie su CKB Assicurazione.',
 }
 
 export default function CookiePolicyPage() {
@@ -12,7 +12,7 @@ export default function CookiePolicyPage() {
       <nav className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-lg font-bold text-slate-900" style={{ fontFamily: 'Syne, sans-serif' }}>
-            MIRAX
+            CKB Assicurazione
           </Link>
           <Link href="/" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
             ← Torna alla home
@@ -131,7 +131,7 @@ export default function CookiePolicyPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">6. Contatti</h2>
             <p>
               Per domande sulla nostra Cookie Policy, contattaci a{' '}
-              <a href="mailto:privacy@mirax.it" className="text-violet-600 hover:underline">privacy@mirax.it</a>.
+              <a href="mailto:privacy@ckbassicurazione.it" className="text-violet-600 hover:underline">privacy@ckbassicurazione.it</a>.
             </p>
           </section>
         </div>

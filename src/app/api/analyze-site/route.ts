@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       normalizedUrl = `https://${normalizedUrl}`
     }
 
-    const res = await fetch('http://116.203.137.39:8001/audit-url', {
+    const res = await fetch('http://46.225.189.40:8001/audit-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: normalizedUrl }),

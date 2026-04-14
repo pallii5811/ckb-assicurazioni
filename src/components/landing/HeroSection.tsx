@@ -6,18 +6,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import CtaLink from '@/components/CtaLink'
 
 const queries = [
-  'dentisti Milano senza pixel',
-  'avvocati Napoli senza Google Ads',
-  'ristoranti Roma con errori SEO',
-  'architetti Torino senza sito web',
-  'palestre Bologna senza Instagram',
+  'aziende edili Milano senza RC',
+  'studi legali Napoli senza D&O',
+  'ristoranti Roma senza RCT/O',
+  'trasportatori Torino flotta scoperta',
+  'commercialisti Bologna senza RC professionale',
 ]
 
 const demoLeads = [
-  { nome: 'Studio Dentistico Rossi', citta: 'Milano', score: 87, problems: ['NO PIXEL', 'SEO ERRORS'], tel: '02 8595 ****', email: 'info@studio...', hasWebsite: true },
-  { nome: 'Odontoiatria Centrale', citta: 'Milano', score: 72, problems: ['NO GTM', 'NO PIXEL'], tel: '347 123 ****', email: 'marco@odonto...', hasWebsite: true },
-  { nome: 'Dental Care Brera', citta: 'Milano', score: 64, problems: ['SLOW SITE', 'NO SSL'], tel: '02 4567 ****', email: 'dir@dental...', hasWebsite: true },
-  { nome: 'Sorriso Perfetto Srl', citta: 'Milano', score: 58, problems: ['NO PIXEL', 'NO DMARC'], tel: '340 987 ****', email: 'info@sorriso...', hasWebsite: false },
+  { nome: 'Edilizia Rossi Srl', citta: 'Milano', score: 92, problems: ['NO RC', 'NO D&O'], tel: '02 8595 ****', email: 'info@edilizi...', hasWebsite: true },
+  { nome: 'Trasporti Centrali Spa', citta: 'Milano', score: 78, problems: ['FLOTTA SCOPERTA', 'NO CYBER'], tel: '347 123 ****', email: 'marco@trasp...', hasWebsite: true },
+  { nome: 'Studio Legale Bianchi', citta: 'Milano', score: 71, problems: ['NO RC PROF', 'NO KEY MAN'], tel: '02 4567 ****', email: 'avv@studio...', hasWebsite: true },
+  { nome: 'Tech Solutions Srl', citta: 'Milano', score: 65, problems: ['NO CYBER', 'NO D&O'], tel: '340 987 ****', email: 'info@techso...', hasWebsite: true },
 ]
 
 function TypingText({ texts }: { texts: string[] }) {
@@ -66,7 +66,7 @@ function DashboardMockup() {
         </div>
         <div className="flex-1 mx-4">
           <div className="bg-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-400 font-mono">
-            app.mirax.it/dashboard
+            app.ckbassicurazione.it/dashboard
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@ function DashboardMockup() {
 
         {/* Bottom bar */}
         <div className="flex items-center justify-between px-5 py-2.5 bg-slate-50/60 border-t border-slate-100">
-          <span className="text-[10px] text-slate-400 font-mono">mirax v2.0 · ai-powered</span>
+          <span className="text-[10px] text-slate-400 font-mono">CKB Assicurazione · ai-powered</span>
           <div className="flex items-center gap-3">
             <span className="text-[10px] text-indigo-500 font-semibold font-['DM_Sans'] flex items-center gap-1">
               <Sparkles size={10} />
@@ -221,30 +221,30 @@ export default function HeroSection() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <span className="text-xs font-semibold text-indigo-600 font-['DM_Sans']">
-              47.293 aziende analizzate oggi
+              47.293 aziende analizzate oggi — gap assicurativi identificati
             </span>
           </motion.div>
 
           {/* Main headline */}
           <h1 className="font-['Syne'] text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.08]">
-            Il motore di intelligence
+            L'intelligence assicurativa
             <br />
             <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 bg-clip-text text-transparent">
-              dietro le agenzie che chiudono.
+              che chiude i contratti.
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg sm:text-xl text-slate-500 font-['DM_Sans'] max-w-2xl mx-auto mb-10 leading-relaxed">
-            MIRAX scansiona milioni di PMI italiane, trova i problemi tecnici reali
-            e ti consegna lead qualificati con il pitch già pronto. In 2 minuti.
+            CKB analizza milioni di aziende italiane, identifica i gap assicurativi reali
+            e ti consegna prospect qualificati con la proposta già pronta.
           </p>
 
           {/* CTA row */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <CtaLink>
               <span className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-semibold px-8 py-3.5 rounded-xl font-['DM_Sans'] shadow-lg shadow-indigo-500/30 transition-all duration-200 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/40 hover:-translate-y-0.5">
-                Inizia Gratis — 10 Lead
+                Inizia Gratis — 10 Prospect
                 <ArrowRight size={18} />
               </span>
             </CtaLink>
@@ -266,7 +266,7 @@ export default function HeroSection() {
             <span className="text-slate-200">|</span>
             <span>Nessuna carta richiesta</span>
             <span className="text-slate-200">|</span>
-            <span className="flex items-center gap-1">★★★★★ <strong className="text-slate-600">4.9/5</strong> da 200+ agenzie</span>
+            <span className="flex items-center gap-1">★★★★★ <strong className="text-slate-600">4.9/5</strong> da 200+ broker</span>
           </div>
         </motion.div>
 

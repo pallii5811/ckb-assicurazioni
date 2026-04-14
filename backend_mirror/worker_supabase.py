@@ -34,6 +34,14 @@ _CORE_NORMALIZE_PHONE = None
 
 app = FastAPI() if FastAPI is not None else None
 
+# Mount CKB-specific endpoints
+try:
+    from ckb_endpoints import router as ckb_router
+    if app is not None:
+        app.include_router(ckb_router)
+except Exception:
+    pass
+
 
 def normalize_phone_italy(value: Optional[str]) -> Optional[str]:
     global _CORE_NORMALIZE_PHONE
@@ -604,22 +612,29 @@ try:
 except Exception:  # pragma: no cover
     create_client = None
 
-
-SUPABASE_URL = "https://rtjmnjromqpsfqsgyfvp.supabase.co"
 _SUPABASE_PUBLISHABLE_FALLBACK = "sb_publishable_oqwwYsG10z7HvPrJOifF-w_J7ARllCp"
 
-
-def _get_supabase_key() -> str:
-    # Load .env from repo root (local convenience). Optional dependency.
+def _load_env_files() -> None:
     try:
-        if load_dotenv is not None:
-            env_path = os.path.join(_REPO_ROOT, ".env")
-            load_dotenv(dotenv_path=env_path)
-        else:
-            # If python-dotenv is missing, environment variables can still be provided by the shell.
-            pass
+        if load_dotenv is None:
+            return
+        for env_path in (
+            os.path.join(_BACKEND_DIR, ".env"),
+            os.path.join(_REPO_ROOT, ".env"),
+        ):
+            try:
+                load_dotenv(dotenv_path=env_path, override=False)
+            except Exception:
+                pass
     except Exception:
         pass
+
+def _get_supabase_url() -> str:
+    _load_env_files()
+    return os.getenv("SUPABASE_URL", "https://rtjmnjromqpsfqsgyfvp.supabase.co").strip()
+
+def _get_supabase_key() -> str:
+    _load_env_files()
 
     # Prefer service role key (server-side only) to bypass RLS.
     # Do NOT hardcode secrets in source code.
@@ -1407,7 +1422,8 @@ def main() -> None:
             "Se hai RLS attiva, setta la variabile d'ambiente SUPABASE_SERVICE_ROLE_KEY."
         )
 
-    supabase = create_client(SUPABASE_URL, supabase_key)
+    supabase_url = _get_supabase_url()
+    supabase = create_client(supabase_url, supabase_key)
 
     def _split_csv(s: str) -> List[str]:
         try:
@@ -1470,7 +1486,7 @@ def main() -> None:
         pass
 
     print("[worker_supabase] Avviato")
-    print(f"[worker_supabase] Supabase URL: {SUPABASE_URL}")
+    print(f"[worker_supabase] Supabase URL: {supabase_url}")
     print("[worker_supabase] Polling tabella: searches (status=pending) ogni 4 secondi")
 
     mode = str(getattr(args, "mode", "all") or "all").strip().lower()
@@ -1780,7 +1796,7 @@ def run_reaudit_worker(max_leads: int = 20) -> None:
                 pass
             return
 
-        supabase = create_client(SUPABASE_URL, supabase_key)
+        supabase = create_client(_get_supabase_url(), supabase_key)
     except Exception:
         return
 
@@ -2107,49 +2123,85 @@ async def scrape_registry(data: dict):
             )
             page = await context.new_page()
 
-            # Cerca su imprese.italia.it
-            search_url = (
-                "https://imprese.italia.it/ricerca-aziende?q="
-                + quote(f"{business_name} {city}".strip())
-            )
-            await page.goto(search_url, timeout=20000,
-                          wait_until="domcontentloaded")
+            # Cerca su registroimprese.it
+            await page.goto("https://www.registroimprese.it/",
+                          timeout=20000, wait_until="domcontentloaded")
             await page.wait_for_timeout(2000)
 
-            # Accetta cookie se presente
-            try:
-                await page.click(
-                    'button:has-text("Accetta"), '
-                    'button:has-text("Accetto"), '
-                    'button:has-text("OK")',
-                    timeout=2000
-                )
-                await page.wait_for_timeout(500)
-            except:
-                pass
+            # Accetta cookie (Didomi banner su registroimprese.it)
+            for cookie_sel in [
+                'button.didomi-dismiss-button',
+                'button:has-text("Accetta")',
+                '#didomi-notice-agree-button',
+                'button:has-text("Accetto")',
+                'button:has-text("OK")',
+            ]:
+                try:
+                    el = await page.query_selector(cookie_sel)
+                    if el:
+                        await el.click()
+                        await page.wait_for_timeout(1000)
+                        break
+                except:
+                    continue
+
+            # Compila il campo di ricerca e cerca
+            search_input = await page.query_selector('#inputSearchField')
+            if not search_input:
+                search_input = await page.query_selector('#inputSearchFieldMob')
+            if not search_input:
+                search_input = await page.query_selector('input[placeholder*="Nome Impresa"]')
+            if not search_input:
+                await browser.close()
+                return {"found": False, "reason": "search_input_not_found"}
+
+            query_str = f"{business_name} {city}".strip()
+            await search_input.fill(query_str)
+            await page.wait_for_timeout(500)
+
+            # Click CERCA button
+            search_btn = await page.query_selector('button.btnCercaGratuita')
+            if not search_btn:
+                search_btn = await page.query_selector('button.buttonCerca')
+            if not search_btn:
+                search_btn = await page.query_selector('button:has-text("CERCA")')
+            if search_btn:
+                await search_btn.click()
+            else:
+                await page.keyboard.press("Enter")
+            await page.wait_for_timeout(4000)
 
             # Clicca primo risultato
             clicked = False
             for sel in [
                 'a.company-name',
+                '.nome-impresa a',
                 'h3 a',
+                '.result-item a',
                 '.result a',
                 'table tbody tr:first-child a',
-                'ul li:first-child a'
+                '.ri-search-result a',
+                'ul.results li:first-child a',
+                '.portlet-body a[href*="impresa"]',
             ]:
                 try:
                     el = await page.query_selector(sel)
                     if el:
                         await el.click()
-                        await page.wait_for_timeout(2000)
+                        await page.wait_for_timeout(3000)
                         clicked = True
                         break
                 except:
                     continue
 
             if not clicked:
-                await browser.close()
-                return {"found": False}
+                # Try to extract data from the search results page itself
+                body_text = await page.inner_text('body')
+                if business_name.lower() in body_text.lower():
+                    clicked = True  # We have data on results page
+                else:
+                    await browser.close()
+                    return {"found": False, "reason": "no_clickable_result"}
 
             # Leggi testo completo e parsa i campi
             body_text = await page.inner_text('body')

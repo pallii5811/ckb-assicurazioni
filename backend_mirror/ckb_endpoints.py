@@ -27,7 +27,7 @@ async def trigger_scrape(data: dict):
         # Prima prova ad aggiornare job esistente
         try:
             update = supabase.table("searches").update({
-                "status": "pending_user",
+                "status": "pending",
                 "results": None,
                 "created_at": datetime.now(timezone.utc).isoformat()
             }).eq("location", city).eq("category", category).execute()
@@ -41,7 +41,7 @@ async def trigger_scrape(data: dict):
         
         # Se non esiste, inserisce nuovo job
         row = {
-            "status": "pending_user",
+            "status": "pending",
             "category": category,
             "location": city,
             "results": None,

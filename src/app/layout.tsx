@@ -5,12 +5,12 @@ import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://mirax.it'),
+  metadataBase: new URL('https://ckbassicurazione.it'),
   title: {
-    default: 'MIRAX | Trova Aziende con Problemi Digitali',
-    template: '%s | MIRAX',
+    default: 'CKB Assicurazione | Intelligence per Broker e Consulenti Assicurativi',
+    template: '%s | CKB Assicurazione',
   },
-  description: 'Il motore di ricerca intelligente per lead B2B italiani. Trova aziende con problemi digitali e chiudi clienti in meno di 2 minuti.',
+  description: 'La piattaforma di intelligence assicurativa per broker e consulenti. Trova aziende, analizza rischi, genera proposte personalizzate.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
@@ -19,15 +19,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'it_IT',
-    url: 'https://mirax.it',
-    siteName: 'MIRAX',
-    title: 'MIRAX | Lead B2B Qualificati per Agency Italiane',
-    description: 'Trova aziende con problemi digitali e chiudi clienti in meno di 2 minuti. Pitch AI incluso.',
+    url: 'https://ckbassicurazione.it',
+    siteName: 'CKB Assicurazione',
+    title: 'CKB Assicurazione | Intelligence per Broker Assicurativi',
+    description: 'Trova aziende, analizza gap assicurativi, genera proposte commerciali su misura. Il software n.1 per intermediari.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MIRAX | Lead B2B per Agency Italiane',
-    description: 'Dal target al pitch in meno di 2 minuti. Nessuna lista fredda.',
+    title: 'CKB Assicurazione | Intelligence per Broker',
+    description: 'Dall\'analisi del rischio alla proposta commerciale in pochi minuti.',
   },
   robots: {
     index: true,
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
   },
   alternates: {
-    canonical: 'https://mirax.it',
+    canonical: 'https://ckbassicurazione.it',
   },
   verification: {
     google: 'INSERISCI_GOOGLE_VERIFICATION_CODE',

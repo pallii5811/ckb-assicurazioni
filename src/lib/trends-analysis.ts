@@ -26,34 +26,9 @@ export async function analyzeTrends(category: string, city: string): Promise<Tre
     }
   }
 
-  // Chiama il backend Hetzner per Google Trends reale
-  try {
-    const res = await fetch('http://116.203.137.39:8001/trends-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: cat, city: c }),
-      signal: AbortSignal.timeout(25000),
-    })
+  // Bypass the legacy marketing pytrends backend completely for CKB Insurance
+  // Instead, we go directly to the GPT specialized fallback.
 
-    if (res.ok) {
-      const data = (await res.json()) as any
-      if (data && data.trend) {
-        return {
-          trend: data.trend || 'stable',
-          growthPercentage: data.growthPercentage ?? null,
-          peakMonths: data.peakMonths || [],
-          bestContactTime: data.bestContactTime || '',
-          marketOpportunity: data.marketOpportunity || '',
-          insights: data.insights || [],
-          source: 'pytrends',
-        }
-      }
-    }
-  } catch {
-    // Fallback a GPT se pytrends non disponibile
-  }
-
-  // Fallback GPT migliorato con anno corretto
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return {
@@ -68,25 +43,22 @@ export async function analyzeTrends(category: string, city: string): Promise<Tre
   }
 
   try {
-    const prompt = `Sei un esperto di trend di mercato italiano.
+    const prompt = `Sei un esperto di Risk Management e Broker Assicurativo in Italia.
 Analizza il settore: ${cat} nella città: ${c}
-Anno: 2026
 
-Fornisci dati REALI e SPECIFICI basati sulla tua conoscenza 
-del mercato italiano 2024-2026. NON inventare percentuali 
-casuali — usa stime basate su dati reali del settore.
+Fornisci dati REALI e SPECIFICI sui **rischi assicurativi principali** a cui va incontro questo settore (es. RC Professionale, polizza D&O, Polizza CAR, Rischio Cyber, Infortuni, Furto e Incendio, RC Inquinamento).
 
-Rispondi SOLO con JSON:
+Rispondi SOLO con JSON usando il seguente schema (riutilizziamo i campi per compatibilità ma con contenuto sui rischi):
 {
-  "trend": "growing|stable|declining",
-  "growthPercentage": numero_realistico_o_null,
-  "peakMonths": ["mese1", "mese2"],
-  "bestContactTime": "periodo specifico es: lunedì-venerdì mattina",
-  "marketOpportunity": "opportunità specifica per questo settore in questa città",
+  "trend": "growing|stable|declining", // Indica se i sinistri/rischi nel settore sono in crescita o stabili
+  "growthPercentage": null, // Lascia null
+  "peakMonths": [], // Lascia vuoto
+  "bestContactTime": "Principale polizza raccomandata (es: RC Professionale e Cyber Risk)", // Inserisci il nome della polizza chiave
+  "marketOpportunity": "Il più grande rischio non assicurato del settore", // Descrivi il rischio più grande
   "insights": [
-    "insight basato su dati reali 1",
-    "insight basato su dati reali 2",
-    "insight basato su dati reali 3"
+    "Insight sul rischio 1 (es. Il 40% delle imprese di questo tipo subisce un sinistro XYZ)",
+    "Insight sul rischio 2 (es. Nuova normativa sulla compliance per questa categoria)",
+    "Insight sul rischio 3 (es. Esposizione patrimoniale dell'Amministratore)"
   ]
 }
 Solo JSON.`
@@ -100,8 +72,8 @@ Solo JSON.`
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 400,
-        temperature: 0,
+        max_tokens: 500,
+        temperature: 0.1,
       }),
     })
 

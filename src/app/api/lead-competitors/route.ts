@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await fetch('http://116.203.137.39:8001/scrape-competitors', {
+    const res = await fetch('http://46.225.189.40:8001/scrape-competitors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category, city }),

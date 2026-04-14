@@ -162,7 +162,7 @@ export default function IntegrationsPage() {
       <div>
         <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Integrazioni</div>
         <div className="mt-1 text-sm text-slate-600">
-          Collega MIRAX al tuo ecosistema di vendita. Attiva automazioni, CRM e alert in pochi secondi.
+          Collega CKB al tuo ecosistema di vendita. Attiva automazioni, CRM e alert in pochi secondi.
         </div>
       </div>
 
@@ -280,7 +280,7 @@ export default function IntegrationsPage() {
               </div>
 
               <div className="mt-3 text-xs text-white/55">
-                Quando attivo, MIRAX invierà payload con Audit, contatti email e segnali tecnici. Perfetto per CRM custom,
+                Quando attivo, CKB invierà payload con dati aziendali, contatti e segnali assicurativi. Perfetto per CRM custom,
                 enrichment, orchestrazione e qualsiasi stack.
               </div>
 

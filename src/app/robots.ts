@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/dashboard/', '/api/', '/auth/'],
       },
     ],
-    sitemap: 'https://mirax.it/sitemap.xml',
+    sitemap: 'https://ckbassicurazione.it/sitemap.xml',
   }
 }

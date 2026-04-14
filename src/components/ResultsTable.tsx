@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { getAtecoInsurance } from '@/lib/ateco-insurance'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -13,21 +14,61 @@ import { LeadActionButtons } from '@/components/LeadActionButtons'
 import { InviaCRMButton } from '@/components/InviaCRMButton'
 
 export function calcOpportunityScore(obj: Record<string, unknown>): number {
+  // If enrichment already computed an insurance score, use it directly
+  if (typeof (obj as any).insurance_score === 'number' && Number.isFinite((obj as any).insurance_score)) {
+    return Math.min(Math.max(Math.round((obj as any).insurance_score), 0), 100)
+  }
+
   let score = 0
-  const stack = Array.isArray((obj as any).tech_stack)
-    ? ((obj as any).tech_stack as string[]).join(' ').toLowerCase()
-    : ''
-  const tr = (obj as any).technical_report as any
+  const name = String((obj as any).nome || (obj as any).azienda || (obj as any).name || '').toLowerCase()
+  const cat = String((obj as any).categoria || (obj as any).category || '').toLowerCase()
+  const combined = `${name} ${cat}`
+  const legalForm = String((obj as any).formaGiuridica || (obj as any).forma_giuridica || '').toUpperCase()
 
-  if ((obj as any).meta_pixel !== true || stack.includes('no pixel') || stack.includes('missing fb pixel')) score += 25
+  const parseNum = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string') { const n = Number(v.replace(/[^\d.-]/g, '')); return Number.isFinite(n) ? n : null }
+    return null
+  }
 
-  if ((!(obj as any).sito && !(obj as any).website) || stack.includes('no website')) score += 30
+  const revenue = parseNum((obj as any).fatturato || (obj as any).revenue)
+  const employees = parseNum((obj as any).dipendenti || (obj as any).companySize || (obj as any).employees || (obj as any).company_size)
 
-  if (!(obj as any).instagram) score += 15
+  // Revenue signals (higher revenue → more insurance needs → higher score)
+  if (revenue !== null) {
+    if (revenue >= 10_000_000) score += 30
+    else if (revenue >= 2_000_000) score += 22
+    else if (revenue >= 500_000) score += 14
+    else score += 6
+  }
 
-  if (tr?.seo_disaster === true || stack.includes('disastro seo')) score += 20
+  // Employee signals
+  if (employees !== null) {
+    if (employees >= 50) score += 20
+    else if (employees >= 15) score += 14
+    else if (employees >= 1) score += 8
+  }
 
-  if (tr?.has_dmarc === false || stack.includes('no dmarc')) score += 10
+  // Legal form — società di capitali need D&O, Cyber
+  if (legalForm.includes('SPA') || legalForm.includes('S.P.A')) score += 15
+  else if (legalForm.includes('SRL') || legalForm.includes('S.R.L')) score += 10
+
+  // High-risk sectors
+  if (/costruzion|edili|edile|impian|cantier|ristruttur|muratur/.test(combined)) score += 15
+  else if (/medic|dentist|clinic|farmaci|odontoiat|fisioter|veterinar/.test(combined)) score += 14
+  else if (/trasport|logistic|spedizion|autotrasport|corriere/.test(combined)) score += 12
+  else if (/manifatt|fabbrica|produzion|industrial|metalmeccan|chimic/.test(combined)) score += 12
+  else if (/ristorant|bar |pizz|aliment|panific|pasticcer|catering/.test(combined)) score += 10
+  else if (/avvocat|commerciali|notai|architect|ingegner|consulen/.test(combined)) score += 10
+  else if (/commerc|negozi|vendita|retail|ingrosso|dettaglio/.test(combined)) score += 8
+
+  // Triggers boost
+  const triggers = (obj as any).triggers
+  if (Array.isArray(triggers) && triggers.length > 0) score += Math.min(triggers.length * 5, 15)
+
+  // Has website (can be scraped for more intel)
+  const sito = String((obj as any).sito || (obj as any).website || '').trim()
+  if (sito) score += 5
 
   return Math.min(score, 100)
 }
@@ -37,7 +78,7 @@ function ScoreBadge({ score }: { score: number }) {
 
   const cls =
     variant === 'hot'
-      ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-[0_0_18px_rgba(244,63,94,0.35)] mirax-pulse'
+      ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-[0_0_18px_rgba(244,63,94,0.35)] ckb-pulse'
       : variant === 'warm'
         ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-white'
         : 'bg-slate-100 text-slate-700'
@@ -49,7 +90,7 @@ function ScoreBadge({ score }: { score: number }) {
       <span className="text-[13px] font-black tabular-nums leading-none">{score}</span>
       <span className="text-[9px] font-bold leading-none mt-0.5 opacity-90">{label}</span>
       <style jsx>{`
-        @keyframes miraxPulse {
+        @keyframes ckbPulse {
           0% {
             transform: scale(1);
             filter: brightness(1);
@@ -63,8 +104,8 @@ function ScoreBadge({ score }: { score: number }) {
             filter: brightness(1);
           }
         }
-        .mirax-pulse {
-          animation: miraxPulse 1.6s ease-in-out infinite;
+        .ckb-pulse {
+          animation: ckbPulse 1.6s ease-in-out infinite;
         }
       `}</style>
     </div>
@@ -96,6 +137,23 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
   const [pitchBody, setPitchBody] = useState('')
   const [selectedCompanyForAudit, setSelectedCompanyForAudit] = useState<Record<string, unknown> | null>(null)
   const [sortByScore, setSortByScore] = useState(false)
+
+  const parseMoneyValue = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value !== 'string') return null
+    const cleaned = value.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')
+    const parsed = Number(cleaned)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  const parseEmployeeValue = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value !== 'string') return null
+    const digits = value.match(/\d+/)?.[0]
+    if (!digits) return null
+    const parsed = Number(digits)
+    return Number.isFinite(parsed) ? parsed : null
+  }
 
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
@@ -208,7 +266,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
     if (missingSite) problemBadges.push({ label: 'NO WEBSITE', tone: 'warn' })
     if (missingSSL) problemBadges.push({ label: 'NO SSL', tone: 'warn' })
     if (missingMobile) problemBadges.push({ label: 'NON MOBILE-FRIENDLY', tone: 'warn' })
-    if (unclaimedMaps) problemBadges.push({ label: 'MAPS NON RIVENDICATA', tone: 'warn' })
+    if (unclaimedMaps) problemBadges.push({ label: 'SCHEDA ATTIVITÀ NON RIVENDICATA', tone: 'warn' })
     if (htmlErrorsCount > 0) problemBadges.push({ label: `ERRORI HTML (${htmlErrorsCount})`, tone: 'warn' })
     if (isSlow) problemBadges.push({ label: `SITO LENTO (${loadSpeedSeconds?.toFixed?.(1) ?? loadSpeedSeconds}s)`, tone: 'warn' })
 
@@ -309,7 +367,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `clientsniper_leads_${Date.now()}.csv`
+    a.download = `ckb_leads_${Date.now()}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -494,38 +552,129 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
     document.body.removeChild(el)
   }
 
-  const getSpeedBadge = (score: number | null) => {
-    if (typeof score !== 'number') {
-      return (
-        <Badge variant="secondary" className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] px-1.5 py-0.5 leading-none">
-          N/D
-        </Badge>
-      )
+  const getRiskBadges = (obj: any, query: string) => {
+    const chipBase = 'border px-2 py-0.5 text-[9px] font-bold rounded-md whitespace-nowrap'
+    const name = ((obj as any).nome || (obj as any).name || (obj as any).business_name || '').toLowerCase()
+    const cat = ((obj as any).categoria || (obj as any).category || '').toLowerCase()
+    const combined = `${name} ${cat}`
+    const atecoCode = ((obj as any).codiceAteco || (obj as any).codice_ateco || (obj as any).ateco || null) as string | null
+    const atecoDescription = String((obj as any).descrizioneAteco || (obj as any).descrizione_ateco || '')
+    const legalForm = String((obj as any).formaGiuridica || (obj as any).forma_giuridica || '').toUpperCase()
+    const revenue = parseMoneyValue((obj as any).fatturato || (obj as any).revenue || null)
+    const employees = parseEmployeeValue((obj as any).dipendenti || (obj as any).companySize || (obj as any).employees || null)
+    const website = String((obj as any).sito || (obj as any).website || '').trim().toLowerCase()
+    const insurance = getAtecoInsurance(atecoCode, `${cat} ${atecoDescription}`.trim() || cat)
+
+    const badges: Array<{ key: string; label: string; className: string }> = []
+    const add = (key: string, label: string, color: string) => {
+      if (!badges.some(b => b.key === key)) badges.push({ key, label, className: `${chipBase} ${color}` })
     }
 
-    if (score < 40) {
-      return (
-        <Badge variant="secondary" className="bg-red-900 text-white font-bold text-[10px] px-1.5 py-0.5 leading-none">
-          LENTO
-        </Badge>
-      )
+    if (insurance) {
+      const obligations = `${insurance.polizze_obbligatorie.join(' | ')} | ${insurance.polizze_raccomandate.join(' | ')}`.toLowerCase()
+      if (obligations.includes('rc professionale')) add('rc_prof', 'RC Professionale', 'bg-emerald-100 text-emerald-800 border-emerald-200')
+      if (obligations.includes('rc prodotti')) add('rc_prodotti', 'RC Prodotti', 'bg-amber-100 text-amber-800 border-amber-200')
+      if (obligations.includes('rc medica') || obligations.includes('sanitaria')) add('rc_medica', 'RC Medica', 'bg-emerald-100 text-emerald-800 border-emerald-200')
+      if (obligations.includes('malpractice')) add('malpractice', 'Malpractice', 'bg-red-100 text-red-800 border-red-200')
+      if (obligations.includes('infortuni')) add('infortuni', 'Infortuni', 'bg-orange-100 text-orange-800 border-orange-200')
+      if (obligations.includes('cyber')) add('cyber', 'Cyber', 'bg-red-100 text-red-800 border-red-200')
+      if (obligations.includes('d&o')) add('d_and_o', 'D&O', 'bg-blue-100 text-blue-800 border-blue-200')
+      if (obligations.includes('car/ear') || obligations.includes('polizza car')) add('car', 'Polizza CAR', 'bg-amber-100 text-amber-800 border-amber-200')
+      if (obligations.includes('merci trasportate')) add('merci', 'Merci Trasportate', 'bg-amber-100 text-amber-800 border-amber-200')
+      if (obligations.includes('flotta')) add('flotta', 'Flotta Veicoli', 'bg-indigo-100 text-indigo-800 border-indigo-200')
+      if (obligations.includes('furto')) add('furto', 'Furto/Rapina', 'bg-slate-100 text-slate-800 border-slate-200')
+      if (obligations.includes('incendio')) add('incendio', 'Incendio', 'bg-red-100 text-red-800 border-red-200')
     }
 
-    if (score < 70) {
-      return (
-        <Badge variant="secondary" className="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] px-1.5 py-0.5 leading-none">
-          MEDIO
-        </Badge>
-      )
+    if (legalForm.includes('SPA') || legalForm.includes('S.P.A') || legalForm.includes('SRL') || legalForm.includes('S.R.L')) {
+      add('d_and_o', 'D&O', 'bg-blue-100 text-blue-800 border-blue-200')
     }
+
+    if ((employees !== null && employees >= 10) || (revenue !== null && revenue >= 2_000_000)) {
+      add('cyber', 'Cyber Risk', 'bg-red-100 text-red-800 border-red-200')
+    }
+
+    if (employees !== null && employees >= 1 && !badges.some(b => b.key === 'infortuni')) {
+      add('infortuni', 'Infortuni', 'bg-orange-100 text-orange-800 border-orange-200')
+    }
+
+    if (revenue !== null && revenue >= 10_000_000) {
+      add('enterprise_rc', 'RC Patrimoniale', 'bg-violet-100 text-violet-800 border-violet-200')
+    }
+
+    if (revenue !== null && revenue >= 2_000_000 && (legalForm.includes('SRL') || legalForm.includes('SPA'))) {
+      add('d_and_o', 'D&O', 'bg-blue-100 text-blue-800 border-blue-200')
+    }
+
+    if (badges.length === 0 && /costruzion|edili|edile|impian|cantier|ristruttur|muratur/.test(combined)) {
+      add('car', 'Polizza CAR', 'bg-amber-100 text-amber-800 border-amber-200')
+      add('infortuni', 'Infortuni', 'bg-orange-100 text-orange-800 border-orange-200')
+      add('rc_prof', 'RC Professionale', 'bg-emerald-100 text-emerald-800 border-emerald-200')
+    }
+
+    if (badges.length === 0 && /medic|dentist|clinic|farmaci|odontoiat|fisioter|veterinar|ospedal/.test(combined)) {
+      add('rc_medica', 'RC Medica', 'bg-emerald-100 text-emerald-800 border-emerald-200')
+      add('malpractice', 'Malpractice', 'bg-red-100 text-red-800 border-red-200')
+    }
+
+    if (badges.length === 0 && /ristorant|bar |pizz|ristoro|aliment|panific|pasticcer|catering|trattori/.test(combined)) {
+      add('rc_terzi', 'RC Terzi', 'bg-blue-100 text-blue-800 border-blue-200')
+      add('incendio', 'Incendio', 'bg-red-100 text-red-800 border-red-200')
+      add('rc_prodotti', 'RC Prodotti', 'bg-amber-100 text-amber-800 border-amber-200')
+    }
+
+    if (badges.length === 0 && /trasport|logistic|spedizion|autotrasport|corriere|magazzin/.test(combined)) {
+      add('flotta', 'Flotta Veicoli', 'bg-indigo-100 text-indigo-800 border-indigo-200')
+      add('merci', 'Merci Trasportate', 'bg-amber-100 text-amber-800 border-amber-200')
+      add('infortuni', 'Infortuni', 'bg-orange-100 text-orange-800 border-orange-200')
+    }
+
+    if (badges.length === 0 && /consulen|avvocat|commerciali|notai|architect|ingegner|software|informatica|digitale/.test(combined)) {
+      add('rc_prof', 'RC Professionale', 'bg-emerald-100 text-emerald-800 border-emerald-200')
+      add('cyber', 'Cyber', 'bg-red-100 text-red-800 border-red-200')
+    }
+
+    if (badges.length === 0 && /commerc|negozi|vendita|retail|ingrosso|dettaglio|ferramenta|abbiglia/.test(combined)) {
+      add('rc_terzi', 'RC Terzi', 'bg-blue-100 text-blue-800 border-blue-200')
+      add('furto', 'Furto/Rapina', 'bg-slate-100 text-slate-800 border-slate-200')
+      add('incendio', 'Incendio', 'bg-red-100 text-red-800 border-red-200')
+    }
+
+    if (badges.length === 0 && /manifatt|fabbrica|produzion|industrial|metalmeccan|chimic|plastic/.test(combined)) {
+      add('infortuni', 'Infortuni', 'bg-orange-100 text-orange-800 border-orange-200')
+      add('rc_prodotti', 'RC Prodotti', 'bg-amber-100 text-amber-800 border-amber-200')
+      add('incendio', 'Incendio', 'bg-red-100 text-red-800 border-red-200')
+    }
+
+    if (badges.length === 0 && /officina|autofficina|meccanica|carrozzeria|autorimess|autolavag/.test(combined)) {
+      add('rc_terzi', 'RC Terzi', 'bg-blue-100 text-blue-800 border-blue-200')
+      add('incendio', 'Incendio', 'bg-red-100 text-red-800 border-red-200')
+      add('infortuni', 'Infortuni', 'bg-orange-100 text-orange-800 border-orange-200')
+    }
+
+    if (badges.length === 0) {
+      add('rc_terzi', 'RC Terzi', 'bg-slate-100 text-slate-800 border-slate-200')
+    }
+
+    const maxBadges = 3
+    const displayed = badges.slice(0, maxBadges)
+    const hiddenCount = badges.length - maxBadges
 
     return (
-      <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-[10px] px-1.5 py-0.5 leading-none">
-        VELOCE
-      </Badge>
+      <div className="flex flex-wrap gap-1">
+        {displayed.map((b) => (
+          <span key={b.key} className={b.className}>
+            {b.label}
+          </span>
+        ))}
+        {hiddenCount > 0 && (
+          <span className="text-[10px] text-slate-400 font-medium px-1 underline decoration-dotted underline-offset-2">
+            +{hiddenCount}
+          </span>
+        )}
+      </div>
     )
   }
-
   const skeletonRows = Array.from({ length: 8 }).map((_, idx) => (
     <tr key={idx} className="animate-pulse">
       <td className="px-2 py-3 align-top">
@@ -542,9 +691,6 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
       <td className="px-2 py-3 align-top">
         <div className="h-3 w-2/3 rounded bg-slate-200" />
         <div className="mt-2 h-3 w-1/3 rounded bg-slate-100" />
-      </td>
-      <td className="px-2 py-3 align-top">
-        <div className="h-3 w-2/3 rounded bg-slate-200" />
       </td>
       <td className="px-2 py-3 align-top">
         <div className="h-3 w-2/3 rounded bg-slate-200" />
@@ -860,7 +1006,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
   }
 
   return (
-    <Card className="bg-white shadow-2xl border-0 rounded-2xl overflow-hidden">
+    <Card className="bg-white shadow-2xl border-0 rounded-2xl">
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div>
@@ -882,13 +1028,13 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
           <button
             type="button"
             onClick={() => setSortByScore((v) => !v)}
-            title="Ordina per opportunità di vendita: mostra prima le aziende con più problemi da risolvere"
+            title="Ordina per potenziale assicurativo: mostra prima le aziende con più bisogni di copertura"
             className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${sortByScore
               ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
               : 'bg-white text-slate-700 border-slate-200 hover:border-violet-300'
             }`}
           >
-            {sortByScore ? '🔥 Per Opportunità' : '↕ Ordina per opportunità'}
+            {sortByScore ? '🔥 Per Potenziale Assicurativo' : '↕ Ordina per potenziale'}
           </button>
 
           <button
@@ -906,7 +1052,9 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
         <div className="md:hidden px-4 py-4 space-y-3">
           {isLoading ? <div className="text-sm text-slate-500">Caricamento…</div> : null}
           {!isLoading
-            ? displayResults.map((item, rowIdx) => {
+            ? displayResults.map((item, _rowIdx) => {
+                const originalIdx = results.indexOf(item)
+                const rowIdx = originalIdx >= 0 ? originalIdx : _rowIdx
                 const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
                 const name = renderLeadString(obj, ['nome', 'azienda', 'company', 'name']) || 'N/D'
                 const sito = renderLeadString(obj, ['sito', 'website', 'url'])
@@ -1025,7 +1173,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                     </div>
 
                     <div className="mt-4 flex flex-col items-stretch gap-2">
-                      <Link href={`/dashboard/lead/${searchId || '__local__'}/${rowIdx}`}>
+                      <Link href={`/dashboard/lead/${searchId || '__local__'}/${rowIdx}`} onClick={() => { try { sessionStorage.setItem('ckb_active_lead', JSON.stringify(item)) } catch {} }}>
                         <button className="w-full flex items-center 
                           justify-center gap-2 bg-slate-900 
                           hover:bg-slate-800 text-white font-bold 
@@ -1069,26 +1217,28 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
             : null}
         </div>
 
-        <div className="hidden md:block">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed text-left text-xs font-medium">
             <thead className="sticky top-0 z-10 bg-slate-100 border-b-2 border-slate-200">
               <tr>
-                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Nome</th>
-                <th className="w-[7%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Score</th>
-                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Contatti</th>
-                <th className="w-[10%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Città</th>
+                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azienda</th>
+                <th className="w-[6%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Score</th>
+                <th className="w-[16%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Contatti & PEC</th>
+                <th className="w-[8%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Città</th>
                 <th className="w-[12%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Categoria</th>
-                <th className="w-[24%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Opportunità</th>
-                <th className="w-[8%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Rating</th>
-                <th className="w-[6%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Speed</th>
-                <th className="min-w-[280px] w-[280px] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azioni</th>
+                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Rischi & Polizze</th>
+                <th className="w-[5%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Rating</th>
+                <th className="w-[17%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azioni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {isLoading ? skeletonRows : null}
 
               {!isLoading
-                ? displayResults.map((item, rowIdx) => (
+                ? displayResults.map((item, _rowIdx) => {
+                    const originalIdx = results.indexOf(item)
+                    const rowIdx = originalIdx >= 0 ? originalIdx : _rowIdx
+                    return (
                     <tr key={(() => {
                       if (item && typeof item === 'object' && typeof (item as any).id === 'string') return (item as any).id
                       return `${Math.random().toString(16).slice(2)}`
@@ -1104,6 +1254,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                               <div className="flex items-center gap-2">
                                 <Link
                                   href={href}
+                                  onClick={() => { try { sessionStorage.setItem('ckb_active_lead', JSON.stringify(item)) } catch {} }}
                                   className="font-semibold truncate text-[14px] text-gray-900 hover:text-violet-700 transition-colors"
                                   title={label}
                                 >
@@ -1217,309 +1368,38 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                         })()}
                       </td>
 
-                      <td className="px-2 py-3 overflow-hidden align-top">
+                      {/* Colonna Categoria - solo il settore dell'azienda */}
+
+                      <td className="px-2 py-3 align-middle text-[11px] leading-tight">
                         {(() => {
                           const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-                          const techStackRaw = obj.tech_stack ?? obj.techStack
-                          const techStack = Array.isArray(techStackRaw) ? techStackRaw.filter((v) => typeof v === 'string') : []
-                          const stackStr = techStack.join(' ').toLowerCase()
-
-                          const sito = renderLeadString(obj, ['sito', 'website', 'url'])
-                          const missingSite = !sito || stackStr.includes('no website')
-
-                          const technicalReport = obj.technical_report && typeof obj.technical_report === 'object' ? (obj.technical_report as any) : null
-                          const hasSeoErrors = technicalReport?.seo_disaster === true || stackStr.includes('disastro seo')
-                          const errorDetailsRaw = technicalReport?.error_details
-                          const errorDetails = Array.isArray(errorDetailsRaw)
-                            ? (errorDetailsRaw as unknown[]).filter((v) => typeof v === 'string').map((s) => s.trim()).filter(Boolean)
-                            : []
-
-                          const metaPixel = (obj as any).meta_pixel
-                          const gtm = (obj as any).google_tag_manager
-                          const ssl = (obj as any).ssl
-                          const isClaimed = (obj as any).is_claimed
-                          const instagramUrl = renderLeadString(obj, ['instagram', 'ig', 'instagram_url', 'instagramUrl'])
-                          const tiktokUrl = renderLeadString(obj, ['tiktok', 'tiktok_url', 'tiktokUrl'])
-                          const facebookUrl = renderLeadString(obj, ['facebook', 'fb', 'facebook_url', 'facebookUrl'])
-
-                          const hasInstagram = !!instagramUrl
-                          const hasTiktok = !!tiktokUrl
-                          const hasFacebook = !!facebookUrl
-
-                          const htmlErrorsRaw = obj.html_errors ?? obj.htmlErrors
-                          const htmlErrors = Array.isArray(htmlErrorsRaw) ? htmlErrorsRaw.filter((v) => typeof v === 'string') : []
-                          const hasHtmlErrors = htmlErrors.length > 0
-                          const htmlErrorsCount = htmlErrors.length
-
-                          const loadSpeedRaw =
-                            technicalReport?.load_speed_s ??
-                            technicalReport?.load_speed_seconds ??
-                            (obj as any).load_speed_s ??
-                            (obj as any).load_speed_seconds
-                          const loadSpeedSeconds =
-                            typeof loadSpeedRaw === 'number'
-                              ? loadSpeedRaw
-                              : typeof loadSpeedRaw === 'string'
-                                ? Number(loadSpeedRaw)
-                                : null
-                          const isSlow = typeof loadSpeedSeconds === 'number' && Number.isFinite(loadSpeedSeconds) ? loadSpeedSeconds > 3 : false
-
-                          const missingPixel = metaPixel !== true || stackStr.includes('missing fb pixel') || stackStr.includes('no pixel')
-                          const missingGTM = gtm !== true || stackStr.includes('missing gtm') || stackStr.includes('no gtm')
-                          const missingGoogleAds = technicalReport?.has_google_ads === false || stackStr.includes('missing google ads') || stackStr.includes('no google ads') || stackStr.includes('no ads')
-                          const missingAnalytics = !stackStr.includes('ga4') && !stackStr.includes('analytics')
-                          const missingSSL =
-                            ssl === false ||
-                            stackStr.includes('no ssl') ||
-                            stackStr.includes('missing ssl') ||
-                            stackStr.includes('ssl error')
-                          const missingBooking = !stackStr.includes('booking') && !stackStr.includes('prenot')
-                          const missingAds = !stackStr.includes('ads') && !stackStr.includes('google ads')
-                          const missingChatbot = !stackStr.includes('chatbot')
-                          const mobileFriendlyRaw = (obj as any).mobile_friendly ?? (obj as any).is_mobile_friendly ?? technicalReport?.mobile_friendly
-                          const missingMobile =
-                            mobileFriendlyRaw === false ||
-                            stackStr.includes('missing mobile') ||
-                            stackStr.includes('no mobile') ||
-                            stackStr.includes('not mobile friendly')
-
-                          const missingDmarc = !stackStr.includes('dmarc')
-
-                          const missingSpf = !stackStr.includes('spf')
-                          const missingEmailAuth =
-                            missingDmarc ||
-                            missingSpf ||
-                            technicalReport?.has_dmarc === false ||
-                            technicalReport?.has_spf === false ||
-                            stackStr.includes('missing dmarc') ||
-                            stackStr.includes('missing spf') ||
-                            stackStr.includes('no dmarc') ||
-                            stackStr.includes('no spf')
-
-                          const unclaimedMaps = isClaimed === false
-
-                          const missingIg = !hasInstagram
-                          const missingFb = !hasFacebook
-                          const missingTt = !hasTiktok
-
-                          const techBadges: Array<{ key: string; label: string }> = []
-                          const addTech = (key: string, label: string) => {
-                            if (!techBadges.some((t) => t.key === key)) techBadges.push({ key, label })
-                          }
-                          if (stackStr.includes('wordpress')) addTech('wp', 'WordPress')
-                          if (stackStr.includes('shopify')) addTech('shopify', 'Shopify')
-                          if (stackStr.includes('prestashop') || stackStr.includes('presta')) addTech('prestashop', 'Prestashop')
-                          if (stackStr.includes('wix')) addTech('wix', 'Wix')
-                          if (stackStr.includes('woocommerce') || stackStr.includes('woo commerce') || stackStr.includes('woo-commerce')) addTech('woocommerce', 'WooCommerce')
-
-                          const activeProblems: Array<{ key: string; label: string; className: string }> = []
-
-                          // Collect all problems (order here does NOT define primary badge).
-                          // Primary badge is selected later with absolute priority.
-                          if (missingSite) activeProblems.push({ key: 'no_website', label: 'Senza Sito', className: 'bg-red-100 text-red-800 border-red-200' })
-                          if (unclaimedMaps) activeProblems.push({ key: 'unclaimed_maps', label: 'Scheda Non Rivendicata', className: 'bg-red-100 text-red-800 border-red-200' })
-                          if (missingPixel) activeProblems.push({ key: 'no_pixel', label: 'No Pixel', className: 'bg-red-100 text-red-800 border-red-200' })
-                          if (missingGTM) activeProblems.push({ key: 'no_gtm', label: 'No GTM', className: 'bg-red-100 text-red-800 border-red-200' })
-                          if (missingIg) activeProblems.push({ key: 'no_instagram', label: 'No Instagram', className: 'bg-slate-100 text-slate-800 border-slate-200' })
-                          if (missingFb) activeProblems.push({ key: 'no_facebook', label: 'No Facebook', className: 'bg-slate-100 text-slate-800 border-slate-200' })
-                          if (isSlow) activeProblems.push({ key: 'slow_speed', label: 'Sito Lento', className: 'bg-amber-100 text-amber-900 border-amber-200' })
-                          if (hasSeoErrors || (Array.isArray(errorDetails) && errorDetails.length > 0)) {
-                            activeProblems.push({ key: 'seo_errors', label: 'Errori SEO', className: 'bg-red-100 text-red-800 border-red-200' })
-                          }
-
-                          // Keep other existing signals available for the audit modal / counting, but not necessarily primary.
-                          if (missingAnalytics) activeProblems.push({ key: 'no_ga4', label: 'No GA4', className: 'bg-red-100 text-red-800 border-red-200' })
-                          if (missingGoogleAds) activeProblems.push({ key: 'no_google_ads', label: 'No Google Ads', className: 'bg-red-100 text-red-800 border-red-200' })
-                          if (missingMobile) activeProblems.push({ key: 'no_mobile', label: 'No Mobile', className: 'bg-amber-100 text-amber-900 border-amber-200' })
-                          if (missingSSL) activeProblems.push({ key: 'no_ssl', label: 'No SSL', className: 'bg-amber-100 text-amber-900 border-amber-200' })
-                          if (missingEmailAuth || technicalReport?.dmarc_ok === false) {
-                            activeProblems.push({ key: 'spam_risk', label: 'Rischio Spam', className: 'bg-red-100 text-red-800 border-red-200' })
-                          }
-
-                          const uniqueProblems = activeProblems.filter((p, i, arr) => arr.findIndex((x) => x.key === p.key) === i)
-
-                          const requested = requestedIssues
-                          const visibleTone = 'bg-red-100 text-red-800 border-red-200'
-
-                          const requestedKeys: string[] = []
-                          const qLower = String(query || '').toLowerCase()
-                          const wantsGoogleAds =
-                            qLower.includes('google ads') ||
-                            qLower.includes('ads su google') ||
-                            qLower.includes('senza ads') ||
-                            qLower.includes('no ads')
-                          if (requested?.has('maps')) requestedKeys.push('unclaimed_maps')
-                          if (requested?.has('pixel')) requestedKeys.push('no_pixel')
-                          if (requested?.has('gtm')) requestedKeys.push('no_gtm')
-                          if (wantsGoogleAds || requested?.has('google_ads')) requestedKeys.push('no_google_ads')
-                          if (requested?.has('no_instagram')) requestedKeys.push('no_instagram')
-                          if (requested?.has('no_facebook')) requestedKeys.push('no_facebook')
-                          if (requested?.has('speed')) requestedKeys.push('slow_speed')
-                          if (requested?.has('seo') || requested?.has('html') || /errori?\s*(seo|html)|seo\s*error/i.test(query)) requestedKeys.push('seo_errors')
-                          // Direct query fallbacks for ALL badge types
-                          if (/senza\s*(meta\s*)?pixel|no\s*pixel/i.test(query) && !requestedKeys.includes('no_pixel')) requestedKeys.push('no_pixel')
-                          if (/senza\s*gtm|no\s*gtm|senza\s*tag\s*manager/i.test(query) && !requestedKeys.includes('no_gtm')) requestedKeys.push('no_gtm')
-                          if (/senza\s*ssl|no\s*ssl/i.test(query) && !requestedKeys.includes('no_ssl')) requestedKeys.push('no_ssl')
-                          if (/senza\s*instagram|no\s*instagram|senza\s*ig\b/i.test(query) && !requestedKeys.includes('no_instagram')) requestedKeys.push('no_instagram')
-                          if (/senza\s*facebook|no\s*facebook|senza\s*fb\b/i.test(query) && !requestedKeys.includes('no_facebook')) requestedKeys.push('no_facebook')
-                          if (/sito\s*lento|slow\s*(site|speed)/i.test(query) && !requestedKeys.includes('slow_speed')) requestedKeys.push('slow_speed')
-                          if (/senza\s*dmarc|no\s*dmarc|rischio\s*spam/i.test(query) && !requestedKeys.includes('spam_risk')) requestedKeys.push('spam_risk')
-                          if (/non\s*mobile|no\s*mobile|senza\s*mobile/i.test(query) && !requestedKeys.includes('no_mobile')) requestedKeys.push('no_mobile')
-                          if (/senza\s*(google\s*)?analytics|no\s*analytics|senza\s*ga4|no\s*ga4/i.test(query) && !requestedKeys.includes('no_ga4')) requestedKeys.push('no_ga4')
-                          if (/senza\s*sito|no\s*website/i.test(query) && !requestedKeys.includes('no_website')) requestedKeys.push('no_website')
-
-                          const visibleBadges: Array<{ key: string; label: string; className: string }> = []
-                          const addVisible = (p: { key: string; label: string; className: string }) => {
-                            if (!visibleBadges.some((x) => x.key === p.key)) visibleBadges.push({ ...p, className: visibleTone })
-                          }
-
-                          // PRIMA: mostra badge che matchano la query dell'utente (es. "Errori SEO")
-                          if (requestedKeys.length > 0) {
-                            for (const k of requestedKeys) {
-                              const p = uniqueProblems.find((x) => x.key === k)
-                              if (p) addVisible(p)
-                            }
-                          }
-
-                          // Regola: "Senza Sito" deve comparire se presente (dopo il badge richiesto).
-                          const noSiteProblem = uniqueProblems.find((p) => p.key === 'no_website')
-                          if (noSiteProblem) addVisible(noSiteProblem)
-
-                          // Fallback: ricerca generica (nessun filtro specifico) => mostra un solo problema più grave.
-                          if (visibleBadges.length === 0) {
-                            const priorityOrder = [
-                              'seo_errors',
-                              'no_website',
-                              'unclaimed_maps',
-                              'no_pixel',
-                              'no_gtm',
-                              ...(wantsGoogleAds ? (['no_google_ads'] as const) : []),
-                              'no_instagram',
-                              'no_facebook',
-                              'slow_speed',
-                              ...(!wantsGoogleAds ? (['no_google_ads'] as const) : []),
-                            ]
-                            const primary = priorityOrder
-                              .map((k) => uniqueProblems.find((p) => p.key === k))
-                              .find(Boolean)
-                            const first = primary ?? uniqueProblems[0]
-                            if (!first) return <span className="text-[11px] text-gray-500">—</span>
-                            addVisible(first)
-                          }
-
-                          const othersCount = uniqueProblems.filter((p) => !visibleBadges.some((v) => v.key === p.key)).length
-                          const remainingOpportunities = uniqueProblems
-                            .filter((p) => !visibleBadges.some((v) => v.key === p.key))
-                            .map((p) => p.label)
-
-                          return (
-                            <div className="flex flex-wrap items-center gap-1">
-                              {visibleBadges.map((b) => {
-                                const chipBase = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border'
-
-                                const tone =
-                                  b.key === 'no_pixel'
-                                    ? 'bg-red-100 text-red-700 border-red-200'
-                                    : b.key === 'no_gtm'
-                                      ? 'bg-orange-100 text-orange-700 border-orange-200'
-                                      : b.key === 'no_ssl'
-                                        ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
-                                        : b.key === 'seo_errors'
-                                          ? 'bg-red-50 text-red-600 border-red-200'
-                                          : b.key === 'no_google_ads'
-                                            ? 'bg-blue-100 text-blue-700 border-blue-200'
-                                            : 'bg-gray-100 text-gray-700 border-gray-200'
-
-                                return (
-                                  <button
-                                    key={b.key}
-                                    type="button"
-                                    onClick={() => {
-                                      if (b.key === 'seo_errors') setSelectedCompanyForAudit(obj)
-                                    }}
-                                    className={`${chipBase} ${tone} ${b.key === 'seo_errors' ? 'hover:brightness-95' : ''}`}
-                                  >
-                                    {b.label}
-                                  </button>
-                                )
-                              })}
-
-                              {othersCount > 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedCompanyForAudit(obj)}
-                                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200/60"
-                                >
-                                  <span title={remainingOpportunities.join(', ')} className="cursor-help underline decoration-dotted">
-                                    + altri {othersCount}
-                                  </span>
-                                </button>
-                              ) : null}
-                            </div>
-                          )
+                          return getRiskBadges(obj, query)
                         })()}
                       </td>
 
-                      <td className="px-2 py-3 overflow-hidden align-top">
-                        <div className="flex items-center justify-center">
-                          {(() => {
-                            const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-                            const rating = renderLeadNumber(obj, ['rating', 'google_rating', 'reputation_rating'])
-                            if (typeof rating === 'number' && rating > 0) {
+                          <td className="px-2 py-3 align-middle text-center">
+                            {(() => {
+                              const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+                              const rating = renderLeadNumber(obj, ['rating', 'google_rating', 'reputation_rating'])
+                              if (typeof rating === 'number' && rating > 0) {
+                                return (
+                                  <div className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5">
+                                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                                    <span className="text-xs text-slate-900 tabular-nums">{rating.toFixed(1)}</span>
+                                  </div>
+                                )
+                              }
                               return (
-                                <div className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5">
-                                  <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                                  <span className="text-xs text-slate-900 tabular-nums">{rating.toFixed(1)}</span>
-                                </div>
+                                <Badge variant="secondary" className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] px-1.5 py-0.5 leading-none">
+                                  N/D
+                                </Badge>
                               )
-                            }
+                            })()}
+                          </td>
 
-                            return (
-                              <Badge variant="secondary" className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] px-1.5 py-0.5 leading-none">
-                                N/D
-                              </Badge>
-                            )
-                          })()}
-                        </div>
-
-                        <div className="mt-1 flex items-center justify-center">
-                          {(() => {
-                            const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-                            const tr = (obj as any).technical_report && typeof (obj as any).technical_report === 'object' ? (obj as any).technical_report : null
-                            const raw = tr?.load_speed_seconds ?? tr?.load_speed_s ?? (obj as any).load_speed_seconds ?? (obj as any).load_speed_s
-                            const seconds = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : null
-                            if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return <span className="text-[10px] text-slate-400">—</span>
-
-                            const tone = seconds < 2 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : seconds <= 4 ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-rose-700 bg-rose-50 border-rose-200'
-
-                            return (
-                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone}`}>
-                                {seconds.toFixed(1)}s
-                              </span>
-                            )
-                          })()}
-                        </div>
-                      </td>
-
-                      <td className="px-2 py-3 overflow-hidden align-top">
-                        <div className="flex items-center justify-center gap-2">
-                          <Gauge className="h-4 w-4 text-slate-500" />
-                          {(() => {
-                            const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-                            const pageSpeed = renderLeadNumber(obj, ['page_speed', 'pageSpeed', 'pagespeed'])
-                            return (
-                              <>
-                                <span className="text-xs tabular-nums text-slate-900">{typeof pageSpeed === 'number' ? pageSpeed : '—'}</span>
-                                {getSpeedBadge(pageSpeed)}
-                              </>
-                            )
-                          })()}
-                        </div>
-                      </td>
-
-                      <td className="min-w-[280px] w-[280px] px-2 py-3 overflow-visible align-top">
+                      <td className="px-2 py-3 overflow-visible align-top">
                         <div className="flex flex-col items-stretch gap-2">
-                          <Link href={`/dashboard/lead/${searchId || '__local__'}/${rowIdx}`}>
+                          <Link href={`/dashboard/lead/${searchId || '__local__'}/${rowIdx}`} onClick={() => { try { sessionStorage.setItem('ckb_active_lead', JSON.stringify(item)) } catch {} }}>
                             <Button
                               size="sm"
                               type="button"
@@ -1533,10 +1413,9 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                             size="sm"
                             type="button"
                             onClick={() => openPitch(item)}
-                            className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold text-sm rounded-lg px-4 py-2 shadow-md hover:shadow-lg transition-all duration-200"
+                            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-sm rounded-lg px-4 py-2 shadow-md hover:shadow-lg transition-all duration-200"
                           >
-                            <Sparkles className="h-4 w-4" />
-                            Genera Pitch
+                            🎯 Analisi Rischio
                           </Button>
 
                           {(() => {
@@ -1573,7 +1452,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                         </div>
                       </td>
                     </tr>
-                  ))
+                  )})
                 : null}
             </tbody>
           </table>
@@ -1675,7 +1554,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
           <DialogHeader>
             <DialogTitle>Salva in Lista</DialogTitle>
             <DialogDescription>
-              Scegli dove archiviare questo lead. Se hai un webhook attivo, MIRAX invierà i dati in automatico.
+              Scegli dove archiviare questo lead. Se hai un webhook attivo, CKB Assicurazione invierà i dati in automatico.
             </DialogDescription>
           </DialogHeader>
 

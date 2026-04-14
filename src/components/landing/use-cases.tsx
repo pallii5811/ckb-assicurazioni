@@ -88,7 +88,7 @@ export function UseCases() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-end mb-16">
           <div>
             <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 mb-6 shadow-sm">
-              <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">Per chi è MIRAX</span>
+              <span className="text-xs font-semibold text-slate-600 font-['DM_Sans'] uppercase tracking-wider">Per chi è CKB</span>
             </div>
             <h2 className="font-['Syne'] text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 leading-tight">
               Costruito per chi{' '}
@@ -99,7 +99,7 @@ export function UseCases() {
           </div>
           <p className="text-lg text-slate-500 font-['DM_Sans'] leading-relaxed lg:text-right">
             Che tu sia freelance, consulente o agenzia —
-            MIRAX si adatta al tuo settore e al tuo workflow.
+            CKB si adatta al tuo settore e al tuo workflow.
           </p>
         </div>
 
@@ -176,7 +176,7 @@ export function UseCases() {
           transition={{ delay: 0.5 }}
         >
           <a href="/auth" className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold font-['DM_Sans'] text-sm transition-colors">
-            MIRAX funziona per qualsiasi settore
+            CKB funziona per qualsiasi settore
             <ArrowRight size={16} />
           </a>
         </motion.div>
