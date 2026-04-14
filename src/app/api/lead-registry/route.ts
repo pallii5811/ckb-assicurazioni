@@ -345,6 +345,49 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ─── Step 2b: Google Search fallback for P.IVA by company name ──
+  if (!websitePiva && business_name) {
+    try {
+      const cleanName = business_name.replace(/['"]/g, '').trim()
+      const googleQuery = encodeURIComponent(`"${cleanName}" "partita iva" ${city}`)
+      const googleHtml = await fetchHtmlSafe(`https://www.google.com/search?q=${googleQuery}&num=5&hl=it`, 6000)
+      if (googleHtml.length > 2000) {
+        // Look for 11-digit P.IVA patterns in search results
+        const pivaMatches = googleHtml.match(/\b(\d{11})\b/g) || []
+        // Validate: must start with valid Italian P.IVA prefix and appear near "partita iva" or "P.IVA"
+        for (const candidate of pivaMatches) {
+          // Skip obviously fake ones (all zeros, all same digit)
+          if (/^(\d)\1{10}$/.test(candidate)) continue
+          if (candidate.startsWith('0000')) continue
+          // Verify via VIES before using
+          const check = await verifyPivaVies(candidate)
+          if (check?.valid) {
+            websitePiva = candidate
+            break
+          }
+        }
+      }
+    } catch { /* Google non raggiungibile */ }
+  }
+
+  // ─── Step 2c: CompanyReports.it search by name fallback ──
+  if (!websitePiva && business_name) {
+    try {
+      const searchName = encodeURIComponent(business_name.replace(/['"]/g, '').trim())
+      const searchHtml = await fetchHtmlSafe(`https://www.companyreports.it/search?q=${searchName}`, 8000)
+      if (searchHtml.length > 3000) {
+        // Extract P.IVA from search results links (format: /12345678901)
+        const linkMatches = searchHtml.match(/href="\/(\d{11})"/g) || []
+        if (linkMatches.length > 0 && linkMatches[0]) {
+          const firstPiva = linkMatches[0].match(/(\d{11})/)?.[1]
+          if (firstPiva) {
+            websitePiva = firstPiva
+          }
+        }
+      }
+    } catch { /* CompanyReports search non raggiungibile */ }
+  }
+
   // ─── Step 3: VIES verification (official EU registry) ─────────
   let viesData: { valid: boolean; name?: string; address?: string } | null = null
   if (websitePiva) {
