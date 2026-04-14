@@ -2,31 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { lead } = body
+  const { lead, searchCategory } = body
 
-  console.log('=== LEAD-COMPETITORS DEBUG ===')
-  console.log('local_competitors:', JSON.stringify(lead?.local_competitors))
-  console.log('categoria:', lead?.categoria)
-  console.log('category:', lead?.category)
-  console.log('citta:', lead?.citta)
-  console.log('city:', lead?.city)
-  console.log('==============================')
-
-  const category = lead?.categoria || lead?.category || ''
+  const category = searchCategory || lead?.categoria || lead?.category || ''
   const city = lead?.citta || lead?.city || ''
+  const businessName = lead?.nome || lead?.azienda || lead?.business_name || ''
 
   if (lead?.local_competitors && lead.local_competitors.length > 0) {
-    console.log('RETURNING FROM DB:', lead.local_competitors.length)
     return NextResponse.json({
       competitors: lead.local_competitors,
       source: 'db',
     })
   }
 
-  console.log('CALLING BACKEND with category:', category, 'city:', city)
-
   if (!category || !city) {
-    console.log('MISSING DATA - category or city empty')
     return NextResponse.json({ competitors: [], source: 'missing_data' })
   }
 
@@ -34,14 +23,12 @@ export async function POST(req: NextRequest) {
     const res = await fetch('http://46.225.189.40:8001/scrape-competitors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category, city }),
+      body: JSON.stringify({ category, city, business_name: businessName }),
       signal: AbortSignal.timeout(60000),
     })
     const data = await res.json()
-    console.log('BACKEND RESPONSE:', JSON.stringify(data))
     return NextResponse.json({ ...data, source: 'scraping' })
   } catch (e) {
-    console.log('BACKEND ERROR:', String(e))
     return NextResponse.json({ competitors: [], source: 'error' })
   }
 }

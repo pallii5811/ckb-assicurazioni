@@ -13,6 +13,20 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
+    // AUTO-RECOVERY: unstick jobs that have been processing for >15 min
+    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
+    const { data: stuckJobs } = await supabase
+      .from('searches')
+      .select('id')
+      .eq('status', 'processing')
+      .lt('created_at', fifteenMinAgo)
+      .limit(10)
+    if (stuckJobs && stuckJobs.length > 0) {
+      const stuckIds = stuckJobs.map((j: any) => j.id)
+      await supabase.from('searches').update({ status: 'error' }).in('id', stuckIds)
+      console.log('[trigger-scrape] unstuck', stuckIds.length, 'jobs:', stuckIds)
+    }
+
     // Check if there's already a recent pending/processing job for same category+city
     const { data: existing } = await supabase
       .from('searches')
@@ -31,6 +45,11 @@ export async function POST(request: NextRequest) {
       if (isRecent) {
         console.log('[trigger-scrape] reusing existing job:', existing.id, existing.status)
         return NextResponse.json({ job_id: existing.id, reused: true })
+      }
+      // Old stuck pending job — reset it
+      if (!Number.isFinite(cMs) || Date.now() - cMs > 10 * 60 * 1000) {
+        await supabase.from('searches').update({ status: 'error' }).eq('id', existing.id)
+        console.log('[trigger-scrape] marked old stuck job as error:', existing.id)
       }
     }
 

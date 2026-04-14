@@ -308,6 +308,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        searchCategory: category || '',
         lead: {
           ...lead,
           categoria: lead?.categoria || lead?.category || category || '',

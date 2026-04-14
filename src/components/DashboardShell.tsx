@@ -900,12 +900,15 @@ export default function DashboardShell() {
     if (!isScraping || !scrapeJobId) return
 
     const _pollStart2 = Date.now()
-    const POLL_TIMEOUT_MS2 = 10 * 60 * 1000 // 10 minutes max
+    const POLL_TIMEOUT_MS2 = 12 * 60 * 1000 // 12 minutes max
+    let _pendingTooLong = false
 
     const interval = window.setInterval(async () => {
 
-      // Timeout: stop polling after 10 min, show whatever we have
-      if (Date.now() - _pollStart2 > POLL_TIMEOUT_MS2) {
+      const elapsed = Date.now() - _pollStart2
+
+      // Timeout: stop polling after 12 min, show whatever we have
+      if (elapsed > POLL_TIMEOUT_MS2) {
         window.clearInterval(interval)
         setIsScraping(false)
         setSearchState('done')
@@ -917,6 +920,12 @@ export default function DashboardShell() {
           toastError('La ricerca ha impiegato troppo tempo. Riprova più tardi.', 'Timeout ricerca')
         }
         return
+      }
+
+      // If still pending after 5 min, the worker might be down — warn user
+      if (elapsed > 5 * 60 * 1000 && !_pendingTooLong) {
+        _pendingTooLong = true
+        toastInfo('Il worker sta impiegando più del previsto. Attendere ancora un momento...', 'Scraping lento')
       }
 
       try {
