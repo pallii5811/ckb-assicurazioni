@@ -59,6 +59,20 @@ function getScoreVariant(score: number): { label: 'COLD' | 'WARM' | 'HOT'; class
   return { label: 'COLD', className: 'bg-slate-200 text-slate-800' }
 }
 
+const renderLeadString = (obj: Record<string, unknown>, keys: string[]) => {
+  for (const k of keys) {
+    const v = obj[k]
+    if (v === null || v === undefined) continue
+    if (Array.isArray(v)) {
+      const s = v.filter(x => x).join(', ')
+      if (s.trim()) return s
+    }
+    const s = String(v).trim()
+    if (s && s.toLowerCase() !== 'n/d' && s.toLowerCase() !== 'n/a' && s.toLowerCase() !== 'none' && s !== 'null') return s
+  }
+  return ''
+}
+
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0
 }

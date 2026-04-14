@@ -710,7 +710,13 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
   const renderLeadString = (obj: Record<string, unknown>, keys: string[]) => {
     for (const k of keys) {
       const v = obj[k]
-      if (typeof v === 'string' && v.trim()) return v
+      if (v === null || v === undefined) continue
+      if (Array.isArray(v)) {
+        const s = v.filter(x => x).join(', ')
+        if (s.trim()) return s
+      }
+      const s = String(v).trim()
+      if (s && s.toLowerCase() !== 'n/d' && s.toLowerCase() !== 'n/a' && s.toLowerCase() !== 'none' && s !== 'null') return s
     }
     return ''
   }
@@ -1067,6 +1073,8 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                 const { mobile, landline } = extractItalianPhones(telefono)
                 const validMobile = mobile && isValidItalianPhone(mobile) ? mobile : null
                 const validLandline = landline && isValidItalianPhone(landline) ? landline : null
+                // Fallback: if validation strips everything, show raw phone
+                const fallbackPhone = !validMobile && !validLandline && telefono ? telefono : null
                 const waHref = validMobile ? formatWhatsAppLink(validMobile) : null
 
                 return (
@@ -1131,7 +1139,14 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                           </div>
                         ) : null}
 
-                        {!validMobile && !validLandline ? (
+                        {fallbackPhone ? (
+                          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            <span className="h-2 w-2 rounded-full bg-amber-400" />
+                            <span className="font-mono text-slate-600 text-xs">{fallbackPhone}</span>
+                          </div>
+                        ) : null}
+
+                        {!validMobile && !validLandline && !fallbackPhone ? (
                           <span className="text-xs text-gray-400 italic">N/D</span>
                         ) : null}
                       </div>
@@ -1311,6 +1326,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                             const { mobile, landline } = extractItalianPhones(telefono)
                             const validMobile = mobile && isValidItalianPhone(mobile) ? mobile : null
                             const validLandline = landline && isValidItalianPhone(landline) ? landline : null
+                            const fallbackPhone = !validMobile && !validLandline && telefono ? telefono : null
                             const waHref = validMobile ? `https://wa.me/39${validMobile.replace(/\D/g, '')}` : null
                             return (
                               <>
@@ -1339,7 +1355,14 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
                                   </div>
                                 ) : null}
 
-                                {!validMobile && !validLandline ? (
+                                {fallbackPhone ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                                    <span className="font-mono text-xs text-slate-600">{fallbackPhone}</span>
+                                  </div>
+                                ) : null}
+
+                                {!validMobile && !validLandline && !fallbackPhone ? (
                                   <span className="text-xs text-slate-400 italic">N/D</span>
                                 ) : null}
 
