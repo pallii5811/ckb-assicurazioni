@@ -5191,21 +5191,28 @@ export async function textToFilterSearchAction(userQuery: string): Promise<TextT
 
     console.log('LEAD FILTRATI AI (COUNT):', validLeads.length)
 
-    // Dedup: strip phone/email that appear in 3+ leads (directory/aggregator contacts)
+    // Dedup: strip phone/email that appear across 3+ UNIQUE businesses (directory/aggregator contacts)
     {
-      const phoneCounts: Record<string, number> = {}
-      const emailCounts: Record<string, number> = {}
+      const phoneBusinesses: Record<string, Set<string>> = {}
+      const emailBusinesses: Record<string, Set<string>> = {}
       for (const lead of validLeads) {
         const p = (lead.telefono || '').replace(/\s+/g, '').trim()
         const e = (lead.email || '').trim().toLowerCase()
-        if (p && p !== 'N/D' && p !== 'N/A') phoneCounts[p] = (phoneCounts[p] || 0) + 1
-        if (e && e !== 'n/d' && e !== 'n/a') emailCounts[e] = (emailCounts[e] || 0) + 1
+        const biz = (lead.nome || '').trim().toLowerCase().slice(0, 30)
+        if (p && p !== 'N/D' && p !== 'N/A') {
+          if (!phoneBusinesses[p]) phoneBusinesses[p] = new Set()
+          phoneBusinesses[p].add(biz)
+        }
+        if (e && e !== 'n/d' && e !== 'n/a') {
+          if (!emailBusinesses[e]) emailBusinesses[e] = new Set()
+          emailBusinesses[e].add(biz)
+        }
       }
       for (const lead of validLeads) {
         const p = (lead.telefono || '').replace(/\s+/g, '').trim()
         const e = (lead.email || '').trim().toLowerCase()
-        if (p && phoneCounts[p] >= 3) lead.telefono = ''
-        if (e && emailCounts[e] >= 3) lead.email = ''
+        if (p && phoneBusinesses[p] && phoneBusinesses[p].size >= 3) lead.telefono = ''
+        if (e && emailBusinesses[e] && emailBusinesses[e].size >= 3) lead.email = ''
       }
     }
 
