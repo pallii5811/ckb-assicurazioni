@@ -286,6 +286,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Step 1: Try backend for REAL Registro Imprese data ────────
+  let backendData: Record<string, any> | null = null
   try {
     const res = await fetch(`${BACKEND_URL}/scrape-registry`, {
       method: 'POST',
@@ -298,7 +299,12 @@ export async function POST(req: NextRequest) {
     if (data?.found === true) {
       if (!data.sede_legale && address) data.sede_legale = address
       data.fonte = 'registro_imprese'
-      return NextResponse.json(data)
+      // If we already have fatturato AND dipendenti, return immediately
+      if (data.fatturato && data.dipendenti) {
+        return NextResponse.json(data)
+      }
+      // Otherwise save and continue to supplement with CompanyReports.it
+      backendData = data
     }
   } catch {
     // Backend non disponibile, continua
@@ -317,6 +323,10 @@ export async function POST(req: NextRequest) {
   })()
 
   let websitePiva: string | null = null
+  // If backend already found a P.IVA, use it as fallback
+  if (backendData?.partita_iva) {
+    websitePiva = String(backendData.partita_iva).replace(/^IT\s*/, '').trim()
+  }
   if (website && !isThirdPartyPlatform) {
     const baseUrl = website.startsWith('http') ? website : `https://${website}`
     const origin = (() => { try { return new URL(baseUrl).origin } catch { return baseUrl } })()
@@ -360,8 +370,8 @@ export async function POST(req: NextRequest) {
     fonte: 'google_maps',
   }
 
-  // Merge: companyreports (free) > OpenAPI.it (paid) > VIES > name extraction
-  const src = { ...oaData, ...crData } as Record<string, any> // crData wins where both exist
+  // Merge: backendData (base) < OpenAPI.it (paid) < companyreports (free) — later wins
+  const src = { ...backendData, ...oaData, ...crData } as Record<string, any>
 
   // Ragione sociale
   profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
