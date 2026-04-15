@@ -392,13 +392,16 @@ async function scrapeWebsiteForPeople(website: string): Promise<{ nome: string; 
 
   // Helper: extract person name from a raw string that may contain "IMPRESA X DI NOME COGNOME"
   const extractPersonFromRaw = (raw: string): string | null => {
-    // Try ALL "DI" positions, pick first valid person name
-    const diRe = /\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/gi
-    let diM
-    while ((diM = diRe.exec(raw)) !== null) {
-      let name = diM[1].trim()
-      if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
-      if (isValidPersonName(name)) return name
+    // Split by "DI" boundary and try each suffix from LAST to FIRST
+    const diParts = raw.split(/\bDI\b/i)
+    if (diParts.length >= 2) {
+      for (let di = diParts.length - 1; di >= 1; di--) {
+        const after = diParts[di].trim()
+        if (!after) continue
+        let name = after.replace(/\s+/g, ' ').trim()
+        if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+        if (isValidPersonName(name)) return name
+      }
     }
     // If no DI pattern, try the raw string directly
     let direct = raw.trim()

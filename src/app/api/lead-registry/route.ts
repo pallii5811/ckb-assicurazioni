@@ -391,13 +391,16 @@ export async function POST(req: NextRequest) {
             if (m?.[1]) {
               const raw = m[1].replace(/\s+/g, ' ').trim()
               // Extract person name from "IMPRESA X DI NOME COGNOME" pattern
-              // Try ALL "DI" occurrences (first match may be company words like "DI PULIZIA")
-              const diRe = /\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/gi
-              let diM
-              while ((diM = diRe.exec(raw)) !== null) {
-                let name = diM[1].trim()
-                if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
-                if (isValidName(name)) { websiteOwnerName = name; break }
+              // Split by "DI" boundary and try each suffix from LAST to FIRST
+              const diParts = raw.split(/\bDI\b/i)
+              if (diParts.length >= 2) {
+                for (let di = diParts.length - 1; di >= 1; di--) {
+                  const after = diParts[di].trim()
+                  if (!after) continue
+                  let name = after.replace(/\s+/g, ' ').trim()
+                  if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+                  if (isValidName(name)) { websiteOwnerName = name; break }
+                }
               }
               // Save full ragione sociale
               if (raw.length > 5 && raw.length < 120) {
