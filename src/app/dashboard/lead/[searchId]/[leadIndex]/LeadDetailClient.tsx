@@ -902,8 +902,20 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Referente</span>
               </div>
               {(() => {
-                const refName = clayData.personName || registry?.titolare || null
-                const refRole = clayData.personRole || (registry?.titolare ? 'Titolare / Legale Rappresentante' : null)
+                // Check if clayData.personName is actually a person or just the company name
+                const isCompanyName = (name: string | null) => {
+                  if (!name) return true
+                  const n = name.toLowerCase().trim()
+                  const companyName = (nome || '').toLowerCase().trim()
+                  // If it matches or is contained in the lead/company name, it's not a person
+                  if (companyName && (n === companyName || companyName.includes(n) || n.includes(companyName))) return true
+                  // Common Italian business words that indicate it's a company, not a person
+                  if (/\b(s\.?r\.?l|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|impresa|studio|azienda|group|service|servizi|pulizia|pulizie|cleaning|consulenza|costruzioni|edilizia|ristorante|pizzeria|bar|hotel|autofficina|carrozzeria|farmacia|ottica)\b/i.test(n)) return true
+                  return false
+                }
+                const clayPerson = !isCompanyName(clayData.personName) ? clayData.personName : null
+                const refName = clayPerson || registry?.titolare || null
+                const refRole = clayPerson ? (clayData.personRole || null) : (registry?.titolare ? 'Titolare / Legale Rappresentante' : null)
                 const refPhoto = clayData.personPhoto || null
                 const refInitial = refName ? refName[0]?.toUpperCase() : '?'
                 if (!refName) return <p className="text-sm text-slate-400">Nessun referente trovato</p>
