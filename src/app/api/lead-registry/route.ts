@@ -340,6 +340,9 @@ export async function POST(req: NextRequest) {
   let websitePiva: string | null = null
   let websiteOwnerName: string | null = null
   let websiteFullRagioneSociale: string | null = null
+  let websiteCF: string | null = null
+  let websiteSedeLegale: string | null = null
+  let websiteEmail: string | null = null
   // If backend already found a P.IVA, use it as fallback
   if (backendData?.partita_iva) {
     websitePiva = String(backendData.partita_iva).replace(/^IT\s*/, '').trim()
@@ -384,6 +387,36 @@ export async function POST(req: NextRequest) {
               break
             }
           }
+        }
+        // Extract Codice Fiscale (16 chars alphanumeric, Italian tax code)
+        if (!websiteCF) {
+          const cfPatterns = [
+            /C\.?\s*F\.?\s*[:\s.\-]+([A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z])/gi,
+            /codice\s*fiscale[:\s.\-]+([A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z])/gi,
+          ]
+          for (const pat of cfPatterns) {
+            pat.lastIndex = 0
+            const m = pat.exec(pageHtml)
+            if (m?.[1]) { websiteCF = m[1].toUpperCase(); break }
+          }
+        }
+        // Extract sede legale from privacy pages
+        if (!websiteSedeLegale) {
+          const sedeM = pageHtml.match(/sede\s+legale\s+(?:in|a|:)\s*([^,\n<]{10,80}(?:,\s*\d{5}\s+[A-Za-zÀ-ÿ\s]+(?:\([A-Z]{2}\))?)?)/i)
+          if (sedeM?.[1]) websiteSedeLegale = sedeM[1].replace(/\s+/g, ' ').trim()
+        }
+        // Extract email from privacy pages
+        if (!websiteEmail) {
+          const emailM = pageHtml.match(/EMAIL\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)
+            || pageHtml.match(/e-?mail[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)
+          if (emailM?.[1] && !emailM[1].toLowerCase().includes('noreply') && !emailM[1].toLowerCase().includes('example')) {
+            websiteEmail = emailM[1].toLowerCase()
+          }
+        }
+        // Extract "Rappresentante legale" name
+        if (!websiteOwnerName) {
+          const rappM = pageHtml.match(/(?:rappresentante\s+legale|legale\s+rappresentante)\s+([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+){1,3})/i)
+          if (rappM?.[1]) websiteOwnerName = rappM[1].trim()
         }
       }
     }
@@ -470,9 +503,39 @@ export async function POST(req: NextRequest) {
     profile.titolare_fonte = 'privacy_policy_sito'
   }
 
+  // Codice Fiscale titolare (from privacy policy — critical for insurance quotes)
+  if (websiteCF) {
+    profile.codice_fiscale_titolare = websiteCF
+    profile.cf_fonte = 'privacy_policy_sito'
+    // Parse birth date from CF: XXXYYY##M##ZZZZ => year=##, month=M, day=##
+    const cfMonths: Record<string, number> = { A:1,B:2,C:3,D:4,E:5,H:6,L:7,M:8,P:9,R:10,S:11,T:12 }
+    const yearDigits = parseInt(websiteCF.substring(6, 8), 10)
+    const monthLetter = websiteCF.charAt(8).toUpperCase()
+    const dayDigits = parseInt(websiteCF.substring(9, 11), 10)
+    const month = cfMonths[monthLetter]
+    if (month) {
+      const day = dayDigits > 40 ? dayDigits - 40 : dayDigits // >40 = female
+      const isFemale = dayDigits > 40
+      const currentCentury = new Date().getFullYear() % 100
+      const year = yearDigits > currentCentury ? 1900 + yearDigits : 2000 + yearDigits
+      const age = new Date().getFullYear() - year
+      profile.titolare_data_nascita = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`
+      profile.titolare_eta = age
+      profile.titolare_sesso = isFemale ? 'F' : 'M'
+    }
+  }
+
+  // Email from privacy policy (if not already known)
+  if (websiteEmail && !src.pec) {
+    profile.email_privacy = websiteEmail
+  }
+
   // Sede legale
   if (src.sede_legale) {
     profile.sede_legale = src.sede_legale
+  } else if (websiteSedeLegale) {
+    profile.sede_legale = websiteSedeLegale
+    profile.sede_legale_fonte = 'privacy_policy_sito'
   } else if (viesData?.address) {
     profile.sede_legale = viesData.address
     profile.sede_legale_verificata = true

@@ -1922,7 +1922,39 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                           <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
                         ) : null}
                       </p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.titolare}</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {registry.titolare}
+                        {registry.titolare_eta ? (
+                          <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                            {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  ) : null}
+                  {registry.codice_fiscale_titolare ? (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Codice Fiscale titolare
+                        <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 font-mono tracking-wide">
+                        {registry.codice_fiscale_titolare}
+                        {registry.titolare_data_nascita ? (
+                          <span className="ml-2 text-xs font-sans font-normal text-slate-500">
+                            nato/a il {registry.titolare_data_nascita}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  ) : null}
+                  {registry.email_privacy ? (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Email
+                        <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">{registry.email_privacy}</p>
                     </div>
                   ) : null}
                   {registry.partita_iva ? (
