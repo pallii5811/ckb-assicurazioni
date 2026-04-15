@@ -901,44 +901,67 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <Users className="w-4 h-4 text-blue-500" />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Referente</span>
               </div>
-              {clayData.personName ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    {clayData.personPhoto ? (
-                      <img src={clayData.personPhoto} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-200" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                        {clayData.personName[0]?.toUpperCase()}
+              {(() => {
+                const refName = clayData.personName || registry?.titolare || null
+                const refRole = clayData.personRole || (registry?.titolare ? 'Titolare / Legale Rappresentante' : null)
+                const refPhoto = clayData.personPhoto || null
+                const refInitial = refName ? refName[0]?.toUpperCase() : '?'
+                if (!refName) return <p className="text-sm text-slate-400">Nessun referente trovato</p>
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      {refPhoto ? (
+                        <img src={refPhoto} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-200" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                          {refInitial}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{refName}</p>
+                        {refRole && <p className="text-xs text-slate-500">{refRole}</p>}
+                      </div>
+                    </div>
+                    {registry?.titolare_eta && (
+                      <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-100">
+                        {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
+                      </span>
+                    )}
+                    {registry?.codice_fiscale_titolare && (
+                      <div className="text-[10px] font-mono text-slate-500 bg-slate-50 border border-slate-100 rounded px-2 py-1">
+                        C.F. {registry.codice_fiscale_titolare}
+                        {registry.titolare_data_nascita && (
+                          <span className="ml-1 font-sans">· nato/a {registry.titolare_data_nascita}</span>
+                        )}
                       </div>
                     )}
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{clayData.personName}</p>
-                      {clayData.personRole && <p className="text-xs text-slate-500">{clayData.personRole}</p>}
-                    </div>
+                    {clayData.personSeniority && (
+                      <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                        Seniority: {clayData.personSeniority}
+                      </span>
+                    )}
+                    {clayData.employmentType && (
+                      <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ml-1 ${
+                        clayData.employmentType === 'Imprenditore' ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : clayData.employmentType.includes('P.IVA') ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-slate-50 text-slate-600 border border-slate-200'
+                      }`}>
+                        {clayData.employmentType}
+                      </span>
+                    )}
+                    {!clayData.personName && registry?.titolare_fonte === 'privacy_policy_sito' && (
+                      <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                        Fonte: Privacy Policy
+                      </span>
+                    )}
+                    {clayData.linkedinPerson && (
+                      <a href={clayData.linkedinPerson} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800">
+                        <Linkedin className="w-3 h-3" /> Profilo LinkedIn
+                      </a>
+                    )}
                   </div>
-                  {clayData.personSeniority && (
-                    <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
-                      Seniority: {clayData.personSeniority}
-                    </span>
-                  )}
-                  {clayData.employmentType && (
-                    <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ml-1 ${
-                      clayData.employmentType === 'Imprenditore' ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : clayData.employmentType.includes('P.IVA') ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-slate-50 text-slate-600 border border-slate-200'
-                    }`}>
-                      {clayData.employmentType}
-                    </span>
-                  )}
-                  {clayData.linkedinPerson && (
-                    <a href={clayData.linkedinPerson} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800">
-                      <Linkedin className="w-3 h-3" /> Profilo LinkedIn
-                    </a>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-400">Nessun referente trovato</p>
-              )}
+                )
+              })()}
 
               {/* Team members */}
               {clayData.teamMembers?.length > 1 && (
