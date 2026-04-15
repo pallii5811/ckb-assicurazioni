@@ -39,6 +39,20 @@ function extractPivaFromHtml(html: string): string | null {
       if (d?.[1]) return d[1]
     }
   }
+  // Fallback: bare 11-digit number near footer/legal keywords
+  const footerArea = html.match(/(?:informazioni\s*legali|privacy\s*policy|cookie\s*policy|copyright|©|footer|sede\s*legale).{0,200}/gi)
+  if (footerArea) {
+    for (const block of footerArea) {
+      const candidates = block.match(/\b(\d{11})\b/g) || []
+      for (const c of candidates) {
+        // Skip phone-like patterns: Italian mobiles start with 3, landlines with 0
+        if (c.startsWith('3') && /^3[0-9]{9}[0-9]$/.test(c)) continue
+        // Skip numbers starting with +39 prefix leftover
+        if (c.startsWith('39') && /^39[03]/.test(c)) continue
+        return c
+      }
+    }
+  }
   return null
 }
 
