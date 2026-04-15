@@ -494,8 +494,8 @@ export async function POST(req: NextRequest) {
   // Merge: backendData (base) < OpenAPI.it (paid) < companyreports (free) — later wins
   const src = { ...backendData, ...oaData, ...crData } as Record<string, any>
 
-  // Ragione sociale — prefer full name from privacy policy or registry
-  profile.ragione_sociale = src.ragione_sociale || viesData?.name || websiteFullRagioneSociale || business_name
+  // Ragione sociale — registry sources or Google Maps name (privacy policy too fragile for this)
+  profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
 
   // Titolare / Referente (from privacy policy "Titolare del Trattamento")
   if (websiteOwnerName) {
