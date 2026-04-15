@@ -1914,6 +1914,17 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       <p className="text-sm font-semibold text-slate-900">{registry.ragione_sociale}</p>
                     </div>
                   ) : null}
+                  {registry.titolare ? (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Titolare / Referente
+                        {registry.titolare_fonte === 'privacy_policy_sito' ? (
+                          <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
+                        ) : null}
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">{registry.titolare}</p>
+                    </div>
+                  ) : null}
                   {registry.partita_iva ? (
                     <div>
                       <p className="text-xs text-gray-500">
@@ -2052,6 +2063,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       <p className="text-sm font-semibold text-slate-900">{registry.stato}</p>
                     </div>
                   ) : null}
+                  {registry.partita_iva && !registry.fatturato && !registry.dipendenti && (
+                    <div className="col-span-1 mt-1 p-2.5 rounded-lg border border-amber-200 bg-amber-50">
+                      <p className="text-[11px] text-amber-800 font-medium">
+                        Fatturato e dipendenti non disponibili — probabilmente ditta individuale o micro impresa senza obbligo di deposito bilancio pubblico.
+                        Questi dati potranno essere verificati durante la prima call con il cliente.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

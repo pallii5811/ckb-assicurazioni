@@ -338,6 +338,8 @@ export async function POST(req: NextRequest) {
   })()
 
   let websitePiva: string | null = null
+  let websiteOwnerName: string | null = null
+  let websiteFullRagioneSociale: string | null = null
   // If backend already found a P.IVA, use it as fallback
   if (backendData?.partita_iva) {
     websitePiva = String(backendData.partita_iva).replace(/^IT\s*/, '').trim()
@@ -348,13 +350,40 @@ export async function POST(req: NextRequest) {
     const mainHtml = await fetchHtmlSafe(baseUrl, 6000)
     const sitePiva = extractPivaFromHtml(mainHtml)
     if (sitePiva) websitePiva = sitePiva
-    if (!websitePiva) {
-      const pages = ['/contatti', '/contacts', '/privacy', '/privacy-policy', '/chi-siamo']
-      const fetches = await Promise.allSettled(pages.slice(0, 3).map(p => fetchHtmlSafe(`${origin}${p}`, 4000)))
-      for (const r of fetches) {
-        if (r.status === 'fulfilled' && r.value) {
-          const found = extractPivaFromHtml(r.value)
-          if (found) { websitePiva = found; break }
+
+    // Always scrape privacy + contatti pages for PIVA + owner name
+    const pages = ['/privacy-policy', '/privacy', '/contatti', '/contacts', '/chi-siamo']
+    const fetches = await Promise.allSettled(pages.slice(0, 4).map(p => fetchHtmlSafe(`${origin}${p}`, 4000)))
+    for (const r of fetches) {
+      if (r.status === 'fulfilled' && r.value && r.value.length > 500) {
+        const pageHtml = r.value
+        // Extract PIVA if not found yet
+        if (!websitePiva) {
+          const found = extractPivaFromHtml(pageHtml)
+          if (found) websitePiva = found
+        }
+        // Extract owner name from "Titolare del Trattamento" section
+        if (!websiteOwnerName) {
+          const ownerPatterns = [
+            /titolare\s+del\s+trattamento[\s\S]{0,300}?(?:da|è)\s+([A-Z][A-Za-zÀ-ÿ\s'.]+?(?:DI\s+)?[A-Z][A-Za-zÀ-ÿ\s'.]+?)(?:\s+con\s+sede|\s*,|\s*-|\s*C\.?\s*F)/i,
+            /(?:resa\s+da|gestita\s+da|titolare[:\s]+)\s*([A-Z][A-Z\sÀ-ÿ'.]+?(?:\s+DI\s+[A-Z][A-Z\sÀ-ÿ'.]+)?)(?:\s+con\s+sede|\s*,|\s*-|\s*P\.?\s*I)/i,
+          ]
+          for (const pat of ownerPatterns) {
+            const m = pageHtml.match(pat)
+            if (m?.[1]) {
+              const raw = m[1].replace(/\s+/g, ' ').trim()
+              // Extract person name from "IMPRESA X DI NOME COGNOME" pattern
+              const diMatch = raw.match(/\bDI\s+([A-Z][A-Za-zÀ-ÿ]+(?:\s+[A-Z][A-Za-zÀ-ÿ]+){1,4})/i)
+              if (diMatch?.[1]) {
+                websiteOwnerName = diMatch[1].trim()
+              }
+              // Save full ragione sociale
+              if (raw.length > 5 && raw.length < 120) {
+                websiteFullRagioneSociale = raw
+              }
+              break
+            }
+          }
         }
       }
     }
@@ -432,8 +461,14 @@ export async function POST(req: NextRequest) {
   // Merge: backendData (base) < OpenAPI.it (paid) < companyreports (free) — later wins
   const src = { ...backendData, ...oaData, ...crData } as Record<string, any>
 
-  // Ragione sociale
-  profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
+  // Ragione sociale — prefer full name from privacy policy or registry
+  profile.ragione_sociale = src.ragione_sociale || viesData?.name || websiteFullRagioneSociale || business_name
+
+  // Titolare / Referente (from privacy policy "Titolare del Trattamento")
+  if (websiteOwnerName) {
+    profile.titolare = websiteOwnerName
+    profile.titolare_fonte = 'privacy_policy_sito'
+  }
 
   // Sede legale
   if (src.sede_legale) {
