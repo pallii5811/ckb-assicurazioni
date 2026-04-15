@@ -390,14 +390,30 @@ async function scrapeWebsiteForPeople(website: string): Promise<{ nome: string; 
     /titolare[\s\S]{0,300}?\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})\b/gi,
   ]
 
+  // Helper: extract person name from a raw string that may contain "IMPRESA X DI NOME COGNOME"
+  const extractPersonFromRaw = (raw: string): string | null => {
+    // Try ALL "DI" positions, pick first valid person name
+    const diRe = /\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/gi
+    let diM
+    while ((diM = diRe.exec(raw)) !== null) {
+      let name = diM[1].trim()
+      if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+      if (isValidPersonName(name)) return name
+    }
+    // If no DI pattern, try the raw string directly
+    let direct = raw.trim()
+    if (direct === direct.toUpperCase() && direct.length > 3) direct = toTitleCase(direct)
+    if (isValidPersonName(direct)) return direct
+    return null
+  }
+
   for (const pattern of privacyPatterns) {
     let match
     while ((match = pattern.exec(allHtml)) !== null) {
-      let name = match[1]?.trim()
-      if (!name) continue
-      // Convert ALL CAPS to Title Case
-      if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
-      if (isValidPersonName(name) && !people.find(p => p.nome === name)) {
+      const raw = match[1]?.trim()
+      if (!raw) continue
+      const name = extractPersonFromRaw(raw)
+      if (name && !people.find(p => p.nome === name)) {
         people.push({ nome: name, ruolo: 'Titolare/Legale Rappresentante' })
       }
     }

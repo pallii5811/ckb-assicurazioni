@@ -391,12 +391,13 @@ export async function POST(req: NextRequest) {
             if (m?.[1]) {
               const raw = m[1].replace(/\s+/g, ' ').trim()
               // Extract person name from "IMPRESA X DI NOME COGNOME" pattern
-              const diMatch = raw.match(/\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/i)
-              if (diMatch?.[1]) {
-                let name = diMatch[1].trim()
-                // Convert ALL CAPS to title case
+              // Try ALL "DI" occurrences (first match may be company words like "DI PULIZIA")
+              const diRe = /\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/gi
+              let diM
+              while ((diM = diRe.exec(raw)) !== null) {
+                let name = diM[1].trim()
                 if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
-                if (isValidName(name)) websiteOwnerName = name
+                if (isValidName(name)) { websiteOwnerName = name; break }
               }
               // Save full ragione sociale
               if (raw.length > 5 && raw.length < 120) {
@@ -525,6 +526,7 @@ export async function POST(req: NextRequest) {
   profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
 
   // Titolare / Referente (from privacy policy "Titolare del Trattamento")
+  console.log('[lead-registry] websiteOwnerName:', websiteOwnerName, '| websiteFullRagioneSociale:', websiteFullRagioneSociale, '| websiteCF:', websiteCF)
   if (websiteOwnerName) {
     profile.titolare = websiteOwnerName
     profile.titolare_fonte = 'privacy_policy_sito'
