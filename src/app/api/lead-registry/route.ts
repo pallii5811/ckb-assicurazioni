@@ -369,6 +369,17 @@ export async function POST(req: NextRequest) {
         if (!websiteOwnerName) {
           // Helper: convert ALL CAPS to Title Case
           const toTitleCase = (s: string) => s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+          // Blocklist: common Italian legal/privacy text words that are NOT person names
+          const NAME_JUNK = /seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|titolare|responsabile|interessato|garante|disposizione|finalita|modalita|comunicazione|profilazione|legittimo|necessario|obbligatorio|conservazione|opposizione|reclamo|diritto|revoca|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cooperativa|impresa|societa|azienda|servizi|costruzioni/i
+          const isValidName = (n: string) => {
+            if (!n || n.length < 5 || n.length > 50) return false
+            if (NAME_JUNK.test(n)) return false
+            const words = n.trim().split(/\s+/).filter(w => w.length > 1)
+            if (words.length < 2 || words.length > 5) return false
+            if (!words.every(w => /^[A-ZÀ-Ú]/.test(w))) return false
+            if (!/^[A-Za-zÀ-ú\s'.-]+$/.test(n)) return false
+            return true
+          }
           const ownerPatterns = [
             /titolare\s+del\s+trattamento[\s\S]{0,400}?(?:da|è)[:\s]+([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:DI\s+)?[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+?)(?:\s+con\s+sede|\s*,\s*\d|\s*-\s*(?:P\.?\s*I|C\.?\s*F)|\s*\.\s*P\.?\s*I)/i,
             /(?:resa\s+da|gestita\s+da|titolare[:\s]+)\s*([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:\s+DI\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+)?)(?:\s+con\s+sede|\s*,\s*\d|\s*-\s*(?:P\.?\s*I|C\.?\s*F))/i,
@@ -385,7 +396,7 @@ export async function POST(req: NextRequest) {
                 let name = diMatch[1].trim()
                 // Convert ALL CAPS to title case
                 if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
-                websiteOwnerName = name
+                if (isValidName(name)) websiteOwnerName = name
               }
               // Save full ragione sociale
               if (raw.length > 5 && raw.length < 120) {
@@ -400,7 +411,7 @@ export async function POST(req: NextRequest) {
             if (rappM?.[1]) {
               let name = rappM[1].trim()
               if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
-              websiteOwnerName = name
+              if (isValidName(name)) websiteOwnerName = name
             }
           }
         }
