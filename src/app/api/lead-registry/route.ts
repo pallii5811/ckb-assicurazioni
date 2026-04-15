@@ -367,24 +367,40 @@ export async function POST(req: NextRequest) {
         }
         // Extract owner name from "Titolare del Trattamento" section
         if (!websiteOwnerName) {
+          // Helper: convert ALL CAPS to Title Case
+          const toTitleCase = (s: string) => s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
           const ownerPatterns = [
-            /titolare\s+del\s+trattamento[\s\S]{0,300}?(?:da|è)\s+([A-Z][A-Za-zÀ-ÿ\s'.]+?(?:DI\s+)?[A-Z][A-Za-zÀ-ÿ\s'.]+?)(?:\s+con\s+sede|\s*,|\s*-|\s*C\.?\s*F)/i,
-            /(?:resa\s+da|gestita\s+da|titolare[:\s]+)\s*([A-Z][A-Z\sÀ-ÿ'.]+?(?:\s+DI\s+[A-Z][A-Z\sÀ-ÿ'.]+)?)(?:\s+con\s+sede|\s*,|\s*-|\s*P\.?\s*I)/i,
+            /titolare\s+del\s+trattamento[\s\S]{0,400}?(?:da|è)[:\s]+([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:DI\s+)?[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+?)(?:\s+con\s+sede|\s*,\s*\d|\s*-\s*(?:P\.?\s*I|C\.?\s*F)|\s*\.\s*P\.?\s*I)/i,
+            /(?:resa\s+da|gestita\s+da|titolare[:\s]+)\s*([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:\s+DI\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+)?)(?:\s+con\s+sede|\s*,\s*\d|\s*-\s*(?:P\.?\s*I|C\.?\s*F))/i,
+            /nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/gi,
           ]
           for (const pat of ownerPatterns) {
-            const m = pageHtml.match(pat)
+            pat.lastIndex = 0
+            const m = pat.exec(pageHtml)
             if (m?.[1]) {
               const raw = m[1].replace(/\s+/g, ' ').trim()
               // Extract person name from "IMPRESA X DI NOME COGNOME" pattern
-              const diMatch = raw.match(/\bDI\s+([A-Z][A-Za-zÀ-ÿ]+(?:\s+[A-Z][A-Za-zÀ-ÿ]+){1,4})/i)
+              const diMatch = raw.match(/\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,4})/i)
               if (diMatch?.[1]) {
-                websiteOwnerName = diMatch[1].trim()
+                let name = diMatch[1].trim()
+                // Convert ALL CAPS to title case
+                if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+                websiteOwnerName = name
               }
               // Save full ragione sociale
               if (raw.length > 5 && raw.length < 120) {
                 websiteFullRagioneSociale = raw
               }
               break
+            }
+          }
+          // Also try "nella persona del Rappresentante legale NAME" standalone
+          if (!websiteOwnerName) {
+            const rappM = pageHtml.match(/nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})/i)
+            if (rappM?.[1]) {
+              let name = rappM[1].trim()
+              if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+              websiteOwnerName = name
             }
           }
         }

@@ -37,20 +37,25 @@ const NAME_BLOCKLIST = /visura|camerale|registro|imprese|bilancio|fatturato|comp
 
 const LEGAL_FORM_BLOCKLIST = /\b(spa|srl|srls|snc|sas|sapa|scarl|scrl|soc|coop|onlus|ltd|gmbh|inc|corp|llc|plc)\b/i
 
+function toTitleCase(s: string): string {
+  return s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+}
+
 function isValidPersonName(name: string): boolean {
   if (!name || name.length < 5 || name.length > 50) return false
-  if (NAME_BLOCKLIST.test(name)) return false
-  if (LEGAL_FORM_BLOCKLIST.test(name)) return false
+  // Convert ALL CAPS to Title Case before validation
+  let check = name
+  if (check === check.toUpperCase() && check.length > 3) check = toTitleCase(check)
+  if (NAME_BLOCKLIST.test(check)) return false
+  if (LEGAL_FORM_BLOCKLIST.test(check)) return false
   // Must have at least 2 words (nome + cognome)
-  const words = name.trim().split(/\s+/).filter(w => w.length > 1)
+  const words = check.trim().split(/\s+/).filter(w => w.length > 1)
   if (words.length < 2 || words.length > 5) return false
   // Each word must start with uppercase (Italian name pattern)
   const allCapitalized = words.every(w => /^[A-ZÀ-Ú]/.test(w))
   if (!allCapitalized) return false
-  // Must not be all uppercase (likely acronym/label)
-  if (name === name.toUpperCase() && name.length > 5) return false
   // Must contain only letters, spaces, apostrophes
-  if (!/^[A-Za-zÀ-ú\s'.-]+$/.test(name)) return false
+  if (!/^[A-Za-zÀ-ú\s'.-]+$/.test(check)) return false
   // At least one word must be 3+ chars (avoid initials-only)
   if (!words.some(w => w.length >= 3)) return false
   return true
@@ -303,7 +308,10 @@ async function googleSearchPeople(companyName: string, ragioneSociale: string | 
   for (const pattern of patterns) {
     let match
     while ((match = pattern.exec(allHtml)) !== null) {
-      const name = match[1]?.trim()
+      let name = match[1]?.trim()
+      if (!name) continue
+      // Convert ALL CAPS to Title Case
+      if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
       if (name && isValidPersonName(name) && !people.find(p => p.nome === name)) {
         const context = match[0].toLowerCase()
         let ruolo = 'Titolare'
@@ -369,23 +377,27 @@ async function scrapeWebsiteForPeople(website: string): Promise<{ nome: string; 
   const allHtml = results.map(r => r.status === 'fulfilled' ? r.value : '').join('\n')
 
   // Italian privacy policies MUST contain the data controller's name
+  // Use [A-Za-zÀ-ÿ] to match BOTH Title Case AND ALL CAPS names
   const privacyPatterns = [
-    /[Tt]itolare\s+del\s+trattamento[:\s]+(?:è\s+|dei\s+dati\s+[:\s]+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/g,
-    /[Rr]appresentante\s+legale[:\s]+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/g,
-    /[Aa]mministratore\s+[Uu]nico[:\s]+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/g,
+    /titolare\s+del\s+trattamento[\s\S]{0,400}?(?:da|è)[:\s]+([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:DI\s+)?[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+?)(?:\s+con\s+sede|\s*,\s*\d|\s*[-–]\s*(?:P\.?\s*I|C\.?\s*F)|\s*\.\s*P\.?\s*I)/gi,
+    /rappresentante\s+legale[:\s]+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})/gi,
+    /amministratore\s+unico[:\s]+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})/gi,
     // "nella persona del Rappresentante legale Mario Rossi"
-    /nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)[:\s]+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/gi,
+    /nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})/gi,
     // "IMPRESA X DI NOME COGNOME" pattern (ditte individuali)
-    /\bDI\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})\s+(?:con\s+sede|P\.?\s*I|C\.?\s*F)/gi,
+    /\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})\s+(?:con\s+sede|P\.?\s*I|C\.?\s*F)/gi,
     // "titolare del trattamento è: COMPANY DI NOME COGNOME"
-    /titolare[\s\S]{0,200}?\bDI\s+([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+){1,3})\b/gi,
+    /titolare[\s\S]{0,300}?\bDI\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})\b/gi,
   ]
 
   for (const pattern of privacyPatterns) {
     let match
     while ((match = pattern.exec(allHtml)) !== null) {
-      const name = match[1]?.trim()
-      if (name && isValidPersonName(name) && !people.find(p => p.nome === name)) {
+      let name = match[1]?.trim()
+      if (!name) continue
+      // Convert ALL CAPS to Title Case
+      if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+      if (isValidPersonName(name) && !people.find(p => p.nome === name)) {
         people.push({ nome: name, ruolo: 'Titolare/Legale Rappresentante' })
       }
     }
