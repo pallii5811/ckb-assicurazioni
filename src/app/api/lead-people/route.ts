@@ -4,7 +4,7 @@ import { enrichPeople } from '@/lib/people-enrichment'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { companyName, ragioneSociale, city, piva, categoria, formaGiuridica, website, teamMembers, personName, personRole, linkedinPerson, linkedinCompany } = body
+    const { companyName, ragioneSociale, city, piva, categoria, formaGiuridica, website, teamMembers, personName, personRole, linkedinPerson, linkedinCompany, titolareFromRegistry, titolareCF, titolareDataNascita, titolareSesso, titolareEta } = body
 
     if (!companyName) {
       return NextResponse.json({ error: 'companyName required' }, { status: 400 })
@@ -23,6 +23,11 @@ export async function POST(req: NextRequest) {
       personRole || null,
       linkedinPerson || null,
       linkedinCompany || null,
+      titolareFromRegistry || null,
+      titolareCF || null,
+      titolareDataNascita || null,
+      titolareSesso || null,
+      titolareEta || null,
     )
 
     return NextResponse.json(result)

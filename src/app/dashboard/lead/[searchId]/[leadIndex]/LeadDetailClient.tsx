@@ -407,6 +407,11 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         personRole: clayData?.personRole || null,
         linkedinPerson: clayData?.linkedinPerson || null,
         linkedinCompany: clayData?.linkedinCompany || null,
+        titolareFromRegistry: registry?.titolare || null,
+        titolareCF: registry?.codice_fiscale_titolare || null,
+        titolareDataNascita: registry?.titolare_data_nascita || null,
+        titolareSesso: registry?.titolare_sesso || null,
+        titolareEta: registry?.titolare_eta || null,
       }),
     })
       .then((r) => r.json())
@@ -1215,10 +1220,27 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       {p.nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{p.nome}</p>
-                      <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-900">
+                        {p.nome}
+                        {p.eta && (
+                          <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                            {p.eta} anni{p.sesso === 'F' ? ' · Donna' : p.sesso === 'M' ? ' · Uomo' : ''}
+                          </span>
+                        )}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-slate-500">{p.ruolo}</span>
                         <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.fonte}</span>
+                        {p.codice_fiscale && (
+                          <span className="text-[9px] font-mono text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">
+                            C.F. {p.codice_fiscale}
+                          </span>
+                        )}
+                        {p.data_nascita && !p.codice_fiscale && (
+                          <span className="text-[9px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                            nato/a {p.data_nascita}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

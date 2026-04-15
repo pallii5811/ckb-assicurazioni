@@ -11,6 +11,10 @@ export interface PersonInsuranceProfile {
   ruolo: string
   ruolo_normalizzato: 'titolare' | 'amministratore' | 'socio' | 'professionista' | 'dirigente' | 'dipendente_chiave' | 'altro'
   fonte: string
+  codice_fiscale?: string
+  data_nascita?: string
+  sesso?: string
+  eta?: number
   polizze_personali: {
     polizza: string
     priorita: 'obbligatoria' | 'critica' | 'raccomandata'
@@ -270,21 +274,30 @@ async function googleSearchPeople(companyName: string, ragioneSociale: string | 
     } catch { return '' }
   }
 
-  // Run multiple Google searches in parallel
+  // Run multiple Google searches in parallel — cast widest net
   const searches = nameVariants.flatMap(name => [
     fetchGoogle(`"${name}" ${city} titolare OR fondatore OR CEO OR "amministratore unico"`),
     fetchGoogle(`site:linkedin.com/in "${name}" ${city}`),
     fetchGoogle(`"${name}" "chi siamo" OR "il nostro team" OR "about us" ${city}`),
+    fetchGoogle(`"${name}" ${city} "rappresentante legale" OR "socio" OR "direttore" OR "responsabile"`),
+    fetchGoogle(`site:facebook.com "${name}" ${city}`),
+    fetchGoogle(`"${name}" ${city} "intervista" OR "dichiarato" OR "fondato da" OR "guidata da"`),
   ])
 
   const results = await Promise.allSettled(searches)
   const allHtml = results.map(r => r.status === 'fulfilled' ? r.value : '').join('\n')
 
-  // Extract names from snippets
+  // Extract names from snippets — wide net
   const patterns = [
-    /([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della|dei|degli|delle)\s+)?[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)?),?\s*(?:titolare|fondatore|proprietario|CEO|amministratore|legale rappresentante|socio|owner|founder)/gi,
-    /(?:titolare|fondatore|proprietario|CEO|amministratore|owner|founder)\s+(?:(?:di|della|dell'|del)\s+\w+\s+)?(?:è\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della)?\s*[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
-    /(?:gestita|fondata|creata|diretta|amministrata)\s+da\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    /([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della|dei|degli|delle)\s+)?[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)?),?\s*(?:titolare|fondatore|proprietario|CEO|amministratore|legale rappresentante|socio|owner|founder|direttore|responsabile|presidente)/gi,
+    /(?:titolare|fondatore|proprietario|CEO|amministratore|owner|founder|direttore|presidente)\s+(?:(?:di|della|dell'|del)\s+\w+\s+)?(?:è\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della)?\s*[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    /(?:gestita|fondata|creata|diretta|amministrata|guidata)\s+da\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    // "DI NOME COGNOME" pattern from snippets (ditta individuale)
+    /\bDI\s+([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)?)\b/g,
+    // "dichiarato/a NOME COGNOME" from news articles
+    /(?:dichiarato|dichiarata|intervistato|intervistata|spiega|afferma|racconta|commenta)\s+([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+)/gi,
+    // "responsabile|direttore NOME COGNOME"
+    /(?:responsabile|direttore|manager|head)\s+(?:\w+\s+)?([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+)/gi,
   ]
 
   for (const pattern of patterns) {
@@ -356,11 +369,16 @@ async function scrapeWebsiteForPeople(website: string): Promise<{ nome: string; 
   const allHtml = results.map(r => r.status === 'fulfilled' ? r.value : '').join('\n')
 
   // Italian privacy policies MUST contain the data controller's name
-  // Pattern: "Titolare del trattamento: Mario Rossi" or "Titolare del trattamento è Mario Rossi"
   const privacyPatterns = [
     /[Tt]itolare\s+del\s+trattamento[:\s]+(?:è\s+|dei\s+dati\s+[:\s]+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/g,
     /[Rr]appresentante\s+legale[:\s]+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/g,
     /[Aa]mministratore\s+[Uu]nico[:\s]+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/g,
+    // "nella persona del Rappresentante legale Mario Rossi"
+    /nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)[:\s]+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/gi,
+    // "IMPRESA X DI NOME COGNOME" pattern (ditte individuali)
+    /\bDI\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})\s+(?:con\s+sede|P\.?\s*I|C\.?\s*F)/gi,
+    // "titolare del trattamento è: COMPANY DI NOME COGNOME"
+    /titolare[\s\S]{0,200}?\bDI\s+([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+){1,3})\b/gi,
   ]
 
   for (const pattern of privacyPatterns) {
@@ -410,9 +428,14 @@ export async function enrichPeople(
   personRole: string | null,
   linkedinPerson: string | null,
   linkedinCompany: string | null,
+  titolareFromRegistry: string | null = null,
+  titolareCF: string | null = null,
+  titolareDataNascita: string | null = null,
+  titolareSesso: string | null = null,
+  titolareEta: number | null = null,
 ): Promise<PeopleEnrichmentResult> {
   const fonti: string[] = []
-  const allPeople: { nome: string; ruolo: string; fonte: string }[] = []
+  const allPeople: { nome: string; ruolo: string; fonte: string; cf?: string; data_nascita?: string; sesso?: string; eta?: number }[] = []
 
   // Build a set of company name variants to exclude from person results
   const companyNames = new Set<string>()
@@ -442,6 +465,29 @@ export async function enrichPeople(
       ruolo: personRole || 'Referente principale',
       fonte: linkedinPerson ? 'LinkedIn' : 'Sito web',
     })
+  }
+
+  // 0b. Use titolare from registry (extracted from privacy policy)
+  if (titolareFromRegistry && isValidPersonName(titolareFromRegistry) && !isCompanyName(titolareFromRegistry)) {
+    const existing = allPeople.find(ap => ap.nome.toLowerCase() === titolareFromRegistry.toLowerCase())
+    if (!existing) {
+      fonti.push('Privacy Policy aziendale')
+      allPeople.push({
+        nome: titolareFromRegistry,
+        ruolo: 'Titolare / Legale Rappresentante',
+        fonte: 'Privacy Policy',
+        cf: titolareCF || undefined,
+        data_nascita: titolareDataNascita || undefined,
+        sesso: titolareSesso || undefined,
+        eta: titolareEta || undefined,
+      })
+    } else {
+      // Enrich existing entry with CF data
+      if (titolareCF && !existing.cf) existing.cf = titolareCF
+      if (titolareDataNascita && !existing.data_nascita) existing.data_nascita = titolareDataNascita
+      if (titolareSesso && !existing.sesso) existing.sesso = titolareSesso
+      if (titolareEta && !existing.eta) existing.eta = titolareEta
+    }
   }
 
   // 1. Use existing team members from website scraping
@@ -561,6 +607,10 @@ export async function enrichPeople(
       ruolo: p.ruolo,
       ruolo_normalizzato: ruoloNorm,
       fonte: p.fonte,
+      ...(p.cf ? { codice_fiscale: p.cf } : {}),
+      ...(p.data_nascita ? { data_nascita: p.data_nascita } : {}),
+      ...(p.sesso ? { sesso: p.sesso } : {}),
+      ...(p.eta ? { eta: p.eta } : {}),
       polizze_personali: getPersonalInsurance(ruoloNorm, categoria, formaGiuridica),
       rischi_personali: getPersonalRisks(ruoloNorm, formaGiuridica),
       note: isGeneric
