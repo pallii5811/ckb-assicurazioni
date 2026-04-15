@@ -1,52 +1,52 @@
 'use client'
 
-import { Search, Palette, BarChart3, Share2, Building2, MessageSquare, ArrowRight } from 'lucide-react'
+import { Shield, Briefcase, Users, Building2, TrendingUp, HeartPulse, ArrowRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const useCases = [
   {
-    icon: Search,
-    title: 'SEO Specialist',
-    query: '"studi dentistici Milano senza meta description"',
-    problem: 'Ore perse a cercare aziende senza SEO',
-    solution: 'Filtri tecnici istantanei: niente H1, meta mancanti, errori critici.',
-    result: '+€4.200',
+    icon: Shield,
+    title: 'Broker Assicurativo',
+    query: '"aziende metalmeccaniche Lombardia senza RC prodotti"',
+    problem: 'Ore perse a cercare prospect senza coperture',
+    solution: 'Gap analysis automatica: vedi subito quali polizze mancano ad ogni azienda.',
+    result: '+€12.000',
     period: '/mese',
     gradient: 'from-indigo-500 to-violet-500',
     light: 'bg-indigo-50',
     textColor: 'text-indigo-600',
   },
   {
-    icon: Palette,
-    title: 'Web Designer',
-    query: '"ristoranti Roma sito lento no mobile"',
-    problem: 'Clienti con siti vecchi ma come trovarli?',
-    solution: 'Trova aziende con siti lenti e non responsive. Restyling assicurato.',
-    result: '+€5.800',
+    icon: Briefcase,
+    title: 'Agente Plurimandatario',
+    query: '"trasportatori Veneto fatturato > 1M senza D&O"',
+    problem: 'Chiamate a freddo senza sapere cosa proporre',
+    solution: 'Profilo completo: ATECO, fatturato, dipendenti e gap assicurativi. Proposta mirata.',
+    result: '+€18.000',
     period: '/mese',
     gradient: 'from-violet-500 to-purple-500',
     light: 'bg-violet-50',
     textColor: 'text-violet-600',
   },
   {
-    icon: BarChart3,
-    title: 'Ads Manager',
-    query: '"palestre Napoli senza Google Ads senza pixel"',
-    problem: 'Chiami aziende che già fanno ads con altri',
-    solution: 'Zero Pixel + Zero Google Ads = campo completamente libero per te.',
-    result: '+€6.500',
+    icon: TrendingUp,
+    title: 'Consulente Assicurativo',
+    query: '"SRL Milano rischio cyber alto"',
+    problem: 'Non sai quali aziende hanno bisogno urgente',
+    solution: 'Score di rischio per settore e territorio. Chiami solo chi ha bisogno ora.',
+    result: '+€8.500',
     period: '/mese',
     gradient: 'from-cyan-500 to-blue-500',
     light: 'bg-cyan-50',
     textColor: 'text-cyan-600',
   },
   {
-    icon: Share2,
-    title: 'Social Media Manager',
-    query: '"negozi Firenze senza Instagram"',
-    problem: 'Difficile trovare chi non ha presenza social',
-    solution: 'Vedi Instagram e Facebook di ogni lead. Proposta mirata su chi manca.',
-    result: '+€2.800',
+    icon: HeartPulse,
+    title: 'Specialista Welfare',
+    query: '"aziende Emilia > 50 dipendenti senza welfare"',
+    problem: 'Difficile trovare PMI pronte per il welfare',
+    solution: 'Filtra per dipendenti e settore. Trova aziende mature per piani welfare e salute.',
+    result: '+€6.200',
     period: '/mese',
     gradient: 'from-pink-500 to-rose-500',
     light: 'bg-pink-50',
@@ -54,23 +54,23 @@ const useCases = [
   },
   {
     icon: Building2,
-    title: 'Agenzia Marketing',
-    query: '"aziende Lombardia con errori SEO"',
+    title: 'Agenzia di Intermediazione',
+    query: '"imprese edili Lazio con appalti pubblici"',
     problem: 'Pipeline vuota, dipendenza da referral',
-    solution: 'Ricerche illimitate, 5 utenti, flusso costante di lead qualificati.',
-    result: '+€18K',
+    solution: 'Ricerche illimitate, 5 utenti, flusso costante di prospect qualificati.',
+    result: '+€35K',
     period: '/mese',
     gradient: 'from-emerald-500 to-teal-500',
     light: 'bg-emerald-50',
     textColor: 'text-emerald-600',
   },
   {
-    icon: MessageSquare,
-    title: 'Consulente Digitale',
-    query: '"commercialisti Torino senza DMARC"',
-    problem: 'Arrivi impreparato alle call',
-    solution: 'Audit completo + pitch AI = sai tutto prima di alzare il telefono.',
-    result: '+€3.900',
+    icon: Users,
+    title: 'Sub-Agente',
+    query: '"ristoranti Roma senza RC terzi"',
+    problem: 'Arrivi impreparato agli appuntamenti',
+    solution: 'Pitch AI genera la proposta assicurativa personalizzata prima della chiamata.',
+    result: '+€4.800',
     period: '/mese',
     gradient: 'from-amber-500 to-orange-500',
     light: 'bg-amber-50',
@@ -176,7 +176,7 @@ export function UseCases() {
           transition={{ delay: 0.5 }}
         >
           <a href="/auth" className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold font-['DM_Sans'] text-sm transition-colors">
-            CKB funziona per qualsiasi settore
+            CKB funziona per ogni tipo di intermediario
             <ArrowRight size={16} />
           </a>
         </motion.div>

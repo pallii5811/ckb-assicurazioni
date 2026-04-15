@@ -172,7 +172,7 @@ export default function Home() {
         name: 'Come funziona il Pitch AI?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: "Per ogni lead, l'AI genera un messaggio personalizzato basato sui problemi specifici del sito (SEO, pixel mancanti, DMARC). Copi, incolli, invii.",
+          text: "Per ogni prospect, l'AI genera una proposta commerciale personalizzata basata sui gap assicurativi reali dell'azienda. Copi, incolli, invii.",
         },
       },
     ],

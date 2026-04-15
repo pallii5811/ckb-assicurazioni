@@ -10,23 +10,23 @@ const tabs = [
     label: 'Ricerca AI',
     icon: Search,
     headline: 'Scrivi in italiano. Trova in secondi.',
-    description: 'Basta digitare "dentisti a Milano senza pixel" e il nostro motore NLP interpreta, filtra e trova lead qualificati in tempo reale.',
+    description: 'Basta digitare "trasportatori Veneto senza D&O" e il nostro motore NLP interpreta settore, territorio e gap assicurativi in tempo reale.',
     accent: 'indigo',
   },
   {
     id: 'audit',
-    label: 'Audit Tecnico',
+    label: 'Analisi Rischio',
     icon: Radar,
-    headline: 'Radiografia digitale completa.',
-    description: 'Per ogni lead analizziamo SEO, Meta Pixel, GTM, SSL, DMARC, velocità di caricamento, Google Ads, Analytics e social media.',
+    headline: 'Radiografia assicurativa completa.',
+    description: 'Per ogni azienda analizziamo ATECO, fatturato, dipendenti, rischio territoriale, forma giuridica e coperture mancanti.',
     accent: 'cyan',
   },
   {
     id: 'pitch',
     label: 'Pitch AI',
     icon: Sparkles,
-    headline: "L'email perfetta, scritta per te.",
-    description: "L'AI analizza i problemi specifici del lead e genera un pitch personalizzato con oggetto, corpo e CTA. Copia, incolla, invia.",
+    headline: 'La proposta perfetta, scritta per te.',
+    description: "L'AI analizza i gap assicurativi dell'azienda e genera una proposta commerciale personalizzata. Copia, incolla, invia.",
     accent: 'violet',
   },
   {
@@ -34,7 +34,7 @@ const tabs = [
     label: 'Score AI',
     icon: BarChart3,
     headline: 'Sai chi chiamare per primo.',
-    description: 'Ogni lead riceve uno score 0-100 basato sulla gravità dei problemi e sulla probabilità di conversione. Prioritizza i più caldi.',
+    description: 'Ogni azienda riceve un risk score 0-100 basato sui gap assicurativi e sul profilo di rischio. Prioritizza le più scoperte.',
     accent: 'emerald',
   },
   {
@@ -42,7 +42,7 @@ const tabs = [
     label: 'Contatti Diretti',
     icon: Send,
     headline: 'Cellulare del titolare. Non il centralino.',
-    description: 'Identifichiamo decision maker, separiamo cellulari da fissi, e troviamo email dirette. Bypassa i filtri. Parla con chi firma.',
+    description: 'Identifichiamo titolari e amministratori, troviamo cellulari, PEC e email dirette. Parla con chi decide.',
     accent: 'amber',
   },
 ]
@@ -60,14 +60,14 @@ function SearchMockup() {
     <div className="space-y-3">
       <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         <Search size={16} className="text-slate-400" />
-        <span className="text-sm text-slate-800 font-['DM_Sans'] font-medium">dentisti Milano senza pixel</span>
+        <span className="text-sm text-slate-800 font-['DM_Sans'] font-medium">trasportatori Veneto senza D&O</span>
         <div className="ml-auto bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-lg">Cerca</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Categoria', value: 'Dentisti', color: 'bg-indigo-50 text-indigo-700' },
-          { label: 'Città', value: 'Milano', color: 'bg-blue-50 text-blue-700' },
-          { label: 'Filtro', value: 'No Pixel', color: 'bg-red-50 text-red-700' },
+          { label: 'Settore', value: 'Trasporti', color: 'bg-indigo-50 text-indigo-700' },
+          { label: 'Territorio', value: 'Veneto', color: 'bg-blue-50 text-blue-700' },
+          { label: 'Gap', value: 'No D&O', color: 'bg-red-50 text-red-700' },
         ].map(f => (
           <div key={f.label} className={`${f.color} rounded-lg px-3 py-2 text-center`}>
             <div className="text-[10px] opacity-60 font-['DM_Sans']">{f.label}</div>
@@ -78,7 +78,7 @@ function SearchMockup() {
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
         <div className="text-[10px] text-slate-400 font-['DM_Sans'] mb-2 uppercase tracking-wider font-semibold">Interpretazione AI</div>
         <div className="text-xs text-slate-600 font-['DM_Sans'] leading-relaxed">
-          ✓ Categoria: <strong>studi dentistici</strong> · Luogo: <strong>Milano</strong> · Filtro tecnico: <strong>Meta Pixel assente</strong>
+          ✓ Settore: <strong>autotrasporti</strong> · Territorio: <strong>Veneto</strong> · Gap: <strong>polizza D&O assente</strong>
         </div>
       </div>
     </div>
@@ -87,20 +87,20 @@ function SearchMockup() {
 
 function AuditMockup() {
   const items = [
-    { label: 'Meta Pixel', status: false, severity: 'high' },
-    { label: 'Google Analytics', status: true, severity: 'ok' },
-    { label: 'SSL Certificate', status: true, severity: 'ok' },
-    { label: 'Google Tag Manager', status: false, severity: 'medium' },
-    { label: 'DMARC Record', status: false, severity: 'high' },
-    { label: 'Page Speed', value: '4.2s', severity: 'medium' },
+    { label: 'RC Generale', status: true, severity: 'ok' },
+    { label: 'RC Vettoriale', status: true, severity: 'ok' },
+    { label: 'D&O', status: false, severity: 'high' },
+    { label: 'Cyber Risk', status: false, severity: 'medium' },
+    { label: 'Infortuni', status: false, severity: 'high' },
+    { label: 'Fatturato', value: '€5.1M', severity: 'medium' },
   ]
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white text-sm font-bold">72</div>
         <div>
-          <div className="text-sm font-bold text-slate-800 font-['DM_Sans']">Studio Dentistico Rossi</div>
-          <div className="text-xs text-slate-400 font-['DM_Sans']">studiodentisticorossi.it</div>
+          <div className="text-sm font-bold text-slate-800 font-['DM_Sans']">Logistica Nord S.r.l.</div>
+          <div className="text-xs text-slate-400 font-['DM_Sans']">ATECO 49.41 · Verona · 78 dip.</div>
         </div>
       </div>
       {items.map(item => (
@@ -133,19 +133,19 @@ function PitchMockup() {
         <div>
           <div className="text-[10px] text-slate-400 font-['DM_Sans'] mb-1">OGGETTO</div>
           <div className="text-xs font-semibold text-slate-800 font-['DM_Sans']">
-            Ho analizzato il vostro sito — 3 opportunità di crescita
+            Analisi rischio Logistica Nord — 3 gap assicurativi critici
           </div>
         </div>
         <div className="h-px bg-slate-100" />
         <div className="text-xs text-slate-600 font-['DM_Sans'] leading-relaxed">
-          <p>Buongiorno Dott. Rossi,</p>
-          <p className="mt-2">ho fatto un&apos;analisi tecnica del sito <strong>studiodentisticorossi.it</strong> e ho notato che:</p>
+          <p>Buongiorno Dott. Verdi,</p>
+          <p className="mt-2">ho analizzato il profilo di rischio di <strong>Logistica Nord S.r.l.</strong> e ho individuato:</p>
           <ul className="mt-2 space-y-1 list-disc pl-4">
-            <li>Il <strong>Meta Pixel</strong> non è installato — state perdendo dati preziosi per il remarketing</li>
-            <li>Manca il <strong>DMARC</strong> — le vostre email rischiano di finire in spam</li>
-            <li>Il sito carica in <strong>4.2 secondi</strong> — il 53% degli utenti abbandona dopo 3s</li>
+            <li>Manca la <strong>polizza D&O</strong> — con 78 dipendenti il rischio patrimoniale per gli amministratori è elevato</li>
+            <li>Assente <strong>copertura Cyber Risk</strong> — nel settore trasporti i dati logistici sono un target frequente</li>
+            <li>Nessuna <strong>polizza Infortuni collettiva</strong> — il settore ha indice di sinistrosità sopra la media</li>
           </ul>
-          <p className="mt-2">Possiamo risolvere tutto in una settimana. Le va un caffè virtuale di 15 minuti?</p>
+          <p className="mt-2">Posso prepararle una proposta su misura. Le va un confronto di 15 minuti?</p>
         </div>
         <div className="flex gap-2 mt-3">
           <span className="text-[10px] font-bold text-white bg-violet-500 px-3 py-1.5 rounded-lg">Copia Pitch</span>
@@ -158,18 +158,18 @@ function PitchMockup() {
 
 function ScoreMockup() {
   const leads = [
-    { nome: 'Studio Rossi', score: 87, trend: '+12' },
-    { nome: 'Dental Care', score: 72, trend: '+5' },
-    { nome: 'Sorriso Perfetto', score: 64, trend: '+8' },
-    { nome: 'Clinica Brera', score: 58, trend: '+3' },
+    { nome: 'Logistica Nord', score: 87, trend: '+12' },
+    { nome: 'Tecnofer Srl', score: 72, trend: '+5' },
+    { nome: 'Edilstrade SpA', score: 64, trend: '+8' },
+    { nome: 'Agrifood Italia', score: 58, trend: '+3' },
   ]
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2 mb-2">
         {[
-          { label: 'Lead trovati', value: '47', sub: 'in questa ricerca' },
-          { label: 'Score medio', value: '68', sub: 'su 100' },
-          { label: 'HOT lead', value: '12', sub: 'score > 75' },
+          { label: 'Aziende', value: '127', sub: 'in questa ricerca' },
+          { label: 'Risk score', value: '72', sub: 'medio' },
+          { label: 'Gap critici', value: '34', sub: 'score > 75' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-lg border border-slate-100 p-3 text-center">
             <div className="text-lg font-bold text-slate-800 font-['Syne']">{s.value}</div>
@@ -198,18 +198,18 @@ function ContactMockup() {
     <div className="space-y-3">
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold">MR</div>
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold">AV</div>
           <div>
-            <div className="text-sm font-bold text-slate-800 font-['DM_Sans']">Marco Rossi</div>
-            <div className="text-xs text-slate-400 font-['DM_Sans']">Titolare · Studio Dentistico Rossi</div>
+            <div className="text-sm font-bold text-slate-800 font-['DM_Sans']">Andrea Verdi</div>
+            <div className="text-xs text-slate-400 font-['DM_Sans']">Amministratore · Logistica Nord S.r.l.</div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {[
             { icon: '📱', label: 'Cellulare', value: '348 123 ****', verified: true },
-            { icon: '📧', label: 'Email', value: 'marco.rossi@...', verified: true },
-            { icon: '📞', label: 'Fisso', value: '02 8595 6321', verified: false },
-            { icon: '🌐', label: 'Sito', value: 'studiodent...', verified: false },
+            { icon: '📧', label: 'PEC', value: 'logisticanord@pec.it', verified: true },
+            { icon: '📞', label: 'Fisso', value: '045 891 2345', verified: false },
+            { icon: '�', label: 'REA', value: 'VR-345678', verified: false },
           ].map(c => (
             <div key={c.label} className="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
               <div className="flex items-center gap-1.5 mb-1">

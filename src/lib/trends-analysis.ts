@@ -44,24 +44,28 @@ export async function analyzeTrends(category: string, city: string): Promise<Tre
 
   try {
     const prompt = `Sei un esperto di Risk Management e Broker Assicurativo in Italia.
-Analizza il settore: ${cat} nella città: ${c}
+Analizza il settore "${cat}" nella zona di "${c}".
 
-Fornisci dati REALI e SPECIFICI sui **rischi assicurativi principali** a cui va incontro questo settore (es. RC Professionale, polizza D&O, Polizza CAR, Rischio Cyber, Infortuni, Furto e Incendio, RC Inquinamento).
+REGOLE IMPORTANTI:
+- NON inventare percentuali, numeri o statistiche. Se non conosci un dato preciso, NON scriverlo.
+- Fornisci SOLO insight qualitativi e fattuali basati sulla tua conoscenza della normativa e del settore.
+- Ogni insight deve essere una frase utile per un broker, senza numeri inventati.
+- Indica la polizza più importante da proporre e il rischio principale non coperto nella maggior parte delle imprese di questo settore.
 
-Rispondi SOLO con JSON usando il seguente schema (riutilizziamo i campi per compatibilità ma con contenuto sui rischi):
+Rispondi SOLO con JSON:
 {
-  "trend": "growing|stable|declining", // Indica se i sinistri/rischi nel settore sono in crescita o stabili
-  "growthPercentage": null, // Lascia null
-  "peakMonths": [], // Lascia vuoto
-  "bestContactTime": "Principale polizza raccomandata (es: RC Professionale e Cyber Risk)", // Inserisci il nome della polizza chiave
-  "marketOpportunity": "Il più grande rischio non assicurato del settore", // Descrivi il rischio più grande
+  "trend": "growing|stable|declining",
+  "growthPercentage": null,
+  "peakMonths": [],
+  "bestContactTime": "Nome della polizza chiave raccomandata per il settore",
+  "marketOpportunity": "Il rischio principale spesso non coperto dalle imprese del settore (senza inventare percentuali)",
   "insights": [
-    "Insight sul rischio 1 (es. Il 40% delle imprese di questo tipo subisce un sinistro XYZ)",
-    "Insight sul rischio 2 (es. Nuova normativa sulla compliance per questa categoria)",
-    "Insight sul rischio 3 (es. Esposizione patrimoniale dell'Amministratore)"
+    "Insight qualitativo 1: un rischio concreto del settore o normativa rilevante",
+    "Insight qualitativo 2: una tendenza o obbligo normativo recente",
+    "Insight qualitativo 3: un'opportunità commerciale per il broker"
   ]
 }
-Solo JSON.`
+Solo JSON, nessun testo aggiuntivo.`
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

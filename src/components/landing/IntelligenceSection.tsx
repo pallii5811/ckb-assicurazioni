@@ -57,7 +57,7 @@ const SemanticSearchWidget = () => {
       </div>
 
       <div className="mt-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] text-neutral-300/90 font-mono">
-        “trovami aziende a milano senza pixel e con gravi errori seo…”
+        "trovami aziende metalmeccaniche in lombardia senza RC prodotti…"
       </div>
     </div>
   );
@@ -78,7 +78,7 @@ const PitchModalWidget = () => {
         </div>
         <div className="p-3 space-y-2">
           <div className="text-[11px] text-neutral-300/90 font-mono">
-            Oggetto: “Hai 2 errori SEO che ti stanno costando lead”
+            Oggetto: "Analisi rischio: 3 gap assicurativi nella vostra azienda"
           </div>
           <div className="h-[1px] bg-neutral-800" />
           <div className="space-y-1.5 text-[10px] text-neutral-400 font-mono">
@@ -107,10 +107,10 @@ const ProfilingBadgesWidget = () => {
       <div className="text-xs font-semibold text-neutral-200">Segnali & Problemi</div>
       <div className="mt-3 flex flex-wrap gap-2">
         {[
-          { t: "No Pixel", delay: "0ms" },
-          { t: "Errori SEO", delay: "120ms" },
-          { t: "No GTM", delay: "240ms" },
-          { t: "No Instagram", delay: "360ms" },
+          { t: "No RC Prodotti", delay: "0ms" },
+          { t: "No D&O", delay: "120ms" },
+          { t: "No Cyber", delay: "240ms" },
+          { t: "No Infortuni", delay: "360ms" },
         ].map((b) => (
           <div
             key={b.t}
@@ -122,7 +122,7 @@ const ProfilingBadgesWidget = () => {
         ))}
       </div>
       <div className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] text-neutral-400 font-mono">
-        badge dinamici per evidenziare punti deboli
+        badge dinamici per evidenziare gap assicurativi
       </div>
     </div>
   );
@@ -168,13 +168,13 @@ const items = [
   },
   {
     title: "Pitch AI",
-    description: "Generatore di messaggi a freddo personalizzati sugli errori del cliente.",
+    description: "Generatore di proposte personalizzate sui gap assicurativi dell'azienda.",
     header: <PitchModalWidget />,
     icon: <MessageSquareText className="h-4 w-4 text-neutral-500" />,
   },
   {
     title: "Profilazione Immediata",
-    description: "Badge dinamici per evidenziare i punti deboli (SEO, Social, GTM).",
+    description: "Badge dinamici per evidenziare le coperture mancanti (RC, D&O, Cyber).",
     header: <ProfilingBadgesWidget />,
     icon: <TriangleAlert className="h-4 w-4 text-neutral-500" />,
   },

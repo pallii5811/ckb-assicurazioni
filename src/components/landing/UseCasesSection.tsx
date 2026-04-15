@@ -18,8 +18,8 @@ export default function UseCasesSection() {
               Non Ti Diamo un Contatto. Ti Diamo il Momento Giusto.
             </h2>
             <p className="mt-4 text-lg text-slate-700">
-              CKB analizza l'infrastruttura digitale dei tuoi
-              prospect in tempo reale. Trovi i punti deboli prima ancora
+              CKB analizza il profilo di rischio dei tuoi
+              prospect in tempo reale. Trovi i gap assicurativi prima ancora
               di presentarti.
             </p>
           </div>
@@ -42,16 +42,16 @@ export default function UseCasesSection() {
                 <Crosshair className="h-6 w-6 text-violet-200" />
               </div>
               <div>
-                <div className="text-lg font-bold text-white">Radar X Tecnologico</div>
-                <div className="text-sm text-slate-300">Segnali d'acquisto in tempo reale</div>
+                <div className="text-lg font-bold text-white">Gap Analysis Assicurativa</div>
+                <div className="text-sm text-slate-300">Coperture mancanti in tempo reale</div>
               </div>
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
-              CKB analizza SEO, Pixel, SSL, DMARC, velocità e social.
-              Sai cosa dire e perché stanno perdendo soldi, prima ancora della chiamata.
+              CKB analizza ATECO, fatturato, dipendenti, rischio territoriale e coperture.
+              Sai cosa proporre e perché ne hanno bisogno, prima ancora della chiamata.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
-              {['MISSING FB PIXEL', 'SITO LENTO', 'NO DMARC', 'SCHEDA NON RIVENDICATA'].map((t) => (
+              {['NO RC PRODOTTI', 'NO D&O', 'NO CYBER RISK', 'NO INFORTUNI'].map((t) => (
                 <div key={t} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-mono text-slate-200">
                   {t}
                 </div>
@@ -81,13 +81,13 @@ export default function UseCasesSection() {
                 <Search className="h-6 w-6 text-amber-200" />
               </div>
               <div>
-                <div className="text-lg font-bold text-white">Analisi Reputazione</div>
-                <div className="text-sm text-slate-300">Friczione bassa, chiusura veloce</div>
+                <div className="text-lg font-bold text-white">Rischio Territoriale</div>
+                <div className="text-sm text-slate-300">Zone ad alto rischio = alta domanda</div>
               </div>
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
-              Trova aziende con rating in calo, poche recensioni o risposte aggressive.
-              Sono le più facili da chiudere: sanno di avere un problema.
+              Mappa il rischio per zona: alluvioni, terremoti, grandine, furti.
+              Le aziende nelle aree più esposte sono le più facili da chiudere.
             </p>
           </div>
 
@@ -102,7 +102,7 @@ export default function UseCasesSection() {
               </div>
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
-              Un messaggio scritto su misura per ogni lead, basato sui suoi problemi.
+              Una proposta scritta su misura per ogni prospect, basata sui gap assicurativi reali.
               Oggetto, corpo, CTA. Sei pronto prima ancora di alzare il telefono.
             </p>
           </div>

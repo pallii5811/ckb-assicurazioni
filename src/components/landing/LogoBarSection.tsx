@@ -2,14 +2,14 @@
 
 export function LogoBarSection() {
   const agencies = [
-    { name: 'WebAgency Roma', city: 'Roma' },
-    { name: 'Studio SEO Milano', city: 'Milano' },
-    { name: 'Digital Boost', city: 'Torino' },
-    { name: 'Grow Media', city: 'Bologna' },
-    { name: 'Agenzia Pixel', city: 'Napoli' },
-    { name: 'NordEst Digital', city: 'Venezia' },
-    { name: 'Sud Web Studio', city: 'Bari' },
-    { name: 'AlphaAgency', city: 'Firenze' },
+    { name: 'Assitalia Broker', city: 'Roma' },
+    { name: 'Nordest Assicurazioni', city: 'Milano' },
+    { name: 'Studio Bianchi & Partners', city: 'Torino' },
+    { name: 'Emilia Insurance Group', city: 'Bologna' },
+    { name: 'Campania Broker', city: 'Napoli' },
+    { name: 'Adriatica Intermediazioni', city: 'Venezia' },
+    { name: 'Puglia Risk Consulting', city: 'Bari' },
+    { name: 'Toscana Broker', city: 'Firenze' },
   ]
 
   // Duplica per loop infinito seamless
@@ -29,7 +29,7 @@ export function LogoBarSection() {
       `}</style>
 
       <p className="text-center text-xs font-semibold uppercase tracking-widest text-gray-400 mb-8">
-        Già scelto da agency in tutta Italia
+        Già scelto da broker e intermediari in tutta Italia
       </p>
 
       <div className="relative">

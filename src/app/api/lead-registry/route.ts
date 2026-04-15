@@ -92,6 +92,89 @@ async function verifyPivaVies(piva: string): Promise<{
   } catch { return null }
 }
 
+// ── INIPEC.gov.it: FREE PEC lookup by company name or P.IVA ──
+async function lookupInipecPec(companyName: string): Promise<string | null> {
+  try {
+    // INIPEC search by denominazione (company name)
+    const searchUrl = `https://www.inipec.gov.it/cerca/imprese?denominazione=${encodeURIComponent(companyName)}`
+    const res = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html',
+      },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    // Look for PEC pattern in results: "xxx@pec.yyy.it" or similar
+    const pecMatch = html.match(/([a-zA-Z0-9._%+\-]+@(?:pec\.[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9.\-]+\.(?:pec|legalmail|pecimprese|pecavvocati|cert)\.[a-zA-Z]{2,}))/i)
+    if (pecMatch?.[1]) return pecMatch[1].toLowerCase()
+    // Broader PEC pattern: any email containing "pec" in domain
+    const broadPec = html.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/gi) || []
+    for (const e of broadPec) {
+      if (e.toLowerCase().includes('pec') || e.toLowerCase().includes('legalmail') || e.toLowerCase().includes('cert.')) {
+        return e.toLowerCase()
+      }
+    }
+    return null
+  } catch { return null }
+}
+
+// ── Google scraping for PEC and dipendenti (free fallback) ──
+async function googleScrapePecDipendenti(companyName: string): Promise<{ pec?: string; dipendenti?: string } | null> {
+  try {
+    const result: { pec?: string; dipendenti?: string } = {}
+    // Search for PEC
+    const q = encodeURIComponent(`"${companyName}" PEC email dipendenti`)
+    const res = await fetch(`https://www.google.com/search?q=${q}&hl=it&num=5`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+        'Accept-Language': 'it-IT,it;q=0.9',
+      },
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    const text = html.replace(/<[^>]+>/g, ' ')
+    // PEC: email with pec/legalmail/cert domain
+    const pecM = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*(?:pec|legalmail|pecimprese|cert)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})/i)
+    if (pecM) result.pec = pecM[1].toLowerCase()
+    // Dipendenti
+    const dipM = text.match(/(\d{1,5})\s*dipendenti/i)
+    if (dipM && parseInt(dipM[1]) < 50000) result.dipendenti = dipM[1]
+    return Object.keys(result).length > 0 ? result : null
+  } catch { return null }
+}
+
+// ── registroimprese.it / Ufficio Camerale scraping for dipendenti, REA ──
+async function scrapeRegistroImprese(piva: string): Promise<Record<string, string> | null> {
+  try {
+    const searchUrl = `https://www.registroimprese.it/ricerca-libera?searchterm=${piva}`
+    const res = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html',
+      },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    if (html.length < 1000) return null
+    const result: Record<string, string> = {}
+    // REA
+    const reaM = html.match(/REA[:\s]+([A-Z]{2}\s*[-–]?\s*\d{5,7})/i)
+    if (reaM) result.codice_rea = reaM[1].trim()
+    // PEC
+    const pecM = html.match(/PEC[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i)
+    if (pecM) result.pec = pecM[1].toLowerCase()
+    // Dipendenti
+    const dipM = html.match(/(?:dipendenti|addetti)[:\s]+(\d+)/i)
+    if (dipM) result.dipendenti = dipM[1]
+    return Object.keys(result).length > 0 ? result : null
+  } catch { return null }
+}
+
 // ── CompanyReports.it: FREE real company data (fatturato, dipendenti) ──
 async function scrapeCompanyReports(piva: string): Promise<Record<string, string> | null> {
   try {
@@ -170,6 +253,22 @@ async function scrapeCompanyReports(piva: string): Promise<Record<string, string
     if (!result.dipendenti) {
       const dipM = html.match(/N\.?\s*Dipendenti<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/i)
       if (dipM) result.dipendenti = dipM[1].trim()
+    }
+
+    // REA
+    if (!result.codice_rea) {
+      const reaM = html.match(/REA<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/i)
+      if (reaM) result.codice_rea = reaM[1].trim()
+    }
+    // PEC from HTML table
+    if (!result.pec) {
+      const pecM = html.match(/(?:Indirizzo\s*)?PEC<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+@[^<]+)/i)
+      if (pecM) result.pec = pecM[1].trim().toLowerCase()
+    }
+    // PEC from any visible email that looks like PEC
+    if (!result.pec) {
+      const allEmails = html.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*(?:pec|legalmail|pecimprese|cert)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})/gi)
+      if (allEmails?.[0]) result.pec = allEmails[0].toLowerCase()
     }
 
     // Ragione sociale from title
@@ -360,6 +459,8 @@ export async function POST(req: NextRequest) {
     for (const r of fetches) {
       if (r.status === 'fulfilled' && r.value && r.value.length > 500) {
         const pageHtml = r.value
+        // Strip HTML tags for text-based extraction (tags like <strong> break name regex)
+        const pageText = pageHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
         // Extract PIVA if not found yet
         if (!websitePiva) {
           const found = extractPivaFromHtml(pageHtml)
@@ -387,7 +488,7 @@ export async function POST(req: NextRequest) {
           ]
           for (const pat of ownerPatterns) {
             pat.lastIndex = 0
-            const m = pat.exec(pageHtml)
+            const m = pat.exec(pageText)
             if (m?.[1]) {
               const raw = m[1].replace(/\s+/g, ' ').trim()
               // Extract person name from "IMPRESA X DI NOME COGNOME" pattern
@@ -411,7 +512,7 @@ export async function POST(req: NextRequest) {
           }
           // Also try "nella persona del Rappresentante legale NAME" standalone
           if (!websiteOwnerName) {
-            const rappM = pageHtml.match(/nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})/i)
+            const rappM = pageText.match(/nella\s+persona\s+del\s+(?:Rappresentante\s+legale|Titolare|Amministratore)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+){1,3})/i)
             if (rappM?.[1]) {
               let name = rappM[1].trim()
               if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
@@ -502,15 +603,18 @@ export async function POST(req: NextRequest) {
     viesData = await verifyPivaVies(websitePiva)
   }
 
-  // ─── Step 4: Scrape companyreports.it for REAL data (gratis) ───
-  let crData: Record<string, string> | null = null
-  if (websitePiva) {
-    crData = await scrapeCompanyReports(websitePiva)
-  }
+  // ─── Step 4: Scrape ALL free data sources in PARALLEL ──────────
+  const ragSociale = backendData?.ragione_sociale || business_name
+  const [crData, riData, inipecPec, googleData] = await Promise.all([
+    websitePiva ? scrapeCompanyReports(websitePiva) : null,
+    websitePiva ? scrapeRegistroImprese(websitePiva) : null,
+    business_name ? lookupInipecPec(business_name) : null,
+    ragSociale ? googleScrapePecDipendenti(ragSociale) : null,
+  ])
 
-  // ─── Step 4b: OpenAPI.it fallback (PAID, finds all SRL/SPA) ────
+  // ─── Step 4b: OpenAPI.it (PAID, Camera di Commercio — PEC, dipendenti, REA) ─
   let oaData: Record<string, any> | null = null
-  if (websitePiva && (!crData?.fatturato || !crData?.codice_ateco)) {
+  if (websitePiva && (!crData?.fatturato || !crData?.codice_ateco || !crData?.dipendenti || !riData?.pec)) {
     oaData = await fetchOpenApiIt(websitePiva)
   }
 
@@ -522,14 +626,29 @@ export async function POST(req: NextRequest) {
     fonte: 'google_maps',
   }
 
-  // Merge: backendData (base) < OpenAPI.it (paid) < companyreports (free) — later wins
-  const src = { ...backendData, ...oaData, ...crData } as Record<string, any>
+  // Merge: backendData (base) < OpenAPI.it < registroimprese < companyreports — later wins
+  const src = { ...backendData, ...oaData, ...riData, ...crData } as Record<string, any>
+
+  // INIPEC PEC (free, always available for Italian companies)
+  if (inipecPec && !src.pec) {
+    src.pec = inipecPec
+    src.pec_fonte = 'inipec'
+  }
+  // Google scraped PEC (fallback)
+  if (googleData?.pec && !src.pec) {
+    src.pec = googleData.pec
+    src.pec_fonte = 'google'
+  }
+  // Google scraped dipendenti (fallback)
+  if (googleData?.dipendenti && !src.dipendenti) {
+    src.dipendenti = googleData.dipendenti
+    src.dipendenti_fonte = 'google'
+  }
 
   // Ragione sociale — registry sources or Google Maps name (privacy policy too fragile for this)
   profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
 
   // Titolare / Referente (from privacy policy "Titolare del Trattamento")
-  console.log('[lead-registry] websiteOwnerName:', websiteOwnerName, '| websiteFullRagioneSociale:', websiteFullRagioneSociale, '| websiteCF:', websiteCF)
   if (websiteOwnerName) {
     profile.titolare = websiteOwnerName
     profile.titolare_fonte = 'privacy_policy_sito'
@@ -611,6 +730,12 @@ export async function POST(req: NextRequest) {
   } else if (oaData?.dipendenti) {
     profile.dipendenti = oaData.dipendenti
     profile.dipendenti_fonte = 'openapi.it'
+  } else if (riData?.dipendenti) {
+    profile.dipendenti = riData.dipendenti
+    profile.dipendenti_fonte = 'registro_imprese'
+  } else if (googleData?.dipendenti) {
+    profile.dipendenti = googleData.dipendenti
+    profile.dipendenti_fonte = 'fonti_pubbliche'
   } else if (backendData?.dipendenti) {
     profile.dipendenti = backendData.dipendenti
     profile.dipendenti_fonte = 'registro_imprese'
@@ -625,9 +750,12 @@ export async function POST(req: NextRequest) {
     profile.fonte = 'registro_imprese'
   }
 
-  // Extra fields from OpenAPI.it
+  // Extra fields from multiple sources
   if (src.codice_rea) profile.codice_rea = src.codice_rea
-  if (src.pec) profile.pec = src.pec
+  if (src.pec) {
+    profile.pec = src.pec
+    profile.pec_fonte = src.pec_fonte || (oaData?.pec ? 'openapi.it' : riData?.pec ? 'registro_imprese' : inipecPec ? 'inipec' : 'registro_imprese')
+  }
   if (src.data_costituzione) profile.data_costituzione = src.data_costituzione
 
   if (src.stato) profile.stato = src.stato

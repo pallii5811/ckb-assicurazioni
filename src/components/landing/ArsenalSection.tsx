@@ -46,12 +46,12 @@ export default function ArsenalSection() {
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center mb-5 shadow-lg">
                   <Radar size={22} className="text-white" />
                 </div>
-                <h3 className="font-['Syne'] text-xl font-bold text-slate-900 mb-2">Radar X Tecnologico</h3>
+                <h3 className="font-['Syne'] text-xl font-bold text-slate-900 mb-2">Gap Analysis Assicurativa</h3>
                 <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed mb-4">
-                  Vedi istantaneamente se usano Meta Pixel, Google Ads, GTM o se hanno un sito che fa scappare i visitatori.
+                  Vedi istantaneamente quali polizze mancano: RC, D&O, Cyber, Infortuni, Incendio. Per ogni azienda, in tempo reale.
                 </p>
                 <div className="flex gap-1.5 flex-wrap">
-                  {['Meta Pixel', 'Google Ads', 'GTM', 'SSL', 'DMARC', 'SEO'].map(tag => (
+                  {['RC Prodotti', 'D&O', 'Cyber Risk', 'Incendio', 'Infortuni', 'Welfare'].map(tag => (
                     <span key={tag} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-['DM_Sans']">{tag}</span>
                   ))}
                 </div>
@@ -59,11 +59,11 @@ export default function ArsenalSection() {
               {/* Mini audit mockup */}
               <div className="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-2">
                 {[
-                  { label: 'Meta Pixel', ok: false },
-                  { label: 'SSL', ok: true },
-                  { label: 'GTM', ok: false },
-                  { label: 'DMARC', ok: false },
-                  { label: 'Analytics', ok: true },
+                  { label: 'RC Generale', ok: true },
+                  { label: 'D&O', ok: false },
+                  { label: 'Cyber Risk', ok: false },
+                  { label: 'Incendio', ok: true },
+                  { label: 'Infortuni', ok: false },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between py-1.5 px-2.5 rounded bg-white border border-slate-50">
                     <span className="text-[11px] font-medium text-slate-600 font-['DM_Sans']">{item.label}</span>
@@ -90,14 +90,14 @@ export default function ArsenalSection() {
             </div>
             <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Decision Maker</h3>
             <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed mb-4">
-              Identifichiamo titolari e contatti diretti. Bypassa i centralini.
+              Identifichiamo titolari e amministratori. Contatto diretto, senza filtri.
             </p>
             {/* Mini contact preview */}
             <div className="flex items-center gap-2.5 bg-slate-50 rounded-lg p-2.5 border border-slate-100">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-[10px] font-bold">MR</div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-[10px] font-bold">LB</div>
               <div>
-                <div className="text-[11px] font-bold text-slate-700 font-['DM_Sans']">Marco Rossi</div>
-                <div className="text-[10px] text-slate-400 font-['DM_Sans']">Titolare · 348 *** ****</div>
+                <div className="text-[11px] font-bold text-slate-700 font-['DM_Sans']">Luigi Bianchi</div>
+                <div className="text-[10px] text-slate-400 font-['DM_Sans']">Amministratore · 348 *** ****</div>
               </div>
             </div>
           </motion.div>
@@ -119,7 +119,7 @@ export default function ArsenalSection() {
             </div>
             <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Cellulari Verificati</h3>
             <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed">
-              Il nostro algoritmo separa cellulari dai fissi. Zero sprechi su numeri spenti.
+              Cellulari verificati dei titolari. Zero sprechi su numeri spenti o centralini.
             </p>
           </motion.div>
 
@@ -142,7 +142,7 @@ export default function ArsenalSection() {
                 </div>
                 <h3 className="font-['Syne'] text-xl font-bold text-slate-900 mb-2">Pitch AI Personalizzato</h3>
                 <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed">
-                  Un messaggio scritto su misura per ogni lead, basato sui problemi specifici. Oggetto, corpo e CTA. Copia, incolla, manda.
+                  Una proposta scritta su misura per ogni azienda, basata sui gap assicurativi reali. Oggetto, corpo e CTA. Copia, incolla, manda.
                 </p>
               </div>
               {/* Mini pitch preview */}
@@ -152,7 +152,7 @@ export default function ArsenalSection() {
                   <span className="text-[10px] font-bold text-slate-500 font-['DM_Sans']">PITCH GENERATO</span>
                 </div>
                 <div className="text-[11px] text-slate-600 font-['DM_Sans'] leading-relaxed italic">
-                  &quot;Buongiorno Marco, ho analizzato il sito di Studio Rossi e ho notato che manca il pixel di tracciamento. State perdendo dati preziosi per...&quot;
+                  &quot;Buongiorno Dott. Bianchi, dall'analisi di Tecnofer emerge che mancano copertura D&O e Cyber Risk. Con €3.2M di fatturato e 45 dipendenti...&quot;
                 </div>
                 <div className="flex gap-2 mt-3">
                   <span className="text-[9px] font-bold text-white bg-violet-500 px-2.5 py-1 rounded-lg">Copia</span>
@@ -174,16 +174,16 @@ export default function ArsenalSection() {
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mb-4">
               <Star size={20} className="text-white" />
             </div>
-            <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Analisi Reputazione</h3>
+            <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Rischio Territoriale</h3>
             <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed mb-3">
-              Trova aziende con rating in calo. Le più facili da chiudere.
+              Mappa il rischio per zona: alluvioni, terremoti, grandine. Le aziende più esposte sono le più facili da chiudere.
             </p>
             <div className="flex items-center gap-1">
               {[1,2,3,4].map(i => (
                 <Star key={i} size={14} className="text-amber-400 fill-amber-400" />
               ))}
               <Star size={14} className="text-slate-200" />
-              <span className="text-[10px] text-slate-400 font-['DM_Sans'] ml-1">3.2 · in calo</span>
+              <span className="text-[10px] text-slate-400 font-['DM_Sans'] ml-1">Rischio: alto</span>
             </div>
           </motion.div>
 
@@ -202,9 +202,9 @@ export default function ArsenalSection() {
               </div>
               <span className="text-[9px] font-bold text-pink-600 bg-pink-50 border border-pink-100 px-2.5 py-1 rounded-full font-['DM_Sans'] uppercase tracking-wider">Auto-sync</span>
             </div>
-            <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Freschezza Garantita</h3>
+            <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Dati Camera di Commercio</h3>
             <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed">
-              Dati aggiornati ogni 30 giorni. Zero lead obsoleti, zero tempo sprecato.
+              ATECO, fatturato, dipendenti, forma giuridica, PEC — dati ufficiali aggiornati.
             </p>
           </motion.div>
 
@@ -217,8 +217,8 @@ export default function ArsenalSection() {
             transition={{ delay: 0.35, duration: 0.5 }}
           >
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-600 to-slate-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-3">Score di Priorità</h3>
-            <p className="text-xs text-slate-500 font-['DM_Sans'] leading-relaxed mb-3">Ogni lead con uno score 0-100 per sapere chi chiamare prima.</p>
+            <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-3">Risk Score</h3>
+            <p className="text-xs text-slate-500 font-['DM_Sans'] leading-relaxed mb-3">Ogni azienda con un risk score 0-100: più alto = più scoperta = più urgente.</p>
             <div className="flex items-end gap-1.5">
               {[45, 58, 72, 87, 64, 91, 53].map((v, i) => (
                 <div key={i} className="flex-1 rounded-t" style={{
@@ -244,7 +244,7 @@ export default function ArsenalSection() {
                 Pronto a chiudere i tuoi prossimi clienti?
               </h3>
               <p className="text-sm text-white/60 font-['DM_Sans']">
-                Unisciti a 200+ agency italiane che usano CKB ogni giorno.
+                Unisciti a 200+ intermediari assicurativi che usano CKB ogni giorno.
               </p>
             </div>
             <CtaLink>

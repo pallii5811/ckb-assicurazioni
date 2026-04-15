@@ -5,33 +5,33 @@ import { Star } from 'lucide-react'
 
 const testimonials = [
   {
-    quote: 'In 3 giorni ho trovato 14 ristoranti a Milano con pixel Facebook mancante. Ne ho contattati 10, ne ho chiusi 3. Quasi €5.000 di contratti nuovi partendo da zero chiamate a freddo.',
+    quote: 'In una settimana ho trovato 47 aziende metalmeccaniche in Lombardia senza RC Prodotti. Ne ho contattate 15 con il Pitch AI, ne ho chiuse 4. Quasi €12.000 di premi nuovi.',
     name: 'Marco T.',
-    role: 'Titolare agenzia SEO · Roma',
+    role: 'Broker assicurativo · Roma',
     avatar: 'MT',
-    score: '+€4.800',
-    tag: 'Ristorazione',
-    metric: '3 clienti in 3 giorni',
+    score: '+€12.000',
+    tag: 'Industria',
+    metric: '4 polizze in 7 giorni',
     gradient: 'from-indigo-500 to-violet-500',
   },
   {
-    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con CKB cerco "aziende edili a Torino senza RC" e mi escono 30 prospect con contatti titolare e proposta già pronta.',
+    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con CKB cerco "trasportatori Veneto senza D&O" e mi escono 30 prospect con gap analysis e proposta già pronta.',
     name: 'Sara B.',
-    role: 'Consulente digitale · Torino',
+    role: 'Agente plurimandataria · Torino',
     avatar: 'SB',
     score: '15x risposta',
-    tag: 'Healthcare',
+    tag: 'Trasporti',
     metric: '15x tasso risposta',
     gradient: 'from-cyan-500 to-blue-500',
   },
   {
-    quote: 'La funzione Pitch AI mi risparmia 2 ore al giorno. Prima scrivevo ogni email da zero. Adesso: trovo il lead, leggo i suoi problemi, clicco Genera Pitch, copio, invio. 90 secondi.',
+    quote: 'La funzione Pitch AI mi risparmia 2 ore al giorno. Prima preparavo ogni proposta da zero. Adesso: trovo l\'azienda, leggo i gap assicurativi, clicco Genera Pitch, copio, invio. 90 secondi.',
     name: 'Luca M.',
-    role: 'Freelance Web · Milano',
+    role: 'Consulente assicurativo · Milano',
     avatar: 'LM',
     score: '-2h/giorno',
     tag: 'Efficienza',
-    metric: '90s dal lead al pitch',
+    metric: '90s dal prospect al pitch',
     gradient: 'from-emerald-500 to-teal-500',
   },
 ]
@@ -58,7 +58,7 @@ export function TestimonialSection() {
             </span>
           </h2>
           <p className="text-lg text-slate-400 font-['DM_Sans'] max-w-lg mx-auto">
-            Non promesse. Risultati concreti da agency e consulenti italiani.
+            Non promesse. Risultati concreti da broker e intermediari italiani.
           </p>
         </div>
 

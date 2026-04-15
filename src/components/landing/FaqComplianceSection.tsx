@@ -6,36 +6,36 @@ import { motion } from 'framer-motion'
 
 const faqs = [
   {
-    q: 'Da dove provengono i dati?',
-    a: 'I dati provengono da directory pubbliche italiane, siti aziendali e fonti verificate, aggregati e arricchiti dal nostro motore di intelligence proprietario in tempo reale. Nessun dato acquistato da terze parti.',
+    q: 'Da dove provengono i dati delle aziende?',
+    a: 'I dati provengono da fonti ufficiali: Camera di Commercio, Registro Imprese, ATECO, VIES e directory pubbliche italiane. Aggregati e arricchiti dal nostro motore di intelligence in tempo reale.',
   },
   {
-    q: 'I numeri di telefono sono reali?',
-    a: 'Sì. Il nostro algoritmo scarta i numeri non validi, identifica i centralini e ti fornisce i cellulari aziendali verificati dove disponibili.',
+    q: 'Come vengono identificati i gap assicurativi?',
+    a: "Incrociamo codice ATECO, fatturato, numero dipendenti, forma giuridica e rischio territoriale con le coperture obbligatorie e raccomandate per quel settore. L'AI evidenzia le polizze mancanti o insufficienti.",
   },
   {
     q: 'Come funzionano i crediti?',
-    a: 'Un credito equivale a un lead estratto con successo (che contenga almeno telefono o email). Le ricerche a vuoto non consumano crediti.',
+    a: 'Un credito equivale a un prospect estratto con profilo completo (dati aziendali, contatti, gap analysis). Le ricerche a vuoto non consumano crediti.',
   },
   {
     q: "Posso cancellare l'abbonamento?",
     a: 'Assolutamente sì. Nessun vincolo, puoi disdire in qualsiasi momento con un click dalla tua dashboard.',
   },
   {
-    q: 'I dati sono aggiornati?',
-    a: "Sì. Il nostro sistema re-audita automaticamente ogni lead ogni 30 giorni. Ogni risultato mostra il 'Freshness Score' — sai esattamente quanto sono freschi i dati che stai usando.",
+    q: 'I dati aziendali sono aggiornati?',
+    a: "Sì. Fatturato, dipendenti, ATECO e forma giuridica vengono verificati con le fonti camerali ufficiali. I dati di contatto sono aggiornati regolarmente.",
   },
   {
     q: 'Come funziona il Pitch AI?',
-    a: "Analizziamo i problemi specifici dell'azienda (pixel mancante, errori SEO, sito lento) e generiamo un messaggio personalizzato con oggetto, corpo e call-to-action. Non è un template — è un messaggio scritto per quella specifica azienda.",
+    a: "Analizziamo i gap assicurativi specifici dell'azienda (polizze mancanti, rischi settoriali, esposizione territoriale) e generiamo una proposta commerciale personalizzata. Non è un template — è un messaggio costruito sui dati reali dell'azienda.",
   },
   {
-    q: 'Funziona per qualsiasi settore?',
-    a: 'Funziona per qualsiasi categoria di attività locale: ristoranti, dentisti, avvocati, hotel, negozi, agenzie immobiliari, artigiani. Se è sul web italiano, lo troviamo e lo profiliamo.',
+    q: 'Funziona per qualsiasi tipo di polizza?',
+    a: "Sì. CKB copre RC, D&O, Cyber Risk, Incendio, Infortuni, Welfare, RC Prodotti, Cauzioni e molto altro. L'analisi è calibrata sul codice ATECO e sulle specificità di ogni settore.",
   },
   {
     q: 'Posso integrare i dati nel mio CRM?',
-    a: 'Esportiamo in CSV/Excel compatibile con HubSpot, Pipedrive, Notion, e qualsiasi tool che accetta fogli di calcolo. Webhook e integrazione Zapier sono in arrivo nel piano Agency.',
+    a: 'Esportiamo in CSV/Excel compatibile con qualsiasi CRM assicurativo. Webhook e integrazione con gestionali di agenzia sono in arrivo nel piano Agency.',
   },
 ] as const
 

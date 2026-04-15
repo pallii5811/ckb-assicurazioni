@@ -231,7 +231,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const [social, setSocial] = useState<any>(null)
   const [ads, setAds] = useState<any>(null)
   const [competitors, setCompetitors] = useState<any>(null)
-  const [trends, setTrends] = useState<any>(null)
+  const [trends, setTrends] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-unused-vars
   const [registry, setRegistry] = useState<any>(null)
   const [loadingReviews, setLoadingReviews] = useState(true)
   const [loadingSocial, setLoadingSocial] = useState(true)
@@ -321,11 +321,8 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       .catch(() => setCompetitors(null))
       .finally(() => setLoadingCompetitors(false))
 
-    fetch(`/api/lead-trends?category=${cat}&city=${city}`)
-      .then((r) => r.json())
-      .then((d) => setTrends(d))
-      .catch(() => setTrends(null))
-      .finally(() => setLoadingTrends(false))
+    // Trends section removed — was generating AI-hallucinated statistics
+    setLoadingTrends(false)
 
     fetch('/api/lead-registry', {
       method: 'POST',
@@ -904,23 +901,11 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Users className="w-4 h-4 text-blue-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Referente</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Referente</span>
               </div>
               {(() => {
-                // Check if clayData.personName is actually a person or just the company name
-                const isCompanyName = (name: string | null) => {
-                  if (!name) return true
-                  const n = name.toLowerCase().trim()
-                  const companyName = (nome || '').toLowerCase().trim()
-                  // If it matches or is contained in the lead/company name, it's not a person
-                  if (companyName && (n === companyName || companyName.includes(n) || n.includes(companyName))) return true
-                  // Common Italian business words that indicate it's a company, not a person
-                  if (/\b(s\.?r\.?l|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|impresa|studio|azienda|group|service|servizi|pulizia|pulizie|cleaning|consulenza|costruzioni|edilizia|ristorante|pizzeria|bar|hotel|autofficina|carrozzeria|farmacia|ottica)\b/i.test(n)) return true
-                  return false
-                }
-                const clayPerson = !isCompanyName(clayData.personName) ? clayData.personName : null
-                const refName = clayPerson || registry?.titolare || null
-                const refRole = clayPerson ? (clayData.personRole || null) : (registry?.titolare ? 'Titolare / Legale Rappresentante' : null)
+                const refName = registry?.titolare || clayData.personName || null
+                const refRole = registry?.titolare ? 'Titolare / Legale Rappresentante' : (clayData.personRole || null)
                 const refPhoto = clayData.personPhoto || null
                 const refInitial = refName ? refName[0]?.toUpperCase() : '?'
                 if (!refName) return <p className="text-sm text-slate-400">Nessun referente trovato</p>
@@ -928,37 +913,37 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       {refPhoto ? (
-                        <img src={refPhoto} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-200" />
+                        <img src={refPhoto} alt="" className="w-12 h-12 rounded-full object-cover border border-slate-200" />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-600 font-bold text-base">
                           {refInitial}
                         </div>
                       )}
                       <div>
-                        <p className="text-sm font-bold text-slate-900">{refName}</p>
-                        {refRole && <p className="text-xs text-slate-500">{refRole}</p>}
+                        <p className="text-base font-bold text-slate-900">{refName}</p>
+                        {refRole && <p className="text-sm text-slate-500">{refRole}</p>}
                       </div>
                     </div>
                     {registry?.titolare_eta && (
-                      <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-100">
+                      <span className="inline-block text-sm font-semibold px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200">
                         {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
                       </span>
                     )}
                     {registry?.codice_fiscale_titolare && (
-                      <div className="text-[10px] font-mono text-slate-500 bg-slate-50 border border-slate-100 rounded px-2 py-1">
+                      <div className="text-xs font-mono text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
                         C.F. {registry.codice_fiscale_titolare}
                         {registry.titolare_data_nascita && (
-                          <span className="ml-1 font-sans">· nato/a {registry.titolare_data_nascita}</span>
+                          <span className="ml-1.5 font-sans">· nato/a {registry.titolare_data_nascita}</span>
                         )}
                       </div>
                     )}
                     {clayData.personSeniority && (
-                      <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                      <span className="inline-block text-xs font-medium px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
                         Seniority: {clayData.personSeniority}
                       </span>
                     )}
                     {clayData.employmentType && (
-                      <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ml-1 ${
+                      <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ml-1 ${
                         clayData.employmentType === 'Imprenditore' ? 'bg-blue-50 text-blue-700 border border-blue-200'
                         : clayData.employmentType.includes('P.IVA') ? 'bg-amber-50 text-amber-700 border border-amber-200'
                         : 'bg-slate-50 text-slate-600 border border-slate-200'
@@ -967,13 +952,13 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       </span>
                     )}
                     {!clayData.personName && registry?.titolare_fonte === 'privacy_policy_sito' && (
-                      <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                      <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
                         Fonte: Privacy Policy
                       </span>
                     )}
                     {clayData.linkedinPerson && (
-                      <a href={clayData.linkedinPerson} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800">
-                        <Linkedin className="w-3 h-3" /> Profilo LinkedIn
+                      <a href={clayData.linkedinPerson} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-sky-600 hover:text-sky-800 font-medium">
+                        <Linkedin className="w-4 h-4" /> Profilo LinkedIn
                       </a>
                     )}
                   </div>
@@ -1870,67 +1855,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             hover:shadow-md transition-shadow">
             <div className="flex items-center gap-2 mb-5">
               <div className="w-8 h-8 rounded-xl 
-                bg-blue-50 border border-blue-200 
-                flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-              </div>
-              <h3 className="font-bold text-base text-slate-900">
-                Rischi di Settore
-              </h3>
-            </div>
-            {loadingTrends ? (
-              <div className="animate-pulse space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
-              </div>
-            ) : trends ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className={`text-2xl ${trends.trend === 'growing' ? '📈' : trends.trend === 'declining' ? '📉' : '➡️'}`} />
-                  <span
-                    className={`font-semibold ${
-                      trends.trend === 'growing' ? 'text-red-600' : trends.trend === 'declining' ? 'text-green-600' : 'text-amber-600'
-                    }`}
-                  >
-                    {trends.trend === 'growing'
-                      ? 'Sinistri in Aumento'
-                      : trends.trend === 'declining'
-                        ? 'Sinistri in Calo'
-                        : 'Sinistri Stabili'}
-                  </span>
-                </div>
-                {trends.bestContactTime && (
-                  <div className="bg-blue-50 rounded-lg p-3">
-                    <p className="text-xs text-blue-700 font-medium">🛡️ Polizza Raccomandata</p>
-                    <p className="text-sm text-blue-900 font-bold">{trends.bestContactTime}</p>
-                  </div>
-                )}
-                {trends.marketOpportunity && (
-                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                    <p className="text-xs text-red-700 font-medium">⚠️ Rischio Principale Non Coperto</p>
-                    <p className="text-sm text-red-900 font-bold">{trends.marketOpportunity}</p>
-                  </div>
-                )}
-                {trends.insights?.length > 0 && (
-                  <div className="space-y-1">
-                    {trends.insights.map((ins: string, i: number) => (
-                      <p key={i} className="text-sm text-gray-600">
-                        💡 {ins}
-                      </p>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[8px] text-slate-400 mt-2 pt-2 border-t border-slate-100">Analisi generata da AI sulla base del settore e della zona — dati indicativi, non statistiche ufficiali</p>
-              </div>
-            ) : (
-              <p className="text-gray-400 text-sm">Trend non disponibili</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-2xl border 
-            border-slate-200 p-6 shadow-sm 
-            hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-8 h-8 rounded-xl 
                 bg-slate-100 border border-slate-200 
                 flex items-center justify-center">
                 <Building2 className="w-4 h-4 text-slate-600" />
@@ -2077,8 +2001,10 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                           <span className={`ml-1.5 font-semibold ${
                             registry.dipendenti_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'
                           }`}>✓ {
+                            registry.dipendenti_fonte === 'ufficio_camerale' ? 'Ufficio Camerale' :
                             registry.dipendenti_fonte === 'companyreports.it' ? 'CompanyReports.it' :
                             registry.dipendenti_fonte === 'openapi.it' ? 'OpenAPI.it' :
+                            registry.dipendenti_fonte === 'fonti_pubbliche' ? 'Fonti Pubbliche' :
                             'Registro Imprese'
                           }</span>
                         ) : null}
@@ -2142,8 +2068,18 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   ) : null}
                   {registry.pec ? (
                     <div>
-                      <p className="text-xs text-gray-500">PEC</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.pec}</p>
+                      <p className="text-xs text-gray-500">
+                        PEC
+                        {registry.pec_fonte ? (
+                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ {
+                            registry.pec_fonte === 'ufficio_camerale' ? 'Ufficio Camerale' :
+                            registry.pec_fonte === 'inipec' ? 'INIPEC' :
+                            registry.pec_fonte === 'openapi.it' ? 'OpenAPI.it' :
+                            'Registro Imprese'
+                          }</span>
+                        ) : null}
+                      </p>
+                      <p className="text-sm font-semibold text-blue-700">{registry.pec}</p>
                     </div>
                   ) : null}
                   {registry.stato ? (
