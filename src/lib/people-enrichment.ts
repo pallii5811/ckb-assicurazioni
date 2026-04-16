@@ -1,6 +1,7 @@
 /**
  * Arricchimento persone chiave dell'azienda — GRATIS
- * Fonti: CompanyReports.it, Google Search, analisi nome azienda
+ * Fonti: CompanyReports.it, OpenCorporates, Google Search, Google News,
+ *        Sito web aziendale, LinkedIn (via Google), analisi nome azienda
  * Genera raccomandazioni assicurative specifiche per ruolo
  */
 
@@ -11,10 +12,16 @@ export interface PersonInsuranceProfile {
   ruolo: string
   ruolo_normalizzato: 'titolare' | 'amministratore' | 'socio' | 'professionista' | 'dirigente' | 'dipendente_chiave' | 'altro'
   fonte: string
+  fonti_multiple?: string[]
   codice_fiscale?: string
   data_nascita?: string
   sesso?: string
   eta?: number
+  email?: string
+  telefono?: string
+  linkedin?: string
+  foto_url?: string
+  confidenza: number // 0-100 based on source confirmation count
   polizze_personali: {
     polizza: string
     priorita: 'obbligatoria' | 'critica' | 'raccomandata'
@@ -31,15 +38,98 @@ export interface PeopleEnrichmentResult {
   raccomandazioni_team: string[]
 }
 
+// ── Universal search engine (DuckDuckGo primary, Bing fallback) ────────
+
+const SEARCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html',
+  'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+}
+
+// Rate-limited search queue — max 2 concurrent, 600ms between requests
+let _searchQueue: Promise<void> = Promise.resolve()
+let _searchActive = 0
+
+async function fetchSearchResults(query: string, timeoutMs = 10000): Promise<string> {
+  // Queue to prevent parallel flood that triggers CAPTCHA
+  while (_searchActive >= 2) {
+    await new Promise(r => setTimeout(r, 300))
+  }
+  _searchActive++
+  try {
+    return await _doFetchSearch(query, timeoutMs)
+  } finally {
+    _searchActive--
+  }
+}
+
+async function _doFetchSearch(query: string, timeoutMs: number): Promise<string> {
+  const cleanHtml = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ')
+
+  // Try DuckDuckGo HTML
+  try {
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+    const res = await fetch(ddgUrl, { headers: SEARCH_HEADERS, signal: AbortSignal.timeout(timeoutMs) })
+    const html = await res.text()
+    // Check for bot/CAPTCHA page
+    if (res.status === 200 && html.length > 2000 && !html.includes('bots use DuckDuckGo') && !html.includes('confirm this search')) {
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 400)) // delay between requests
+      return cleanHtml(html)
+    }
+  } catch { /* DDG failed */ }
+
+  // Small delay before trying Bing
+  await new Promise(r => setTimeout(r, 300))
+
+  // Fallback: Bing
+  try {
+    const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=10&setlang=it`
+    const res = await fetch(bingUrl, { headers: SEARCH_HEADERS, signal: AbortSignal.timeout(timeoutMs) })
+    const html = await res.text()
+    if (html.length > 2000 && !html.includes('captcha') && !html.includes('unusual traffic')) {
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 400))
+      return cleanHtml(html)
+    }
+  } catch { /* Bing failed too */ }
+
+  return ''
+}
+
 // ── Name validation (shared) ───────────────────────────────────────────
 
-const NAME_BLOCKLIST = /visura|camerale|registro|imprese|bilancio|fatturato|companyreport|company|report|societa|azienda|impresa|italia|partita iva|codice fiscale|sede legale|capitale sociale|amministrazione|informazioni|contatti|cookie|privacy|home|assistenza|servizi|supporto|ufficio|numero|telefono|email|indirizzo|orario|apertura|chiusura|lavora con noi|mappa|dove siamo|chi siamo|pagina|sito|website|google|facebook|linkedin|twitter|instagram|youtube|tiktok|whatsapp|costruzioni|ristorante|studio|impresa|ditta|bottega|gruppo|holding|fondazione|associazione|seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|articolo|paragrafo|sezione|titolare|responsabile|incaricato|interessato|destinatario|garante|autorita|disposizione|finalita|modalita|comunicazione|diffusione|profilazione|automatizzato|legittimo|interesse|necessario|obbligatorio|facoltativo|conferimento|periodo|conservazione|opposizione|reclamo|diritto|revoca|portabilita|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cleaning|consulenza|cooperativa/i
+const NAME_BLOCKLIST = /visura|camerale|registro|imprese|bilancio|fatturato|companyreport|company|report|societa|azienda|impresa|italia|partita iva|codice fiscale|sede legale|capitale sociale|amministrazione|informazioni|contatti|cookie|privacy|home|assistenza|servizi|supporto|ufficio|numero|telefono|email|indirizzo|orario|apertura|chiusura|lavora con noi|mappa|dove siamo|chi siamo|pagina|sito|website|google|facebook|linkedin|twitter|instagram|youtube|tiktok|whatsapp|costruzioni|ristorante|studio|impresa|ditta|bottega|gruppo|holding|fondazione|associazione|seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|articolo|paragrafo|sezione|titolare|responsabile|incaricato|interessato|destinatario|garante|autorita|disposizione|finalita|modalita|comunicazione|diffusione|profilazione|automatizzato|legittimo|interesse|necessario|obbligatorio|facoltativo|conferimento|periodo|conservazione|opposizione|reclamo|diritto|revoca|portabilita|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cleaning|consulenza|cooperativa|header|footer|sidebar|navbar|tbody|thead|tfoot|wrapper|container|content|section|button|submit|input|label|checkbox|radio|select|option|textarea|dropdown|modal|tooltip|popover|carousel|slider|widget|plugin|script|style|class|table|column|field|value|null|undefined|default|error|warning|success|loading|pending|active|disabled|hidden|visible|display|block|inline|flex|grid|margin|padding|border|width|height|color|background|font|text|image|icon|logo|menu|navigation|breadcrumb|pagination|search|filter|sort|toggle|collapse|expand|close|open|prev|next|click|hover|focus|scroll|resize|none|auto|inherit|important|pixel|viewport|media|query|responsive|breakpoint|desktop|mobile|tablet|portrait|landscape|animation|transition|transform|opacity|shadow|radius|gradient/i
+
+// Additional blocklist for single words that are never Italian first/last names
+const WORD_BLOCKLIST = /^(the|and|for|with|from|that|this|have|been|were|are|was|not|but|all|can|had|her|his|how|its|may|new|now|old|our|out|own|say|she|too|use|way|who|why|also|back|been|come|each|find|from|give|good|have|help|here|high|just|know|last|left|like|long|look|made|make|many|more|most|much|must|name|need|next|only|over|part|same|some|such|take|tell|than|them|then|time|turn|upon|very|want|well|went|what|when|will|work|year|your|about|after|again|being|below|could|every|first|found|great|house|large|later|never|offer|order|other|place|point|right|shall|since|small|start|state|still|their|there|these|thing|think|those|three|under|until|using|which|while|world|would|write|call|col|div|span|href|link|meta|body|head|html|form|data|type|void|main|aside|thead|tfoot|tbody|param|xmlns|cdata|doctype|colspan|rowspan|cellpadding|cellspacing|align|valign|nowrap|bgcolor)$/i
 
 const LEGAL_FORM_BLOCKLIST = /\b(spa|srl|srls|snc|sas|sapa|scarl|scrl|soc|coop|onlus|ltd|gmbh|inc|corp|llc|plc)\b/i
+
+// News sources / websites often captured as false-positive names
+const NEWS_SOURCE_BLOCKLIST = /^(parmatoday|dissapore|teleborsa|ansa|adnkronos|ilsole|corriere|gazzetta|repubblica|messaggero|stampa|avvenire|giornale|liberoquotidiano|fattoquotidiano|huffpost|fanpage|tgcom|skytg|rainews|wired|forbes|bloomberg|reuters|google news|alimentando|foodweb|foodaffairs|mark up|italiaoggi|milanofinanza|panorama|espresso|internazionale|startmag|startupitalia|formiche|agrifood|agronotizie|freshplaza|greenplanet|horecanews|mixerplanet|ristorazioneitalia|gamberorosso|quifinanza|investireoggi|money|wallstreetitalia|soldionline|borsaitaliana|finanza|economia|notizie|today|online|press|news|daily|times|post|journal|tribune|herald|gazette|observer|monitor|report|review|magazine|weekly|monthly)$/i
 
 function toTitleCase(s: string): string {
   return s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
 }
+
+// Top 300 Italian first names for positive validation
+const ITALIAN_FIRST_NAMES = new Set([
+  'marco','giuseppe','giovanni','antonio','mario','francesco','paolo','andrea','carlo','luca',
+  'roberto','alessandro','luciano','stefano','massimo','franco','salvatore','fabio','giorgio','alberto',
+  'enrico','davide','claudio','daniele','vincenzo','riccardo','simone','nicola','filippo','michele',
+  'pietro','lorenzo','matteo','tommaso','emanuele','dario','leonardo','sergio','gianluca','giancarlo',
+  'renato','gianfranco','domenico','pasquale','raffaele','maurizio','mauro','bruno','vittorio','alfredo',
+  'cesare','eugenio','umberto','guido','felice','armando','angelo','silvio','aldo','arturo',
+  'corrado','ernesto','gino','ivo','nino','osvaldo','primo','remo','romeo','ugo',
+  'maria','anna','paola','francesca','chiara','giulia','elena','sara','silvia','laura',
+  'valentina','federica','alessandra','monica','daniela','barbara','roberta','cristina','patrizia','luisa',
+  'carla','giovanna','rosa','teresa','lucia','angela','margherita','caterina','emanuela','claudia',
+  'elisabetta','ilaria','martina','elisa','michela','serena','manuela','antonella','stefania','valeria',
+  'gabriella','concetta','giuseppina','carmela','rita','irene','sonia','nadia','grazia','ornella',
+  'flavia','marina','adelaide','agnese','beatrice','bianca','carlotta','diana','edoardo','emilio',
+  'fabrizio','gianluigi','gianni','giacomo','giuliano','ivano','luigi','marcello','mirko','norberto',
+  'orazio','oscar','ottavio','pier','piero','renzo','rinaldo','rocco','romano','ruggero',
+  'silvano','tiziano','tullio','valerio','walter','giampaolo','pierluigi','giampiero','gianpiero','gianmarco',
+])
 
 function isValidPersonName(name: string): boolean {
   if (!name || name.length < 5 || name.length > 50) return false
@@ -58,6 +148,22 @@ function isValidPersonName(name: string): boolean {
   if (!/^[A-Za-zÀ-ú\s'.-]+$/.test(check)) return false
   // At least one word must be 3+ chars (avoid initials-only)
   if (!words.some(w => w.length >= 3)) return false
+  // Block HTML/CSS/technical terms that leak through scraping
+  if (words.some(w => WORD_BLOCKLIST.test(w))) return false
+  // Block news source names (from RSS feeds)
+  if (NEWS_SOURCE_BLOCKLIST.test(check.replace(/\s+/g, '').toLowerCase())) return false
+  if (words.some(w => NEWS_SOURCE_BLOCKLIST.test(w.toLowerCase()))) return false
+  // STRONG CHECK: At least one word must be a known Italian first name
+  // OR the name must have vowel-heavy Italian structure (≥35% vowels)
+  const isKnownName = words.some(w => ITALIAN_FIRST_NAMES.has(w.toLowerCase()))
+  if (!isKnownName) {
+    // Fallback: check vowel ratio — Italian names are typically >35% vowels
+    const totalVowels = (check.match(/[aeiouàèéìòù]/gi) || []).length
+    const totalLetters = check.replace(/[^a-zA-ZÀ-ú]/g, '').length
+    if (totalLetters === 0 || totalVowels / totalLetters < 0.35) return false
+    // Also require each word has at least 1 vowel
+    if (!words.every(w => /[aeiouàèéìòù]/i.test(w))) return false
+  }
   return true
 }
 
@@ -181,22 +287,61 @@ function getPersonalRisks(
 
 // ── Scrape people from CompanyReports.it ───────────────────────
 
-async function scrapePeopleFromCompanyReports(piva: string): Promise<{ nome: string; ruolo: string }[]> {
-  if (!piva) return []
+async function scrapePeopleFromCompanyReports(piva: string, companyName?: string): Promise<{ nome: string; ruolo: string }[]> {
+  if (!piva && !companyName) return []
+
+  const fetchHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    Accept: 'text/html',
+    'Accept-Language': 'it-IT,it;q=0.9',
+  }
 
   try {
-    const res = await fetch(`https://www.companyreports.it/${piva}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'text/html',
-        'Accept-Language': 'it-IT,it;q=0.9',
-      },
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!res.ok) return []
-    const html = await res.text()
-    if (html.length < 5000) return []
-    if (html.includes('<title>CompanyReports - Il fatturato')) return []
+    let html = ''
+
+    // Try direct P.IVA URL first
+    if (piva) {
+      const res = await fetch(`https://www.companyreports.it/${piva}`, {
+        headers: fetchHeaders,
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.ok) {
+        html = await res.text()
+        // If redirected to homepage, try search instead
+        if (html.includes('<title>CompanyReports - Il fatturato') || html.length < 5000) {
+          html = ''
+        }
+      }
+    }
+
+    // Fallback: search by company name or P.IVA
+    if (!html && (companyName || piva)) {
+      const q = encodeURIComponent((companyName || piva || '').replace(/['"]/g, '').trim())
+      const searchRes = await fetch(`https://www.companyreports.it/search?q=${q}`, {
+        headers: fetchHeaders,
+        signal: AbortSignal.timeout(8000),
+      })
+      if (searchRes.ok) {
+        const searchHtml = await searchRes.text()
+        // Extract first company link from search results
+        const linkMatch = searchHtml.match(/href="\/(\d{11})"/i) || searchHtml.match(/href="\/([^"]+?)"/gi)
+        if (linkMatch) {
+          const slug = linkMatch[0].replace(/href="\//, '').replace(/"$/, '')
+          if (slug && slug !== '' && !slug.includes('search')) {
+            const pageRes = await fetch(`https://www.companyreports.it/${slug}`, {
+              headers: fetchHeaders,
+              signal: AbortSignal.timeout(8000),
+            })
+            if (pageRes.ok) {
+              html = await pageRes.text()
+              if (html.includes('<title>CompanyReports - Il fatturato') || html.length < 5000) html = ''
+            }
+          }
+        }
+      }
+    }
+
+    if (!html) return []
 
     const people: { nome: string; ruolo: string }[] = []
 
@@ -264,45 +409,36 @@ async function googleSearchPeople(companyName: string, ragioneSociale: string | 
   const people: { nome: string; ruolo: string; fonte: string }[] = []
   const nameVariants = [companyName, ragioneSociale].filter(Boolean) as string[]
 
-  const fetchGoogle = async (query: string): Promise<string> => {
-    try {
-      const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10&hl=it`
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          Accept: 'text/html',
-          'Accept-Language': 'it-IT,it;q=0.9',
-        },
-        signal: AbortSignal.timeout(8000),
-      })
-      return await res.text()
-    } catch { return '' }
-  }
-
-  // Run multiple Google searches in parallel — cast widest net
-  const searches = nameVariants.flatMap(name => [
-    fetchGoogle(`"${name}" ${city} titolare OR fondatore OR CEO OR "amministratore unico"`),
-    fetchGoogle(`site:linkedin.com/in "${name}" ${city}`),
-    fetchGoogle(`"${name}" "chi siamo" OR "il nostro team" OR "about us" ${city}`),
-    fetchGoogle(`"${name}" ${city} "rappresentante legale" OR "socio" OR "direttore" OR "responsabile"`),
-    fetchGoogle(`site:facebook.com "${name}" ${city}`),
-    fetchGoogle(`"${name}" ${city} "intervista" OR "dichiarato" OR "fondato da" OR "guidata da"`),
-  ])
+  // Use primary company name only (avoid duplicate queries for ragioneSociale)
+  const name = companyName
+  const searches = [
+    fetchSearchResults(`"${name}" ${city} titolare fondatore CEO amministratore delegato presidente`),
+    fetchSearchResults(`"${name}" ${city} linkedin.com/in direttore responsabile`),
+    fetchSearchResults(`"${name}" "chi siamo" "il nostro team" ${city}`),
+  ]
 
   const results = await Promise.allSettled(searches)
   const allHtml = results.map(r => r.status === 'fulfilled' ? r.value : '').join('\n')
-
-  // Extract names from snippets — wide net
+  // Extract names from snippets — wide net (works with DuckDuckGo/Bing plain text)
   const patterns = [
+    // "Nome Cognome, titolare/CEO/fondatore..."
     /([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della|dei|degli|delle)\s+)?[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)?),?\s*(?:titolare|fondatore|proprietario|CEO|amministratore|legale rappresentante|socio|owner|founder|direttore|responsabile|presidente)/gi,
-    /(?:titolare|fondatore|proprietario|CEO|amministratore|owner|founder|direttore|presidente)\s+(?:(?:di|della|dell'|del)\s+\w+\s+)?(?:è\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della)?\s*[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    // "amministratore delegato è Nome Cognome" — allows extra words between role and name
+    /(?:titolare|fondatore|proprietario|CEO|amministratore(?:\s+(?:delegato|unico))?|owner|founder|direttore(?:\s+generale)?|presidente)\s+(?:(?:di|della|dell|del|dei)\s+)?(?:\w+\s+)?(?:è\s+|e\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della)?\s*[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    // "gestita/fondata da Nome Cognome"
     /(?:gestita|fondata|creata|diretta|amministrata|guidata)\s+da\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
-    // "DI NOME COGNOME" pattern from snippets (ditta individuale)
+    // "DI NOME COGNOME" pattern (ditta individuale)
     /\bDI\s+([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)?)\b/g,
-    // "dichiarato/a NOME COGNOME" from news articles
-    /(?:dichiarato|dichiarata|intervistato|intervistata|spiega|afferma|racconta|commenta)\s+([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+)/gi,
-    // "responsabile|direttore NOME COGNOME"
+    // "ha dichiarato/spiega Nome Cognome"
+    /(?:ha dichiarato|dichiarato|dichiarata|intervistato|intervistata|spiega|afferma|racconta|commenta|dice)\s+([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+)/gi,
+    // "responsabile|direttore Nome Cognome"
     /(?:responsabile|direttore|manager|head)\s+(?:\w+\s+)?([A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+)/gi,
+    // "Nome (Presidente/CEO)" — DDG format with role in parentheses
+    /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*\(\s*(?:Presidente|CEO|Fondatore|Amministratore|Vicepresidente|Direttore|AD|Titolare|Socio)[^)]*\)/gi,
+    // "a capo a Nome (Ruolo)" or "proprietà di Nome"
+    /(?:fa capo a|proprietà di|guidata da|guidato da|a capo di|alla guida)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){0,2})/gi,
+    // "è Nome Cognome" after a role mention within ~60 chars
+    /(?:amministratore delegato|AD|CEO|presidente|direttore generale|DG)\s+(?:\w+\s+){0,5}?è\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della)?\s*[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
   ]
 
   for (const pattern of patterns) {
@@ -444,6 +580,746 @@ async function scrapeWebsiteForPeople(website: string): Promise<{ nome: string; 
   return people.slice(0, 5)
 }
 
+// ── OpenCorporates.com FREE API — Officers/Directors ─────────
+
+async function scrapeOpenCorporates(companyName: string, city: string): Promise<{ nome: string; ruolo: string }[]> {
+  const people: { nome: string; ruolo: string }[] = []
+  try {
+    // Scrape OpenCorporates website directly (API requires paid token now)
+    const q = encodeURIComponent(companyName.replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s)\b\.?/gi, '').trim())
+    const res = await fetch(
+      `https://opencorporates.com/companies?q=${q}&jurisdiction_code=it`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'text/html', 'Accept-Language': 'it-IT,it;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    )
+    if (!res.ok) return []
+    const searchHtml = await res.text()
+    
+    // Extract first company link
+    const companyLink = searchHtml.match(/href="(\/companies\/it\/[^"]+)"/i)
+    if (!companyLink) return []
+    
+    // Fetch company page
+    const pageRes = await fetch(`https://opencorporates.com${companyLink[1]}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html',
+      },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!pageRes.ok) return []
+    const pageHtml = await pageRes.text()
+    const text = pageHtml.replace(/<[^>]+>/g, ' ')
+    
+    // Extract officers from the page
+    const officerPatterns = [
+      /(?:officer|director|amministratore|presidente|sindaco|consigliere|procuratore)\s*[:\-–]\s*([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/gi,
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*(?:,\s*|\s*[-–—]\s*)(?:amministratore|presidente|sindaco|consigliere|director|officer)/gi,
+    ]
+    
+    // Also try JSON-LD or structured data
+    const jsonLdMatch = pageHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi) || []
+    for (const block of jsonLdMatch) {
+      try {
+        const d = JSON.parse(block.replace(/<\/?script[^>]*>/gi, '').trim()) as any
+        if (d.member) {
+          for (const m of (Array.isArray(d.member) ? d.member : [d.member])) {
+            let name = m.name || ''
+            if (name.includes(',')) name = name.split(',').map((p: string) => p.trim()).reverse().join(' ')
+            if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+            if (isValidPersonName(name) && !people.find(p => p.nome.toLowerCase() === name.toLowerCase())) {
+              people.push({ nome: name, ruolo: m.roleName || m.jobTitle || 'Dirigente' })
+            }
+          }
+        }
+      } catch {}
+    }
+
+    for (const pat of officerPatterns) {
+      let m
+      while ((m = pat.exec(text)) !== null) {
+        let name = m[1]?.trim()
+        if (!name) continue
+        if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+        if (!isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('presidente') ? 'Presidente CdA' : ctx.includes('sindaco') ? 'Sindaco' :
+          ctx.includes('consigliere') ? 'Consigliere CdA' : ctx.includes('procuratore') ? 'Procuratore' : 'Amministratore'
+        people.push({ nome: name, ruolo })
+      }
+    }
+  } catch { /* OpenCorporates non raggiungibile */ }
+  return people.slice(0, 10)
+}
+
+// ── Enhanced CompanyReports.it — Extract ALL people (sindaci, consiglieri, soci %)
+
+async function scrapePeopleFromCompanyReportsEnhanced(piva: string): Promise<{ nome: string; ruolo: string; quota?: string }[]> {
+  if (!piva) return []
+  try {
+    const res = await fetch(`https://www.companyreports.it/${piva}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html',
+        'Accept-Language': 'it-IT,it;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return []
+    const html = await res.text()
+    if (html.length < 5000 || html.includes('<title>CompanyReports - Il fatturato')) return []
+
+    const people: { nome: string; ruolo: string; quota?: string }[] = []
+
+    // Extract from structured JSON-LD FAQ data (most reliable)
+    const jsonLdBlocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi) || []
+    for (const block of jsonLdBlocks) {
+      try {
+        const d = JSON.parse(block.replace(/<\/?script[^>]*>/gi, '').trim()) as any
+        const items = d.mainEntity || []
+        for (const item of items) {
+          const q = (item.name || '').toLowerCase()
+          const a: string = item.acceptedAnswer?.text || ''
+
+          // Amministratore
+          if (q.includes('amministratore') || q.includes('titolare') || q.includes('legale rappresentante')) {
+            const nameMatch = a.match(/(?:è|sono)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/i)
+            if (nameMatch?.[1] && isValidPersonName(nameMatch[1]) && !people.find(p => p.nome === nameMatch[1])) {
+              people.push({ nome: nameMatch[1].trim(), ruolo: q.includes('titolare') ? 'Titolare' : 'Amministratore' })
+            }
+          }
+          // Soci with percentages
+          if (q.includes('soci') || q.includes('azionisti') || q.includes('quote')) {
+            const sociEntries = a.match(/([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})\s*(?:\(?\s*(\d+[.,]?\d*)\s*%\s*\)?)?/g)
+            if (sociEntries) {
+              for (const entry of sociEntries) {
+                const match = entry.match(/([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})\s*(?:\(?\s*(\d+[.,]?\d*)\s*%)?/)
+                if (match?.[1]) {
+                  const clean = match[1].trim()
+                  if (isValidPersonName(clean) && !people.find(p => p.nome === clean)) {
+                    people.push({ nome: clean, ruolo: 'Socio', quota: match[2] ? `${match[2]}%` : undefined })
+                  }
+                }
+              }
+            }
+          }
+          // Sindaci / Revisori
+          if (q.includes('sindac') || q.includes('revisor') || q.includes('collegio')) {
+            const names = a.match(/([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/g)
+            if (names) {
+              for (const n of names) {
+                if (isValidPersonName(n) && !people.find(p => p.nome === n)) {
+                  people.push({ nome: n, ruolo: q.includes('presidente') ? 'Presidente Collegio Sindacale' : 'Sindaco' })
+                }
+              }
+            }
+          }
+          // Direttore Generale
+          if (q.includes('direttore') || q.includes('manager') || q.includes('responsabile')) {
+            const nameMatch = a.match(/(?:è|sono)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/i)
+            if (nameMatch?.[1] && isValidPersonName(nameMatch[1]) && !people.find(p => p.nome === nameMatch[1])) {
+              people.push({ nome: nameMatch[1].trim(), ruolo: 'Direttore Generale' })
+            }
+          }
+        }
+      } catch { /* ignore malformed JSON-LD */ }
+    }
+
+    // HTML table patterns for additional roles
+    const htmlPatterns = [
+      { regex: /Amministratore[^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Amministratore' },
+      { regex: /Presidente[^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Presidente CdA' },
+      { regex: /Sindac[oi][^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Sindaco' },
+      { regex: /Consiglier[ei][^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Consigliere CdA' },
+      { regex: /Direttore[^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Direttore Generale' },
+      { regex: /Procuratore[^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Procuratore' },
+      { regex: /Revisore[^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Revisore' },
+      { regex: /Socio[^<]*<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/gi, ruolo: 'Socio' },
+    ]
+    for (const { regex, ruolo } of htmlPatterns) {
+      let m
+      while ((m = regex.exec(html)) !== null) {
+        let name = m[1]?.trim()
+        if (!name) continue
+        if (name === name.toUpperCase() && name.length > 3) name = toTitleCase(name)
+        if (isValidPersonName(name) && !people.find(p => p.nome.toLowerCase() === name.toLowerCase())) {
+          people.push({ nome: name, ruolo })
+        }
+      }
+    }
+
+    return people
+  } catch { return [] }
+}
+
+// ── Google News — Executive mentions ─────────────────────────
+
+async function googleNewsPeople(companyName: string, city: string): Promise<{ nome: string; ruolo: string; contesto: string }[]> {
+  const people: { nome: string; ruolo: string; contesto: string }[] = []
+
+  // Helper to decode HTML entities in RSS
+  const decodeHtml = (s: string) => s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x27;/g, "'")
+
+  // Helper to extract text from RSS XML (titles + descriptions)
+  const extractRssText = (xml: string): string => {
+    const titles = (xml.match(/<title>([^<]{10,300})<\/title>/gi) || [])
+      .map(t => t.replace(/<\/?title>/gi, '').replace(/\s*-\s*[A-ZÀ-Ú][a-zA-ZÀ-ú\s.]{3,30}$/, ''))
+    const descs = (xml.match(/<description>([^<]{10,1000})<\/description>/gi) || [])
+      .map(d => d.replace(/<\/?description>/gi, '').replace(/<[^>]+>/g, ' '))
+    return [...titles, ...descs].map(decodeHtml).join('\n')
+  }
+
+  try {
+    // Run 3 different RSS queries in parallel for maximum coverage
+    const rssQueries = [
+      `"${companyName}" CEO OR fondatore OR amministratore OR direttore OR presidente`,
+      `"${companyName}" nomina OR "nuovo CEO" OR "amministratore delegato" OR "consiglio di amministrazione"`,
+      `"${companyName}" ${city} titolare OR socio OR "direttore generale" OR intervista`,
+    ]
+    const rssResults = await Promise.allSettled(
+      rssQueries.map(q =>
+        fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=it&gl=IT&ceid=IT:it`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          signal: AbortSignal.timeout(8000),
+        }).then(r => r.ok ? r.text() : '')
+      )
+    )
+    const allText = rssResults.map(r => r.status === 'fulfilled' ? extractRssText(r.value) : '').join('\n')
+
+    const patterns = [
+      // "Nome Cognome, CEO/fondatore/..." or "nominato CFO"
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})\s*(?:,\s*|\s+)(?:nominato|nuovo|è il nuovo|è il|confermato|eletto)\s+(?:CEO|CFO|CTO|COO|AD|amministratore delegato|direttore|presidente|fondatore|DG)/gi,
+      // "CEO/AD Nome Cognome"
+      /(?:CEO|AD|CFO|CTO|COO|amministratore delegato|direttore generale|presidente|fondatore)\s+(?:di\s+\w+\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+      // "Nome Cognome è il nuovo CEO"
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+(?:di|de|del|della)?\s*[A-ZÀ-Ú][a-zà-ú]+){1,2})\s+è il nuov[oa]\s+(?:CEO|AD|CFO|CTO|amministratore|direttore|presidente)/gi,
+      // "Barilla, Nome Cognome (da X) nominato Y"
+      /(?:^|,\s+)([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s+(?:\([^)]+\)\s+)?(?:nominat[oa]|nuovo|confermato|eletto)\s+(\w+)/gim,
+      // "ha dichiarato/spiega Nome Cognome"
+      /(?:ha dichiarato|ha spiegato|afferma|commenta|spiega|dice|racconta)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+      // "intervista a Nome Cognome" / "parla Nome Cognome"
+      /(?:intervista\s+a|parla|secondo)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+      // "Nome Cognome, presidente/direttore/socio di Barilla"
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2}),?\s+(?:presidente|direttore|socio|titolare|fondatore|CEO|AD|CFO)\s+(?:di|del|della|dell)/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(allText)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('ceo') || ctx.includes('amministratore delegato') || ctx.includes(' ad ') ? 'CEO/AD' :
+          ctx.includes('cfo') ? 'CFO' : ctx.includes('cto') ? 'CTO' : ctx.includes('coo') ? 'COO' :
+          ctx.includes('fondatore') ? 'Fondatore' : ctx.includes('presidente') ? 'Presidente' :
+          ctx.includes('titolare') ? 'Titolare' : ctx.includes('socio') ? 'Socio' :
+          ctx.includes('direttore') ? 'Direttore Generale' : 'Dirigente'
+        const titleIdx = allText.indexOf(m[0])
+        const line = allText.slice(Math.max(0, titleIdx - 20), Math.min(allText.length, titleIdx + m[0].length + 40)).trim()
+        people.push({ nome: name, ruolo, contesto: line.slice(0, 120) })
+      }
+    }
+  } catch { /* Google News RSS non raggiungibile */ }
+  return people.slice(0, 12)
+}
+
+// ── OpenAPI.it — Official Italian Company Registry (Registro Imprese) ────
+// Returns managers, shareholders, employees, legal representative
+// API docs: https://console.openapi.com/apis/company/documentation
+
+interface OpenApiManager {
+  name?: string
+  surname?: string
+  companyName?: string
+  roles?: { role?: { code?: string; description?: string }; roleStartDate?: string }[]
+  gender?: { code?: string; description?: string }
+  taxCode?: string
+  birthDate?: string
+  age?: number
+  birthTown?: string
+  isLegalRepresentative?: boolean
+}
+
+interface OpenApiShareholder {
+  shareholdersInformation?: { taxCode?: string; companyName?: string; sinceDate?: string; streetName?: string; name?: string; surname?: string }[]
+  percentShare?: number
+}
+
+interface OpenApiStakeholdersResponse {
+  data?: {
+    managers?: OpenApiManager[]
+    shareholders?: OpenApiShareholder[]
+    companyDetails?: { vatCode?: string; taxCode?: string; companyName?: string }
+    employees?: { employee?: number; employeeRange?: { description?: string }; employeeTrend?: number }
+    address?: { streetName?: string; town?: string; province?: { description?: string } }
+  }
+}
+
+async function openApiPeople(piva: string): Promise<{ nome: string; ruolo: string; cf?: string; data_nascita?: string; sesso?: string; eta?: string; quota?: string; isLegalRep?: boolean }[]> {
+  const token = process.env.OPENAPI_IT_TOKEN
+  if (!token || !piva) return []
+
+  const people: { nome: string; ruolo: string; cf?: string; data_nascita?: string; sesso?: string; eta?: string; quota?: string; isLegalRep?: boolean }[] = []
+  try {
+    // Clean P.IVA — remove IT prefix, spaces
+    const cleanPiva = piva.replace(/^IT/i, '').replace(/\s/g, '').trim()
+    if (cleanPiva.length < 11) return []
+
+    // Use /IT-advanced (FREE tier!) — returns shareholders with names, CF, %, ATECO, bilancio
+    const res = await fetch(`https://company.openapi.com/IT-advanced/${cleanPiva}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    const entries = json?.data as Array<Record<string, unknown>> | undefined
+    if (!entries || entries.length === 0) return []
+    const data = entries[0]
+
+    // Extract shareholders from /IT-advanced response
+    const shareholders = (data.shareHolders || []) as Array<{ name?: string; surname?: string; companyName?: string; taxCode?: string; percentShare?: number }>
+    for (const sh of shareholders) {
+      if (!sh.name || !sh.surname) continue
+      const nome = `${sh.name.charAt(0).toUpperCase()}${sh.name.slice(1).toLowerCase()} ${sh.surname.charAt(0).toUpperCase()}${sh.surname.slice(1).toLowerCase()}`
+      // First shareholder in a SRLS is typically the legal rep
+      const isFirst = shareholders.indexOf(sh) === 0
+      people.push({
+        nome,
+        ruolo: shareholders.length === 1 ? 'Socio Unico' : 'Socio',
+        cf: sh.taxCode || undefined,
+        quota: sh.percentShare ? `${sh.percentShare}%` : undefined,
+        isLegalRep: shareholders.length === 1 ? true : isFirst,
+      })
+    }
+
+    // If /IT-advanced worked but no shareholders found, try /IT-stakeholders as paid fallback
+    if (people.length === 0) {
+      const res2 = await fetch(`https://company.openapi.com/IT-stakeholders/${cleanPiva}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res2.ok) {
+        const json2 = (await res2.json()) as OpenApiStakeholdersResponse
+        const d2 = json2.data
+        if (d2) {
+          for (const mgr of d2.managers || []) {
+            if (!mgr.name || !mgr.surname) continue
+            const nome = `${mgr.name.charAt(0).toUpperCase()}${mgr.name.slice(1).toLowerCase()} ${mgr.surname.charAt(0).toUpperCase()}${mgr.surname.slice(1).toLowerCase()}`
+            const roleDesc = mgr.roles?.[0]?.role?.description || 'Dirigente'
+            const roleMap: Record<string, string> = {
+              'Managing director': 'Amministratore Unico',
+              'Sole owner': 'Socio Unico',
+              'Chairman of the board of directors': 'Presidente CdA',
+              'Director': 'Consigliere',
+              'Special representative/agent': 'Procuratore Speciale',
+              'General manager': 'Direttore Generale',
+              'Auditor': 'Sindaco',
+              'Chairman of the board of auditors': 'Presidente Collegio Sindacale',
+              'Liquidator': 'Liquidatore',
+              'Holder': 'Titolare',
+            }
+            const ruolo = roleMap[roleDesc] || roleDesc
+            people.push({
+              nome,
+              ruolo: mgr.isLegalRepresentative ? `${ruolo} (Legale Rappresentante)` : ruolo,
+              cf: mgr.taxCode || undefined,
+              data_nascita: mgr.birthDate ? mgr.birthDate.split('T')[0] : undefined,
+              sesso: mgr.gender?.code === 'M' ? 'M' : mgr.gender?.code === 'F' ? 'F' : undefined,
+              eta: mgr.age ? String(mgr.age) : undefined,
+              isLegalRep: mgr.isLegalRepresentative || false,
+            })
+          }
+        }
+      }
+    }
+  } catch { /* OpenAPI.it non raggiungibile */ }
+  return people
+}
+
+// ── Google search for cached Visure Camerali ─────────────────
+
+async function googleVisuraPeople(companyName: string, city: string): Promise<{ nome: string; ruolo: string }[]> {
+  const people: { nome: string; ruolo: string }[] = []
+  try {
+    const allText = await fetchSearchResults(`"${companyName}" ${city} "visura camerale" organigramma "consiglio di amministrazione" "collegio sindacale" revisore`, 8000)
+
+    const patterns = [
+      /(?:amministratore|consigliere|sindaco|revisore|presidente|direttore|procuratore)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—]\s*(?:amministratore|consigliere|sindaco|presidente|direttore)/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(allText)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('sindaco') ? 'Sindaco' : ctx.includes('consigliere') ? 'Consigliere CdA' :
+          ctx.includes('revisore') ? 'Revisore' : ctx.includes('presidente') ? 'Presidente' :
+          ctx.includes('direttore') ? 'Direttore' : ctx.includes('procuratore') ? 'Procuratore' : 'Amministratore'
+        people.push({ nome: name, ruolo })
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 8)
+}
+
+// ── Per-person contact enrichment via Google ─────────────────
+
+async function enrichPersonContact(
+  personName: string, companyName: string, city: string, companyDomain: string
+): Promise<{ email?: string; telefono?: string; linkedin?: string }> {
+  const result: { email?: string; telefono?: string; linkedin?: string } = {}
+  try {
+    const allText = await fetchSearchResults(`"${personName}" "${companyName}" email telefono linkedin ${city}`, 6000)
+
+    // LinkedIn URL
+    const liMatch = allText.match(/linkedin\.com\/in\/([a-z0-9_-]+)/i)
+    if (liMatch) result.linkedin = `https://www.linkedin.com/in/${liMatch[1]}`
+
+    // Email (skip generic/platform emails)
+    const text = allText
+    const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi) || []
+    for (const e of emailMatch) {
+      const el = e.toLowerCase()
+      if (el.includes('google') || el.includes('example') || el.includes('noreply') || el.includes('privacy') || el.includes('cookie')) continue
+      // Prefer emails on company domain
+      if (companyDomain && el.includes(companyDomain.replace(/^www\./, '').split('/')[0])) {
+        result.email = el
+        break
+      }
+      if (!result.email) result.email = el
+    }
+
+    // Phone (Italian mobile: 3xx, landline: 0xx)
+    const phoneMatch = text.match(/(?:\+39\s?)?(?:3[0-9]{2}[\s.-]?\d{3}[\s.-]?\d{4}|0[0-9]{1,3}[\s.-]?\d{4,8})/g)
+    if (phoneMatch?.[0]) result.telefono = phoneMatch[0].replace(/[\s.-]/g, '')
+  } catch { /* non raggiungibile */ }
+  return result
+}
+
+// ── Reportaziende.it — FREE company reports with people ──────
+
+async function scrapeReportaziende(companyName: string, piva: string | null): Promise<{ nome: string; ruolo: string }[]> {
+  const people: { nome: string; ruolo: string }[] = []
+  try {
+    const q = piva || companyName
+    // Search for reportaziende page via DuckDuckGo/Bing
+    const searchText = await fetchSearchResults(`reportaziende.it "${q}"`, 6000)
+    // Also try direct URL on reportaziende
+    let text = searchText
+    const urlMatch = searchText.match(/reportaziende\.it\/[^\s"'<>]+/i)
+    if (urlMatch) {
+      try {
+        const pageRes = await fetch(`https://www.${urlMatch[0].replace(/^www\./, '')}`, {
+          headers: SEARCH_HEADERS, signal: AbortSignal.timeout(8000),
+        })
+        if (pageRes.ok) {
+          const pageHtml = await pageRes.text()
+          text += ' ' + pageHtml.replace(/<[^>]+>/g, ' ')
+        }
+      } catch {}
+    }
+
+    const patterns = [
+      /(?:amministratore|presidente|sindaco|consigliere|direttore|titolare|socio|revisore|procuratore|liquidatore)\s*(?:unico|delegato|generale)?\s*:?\s*([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/gi,
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—]\s*(?:amministratore|presidente|sindaco|consigliere|direttore|titolare|socio)/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(text)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('presidente') ? 'Presidente' : ctx.includes('sindaco') ? 'Sindaco' :
+          ctx.includes('consigliere') ? 'Consigliere CdA' : ctx.includes('direttore') ? 'Direttore' :
+          ctx.includes('socio') ? 'Socio' : ctx.includes('revisore') ? 'Revisore' :
+          ctx.includes('titolare') ? 'Titolare' : ctx.includes('procuratore') ? 'Procuratore' : 'Amministratore'
+        people.push({ nome: name, ruolo })
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 8)
+}
+
+// ── Indeed.it — Job postings reveal org structure ─────────────
+
+async function scrapeIndeedPeople(companyName: string, city: string): Promise<{ nome: string; ruolo: string }[]> {
+  const people: { nome: string; ruolo: string }[] = []
+  try {
+    const text = await fetchSearchResults(`"${companyName}" ${city} indeed.com glassdoor.it fondatore CEO titolare direttore`, 6000)
+    const patterns = [
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2}),?\s*(?:CEO|fondatore|titolare|direttore|owner|founder|managing director)/gi,
+      /(?:CEO|fondatore|titolare|owner|founder)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(text)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('ceo') ? 'CEO' : ctx.includes('fondatore') || ctx.includes('founder') ? 'Fondatore' :
+          ctx.includes('direttore') || ctx.includes('director') ? 'Direttore' : 'Titolare'
+        people.push({ nome: name, ruolo })
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 5)
+}
+
+// ── Facebook business page — team/about info ─────────────────
+
+async function scrapeFacebookPeople(companyName: string, city: string): Promise<{ nome: string; ruolo: string }[]> {
+  const people: { nome: string; ruolo: string }[] = []
+  try {
+    const text = await fetchSearchResults(`facebook.com "${companyName}" ${city} fondatore titolare proprietario CEO owner`, 6000)
+    const patterns = [
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—·|]\s*(?:fondatore|titolare|proprietario|CEO|owner|direttore|manager)/gi,
+      /(?:fondatore|titolare|proprietario|CEO|owner)\s*[-–—:·|]\s*([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(text)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('ceo') ? 'CEO' : ctx.includes('fondatore') || ctx.includes('founder') ? 'Fondatore' :
+          ctx.includes('proprietario') || ctx.includes('owner') ? 'Proprietario' : 'Titolare'
+        people.push({ nome: name, ruolo })
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 5)
+}
+
+// ── Crunchbase/AngelList via Google — startup founders ────────
+
+async function scrapeCrunchbasePeople(companyName: string): Promise<{ nome: string; ruolo: string }[]> {
+  const people: { nome: string; ruolo: string }[] = []
+  try {
+    const text = await fetchSearchResults(`"${companyName}" crunchbase.com wellfound.com founder co-founder CEO fondatore`, 6000)
+    const patterns = [
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—·|,]\s*(?:founder|co-founder|CEO|CTO|COO|CFO|fondatore|co-fondatore)/gi,
+      /(?:founder|co-founder|CEO|fondatore)\s*[-–—:·|,]\s*([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(text)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('cto') ? 'CTO' : ctx.includes('coo') ? 'COO' : ctx.includes('cfo') ? 'CFO' :
+          ctx.includes('co-found') || ctx.includes('co-fond') ? 'Co-Fondatore' : ctx.includes('ceo') ? 'CEO' : 'Fondatore'
+        people.push({ nome: name, ruolo })
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 5)
+}
+
+// ── Google DEEP — ultra-aggressive multi-query people search ─
+
+async function googleDeepPeopleSearch(companyName: string, ragioneSociale: string | null, city: string, piva: string | null): Promise<{ nome: string; ruolo: string; fonte: string }[]> {
+  const people: { nome: string; ruolo: string; fonte: string }[] = []
+  const cn = ragioneSociale || companyName
+  try {
+    const queries = [
+      `"${cn}" ${city} "amministratore delegato" CEO presidente fondatore "consiglio di amministrazione"`,
+      `"${cn}" ${city} sindaco revisore direttore socio azionista procuratore`,
+      ...(piva ? [`"${piva}" amministratore presidente titolare`] : []),
+    ]
+    // Run via rate-limited queue (max 2 concurrent)
+    const batch = await Promise.allSettled(queries.map(q => fetchSearchResults(q, 8000)))
+    const allText = batch
+      .map(r => r.status === 'fulfilled' ? r.value : '')
+      .join('\n')
+
+    const extractionPatterns = [
+      // "Name, CEO di Company"
+      { pat: /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2}),?\s*(?:CEO|AD|CTO|COO|CFO|amministratore delegato|direttore generale|DG|presidente|fondatore|fondatrice)/gi, roleIdx: 0 },
+      // "CEO Company Name Surname"
+      { pat: /(?:CEO|AD|CTO|COO|CFO|amministratore delegato|presidente|fondatore|direttore generale)\s+(?:di\s+)?(?:\w+\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi, roleIdx: 0 },
+      // "ha dichiarato Name Surname"
+      { pat: /(?:ha dichiarato|ha spiegato|afferma|commenta|spiega|racconta|dice)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi, roleIdx: 0 },
+      // "amministratore: Name" or "sindaco: Name"
+      { pat: /(?:amministratore|presidente|sindaco|consigliere|revisore|direttore|procuratore|titolare|socio)\s*(?:unico|delegato|generale)?\s*:?\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,3})/gi, roleIdx: 0 },
+      // "Name — amministratore"
+      { pat: /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—]\s*(?:amministratore|presidente|sindaco|consigliere|direttore|fondatore|socio|titolare|CEO|AD)/gi, roleIdx: 0 },
+    ]
+    for (const { pat } of extractionPatterns) {
+      let m
+      while ((m = pat.exec(allText)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('ceo') || ctx.includes('amministratore delegato') ? 'CEO' :
+          ctx.includes('cto') ? 'CTO' : ctx.includes('coo') ? 'COO' : ctx.includes('cfo') ? 'CFO' :
+          ctx.includes('presidente') ? 'Presidente' : ctx.includes('fondatore') || ctx.includes('fondatrice') ? 'Fondatore' :
+          ctx.includes('direttore generale') || ctx.includes(' dg') ? 'Direttore Generale' :
+          ctx.includes('sindaco') ? 'Sindaco' : ctx.includes('consigliere') ? 'Consigliere CdA' :
+          ctx.includes('revisore') ? 'Revisore' : ctx.includes('procuratore') ? 'Procuratore' :
+          ctx.includes('socio') || ctx.includes('azionista') ? 'Socio' :
+          ctx.includes('titolare') ? 'Titolare' : ctx.includes('responsabile') || ctx.includes('head') ? 'Responsabile' :
+          ctx.includes('direttore') ? 'Direttore' : 'Dirigente'
+        people.push({ nome: name, ruolo, fonte: 'Google Search' })
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 10)
+}
+
+// ── Website FULL scraping — ALL pages for team/staff ─────────
+
+async function scrapeWebsiteAllPages(website: string): Promise<{ nome: string; ruolo: string; email?: string }[]> {
+  if (!website) return []
+  const people: { nome: string; ruolo: string; email?: string }[] = []
+  try {
+    const base = website.replace(/\/$/, '')
+    const pagesToCheck = [
+      '/team', '/il-team', '/chi-siamo', '/about', '/about-us', '/lo-staff',
+      '/staff', '/contatti', '/contacts', '/azienda', '/company', '/persone',
+      '/management', '/organizzazione', '/la-nostra-storia', '/storia',
+    ]
+    // Fetch homepage + team pages in parallel (max 4 at a time)
+    const fetchPage = async (url: string): Promise<string> => {
+      try {
+        const r = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Accept: 'text/html',
+          },
+          signal: AbortSignal.timeout(5000),
+          redirect: 'follow',
+        })
+        if (!r.ok) return ''
+        const ct = r.headers.get('content-type') || ''
+        if (!ct.includes('text/html')) return ''
+        return await r.text()
+      } catch { return '' }
+    }
+
+    // First try homepage to find team page links
+    const homeHtml = await fetchPage(base)
+    const foundLinks: string[] = []
+    if (homeHtml) {
+      const linkMatches = homeHtml.match(/href=["']([^"']*(?:team|staff|chi-siamo|about|contatti|management|azienda|persone|organizzazione)[^"']*)["']/gi) || []
+      for (const lm of linkMatches) {
+        const href = lm.replace(/href=["']/i, '').replace(/["']$/, '')
+        if (href.startsWith('http')) foundLinks.push(href)
+        else if (href.startsWith('/')) foundLinks.push(base + href)
+      }
+    }
+
+    // Merge with standard paths (deduplicated)
+    const allUrls = new Set<string>([...foundLinks, ...pagesToCheck.map(p => base + p)])
+    const urlArray = Array.from(allUrls).slice(0, 8) // max 8 pages
+
+    const pages = await Promise.allSettled(urlArray.map(u => fetchPage(u)))
+    const allHtml = [homeHtml, ...pages.map(p => p.status === 'fulfilled' ? p.value : '')].join('\n')
+    const text = allHtml.replace(/<[^>]+>/g, ' ')
+
+    // Extract people patterns
+    const patterns = [
+      /(?:CEO|fondatore|titolare|presidente|direttore|manager|responsabile|socio|partner)\s*[-–—:·|]\s*([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+      /([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—·|]\s*(?:CEO|fondatore|titolare|presidente|direttore|manager|responsabile|socio|partner|founder|owner)/gi,
+      /(?:Dott\.?|Ing\.?|Avv\.?|Arch\.?|Geom\.?|Rag\.?|Prof\.?)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})/gi,
+    ]
+    for (const pat of patterns) {
+      let m
+      while ((m = pat.exec(text)) !== null) {
+        const name = m[1]?.trim()
+        if (!name || !isValidPersonName(name)) continue
+        if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+        const ctx = m[0].toLowerCase()
+        const ruolo = ctx.includes('ceo') ? 'CEO' : ctx.includes('fondatore') || ctx.includes('founder') ? 'Fondatore' :
+          ctx.includes('presidente') ? 'Presidente' : ctx.includes('direttore') ? 'Direttore' :
+          ctx.includes('titolare') || ctx.includes('owner') ? 'Titolare' :
+          ctx.includes('dott') ? 'Professionista' : ctx.includes('avv') ? 'Avvocato' :
+          ctx.includes('ing') ? 'Ingegnere' : ctx.includes('arch') ? 'Architetto' :
+          ctx.includes('responsabile') || ctx.includes('manager') ? 'Responsabile' : 'Team Member'
+        people.push({ nome: name, ruolo })
+      }
+    }
+
+    // Extract emails associated with names
+    const emailPatterns = allHtml.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi) || []
+    const domain = base.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+    for (const email of emailPatterns) {
+      if (!email.toLowerCase().includes(domain)) continue
+      // Try to match email prefix to a person name (e.g. mario.rossi@ → Mario Rossi)
+      const prefix = email.split('@')[0].replace(/[._-]/g, ' ').trim()
+      const parts = prefix.split(/\s+/)
+      if (parts.length >= 2) {
+        const guessName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
+        if (isValidPersonName(guessName)) {
+          const existing = people.find(p => p.nome.toLowerCase() === guessName.toLowerCase())
+          if (existing) {
+            existing.email = email.toLowerCase()
+          } else {
+            people.push({ nome: guessName, ruolo: 'Dipendente', email: email.toLowerCase() })
+          }
+        }
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 10)
+}
+
+// ── LinkedIn company employees via Google ─────────────────────
+
+async function scrapeLinkedInEmployees(companyName: string, city: string): Promise<{ nome: string; ruolo: string; linkedin?: string }[]> {
+  const people: { nome: string; ruolo: string; linkedin?: string }[] = []
+  try {
+    const allHtml = await fetchSearchResults(`linkedin.com/in "${companyName}" ${city} CEO fondatore direttore amministratore`, 8000)
+
+    // Parse LinkedIn results from text snippets
+    const text = allHtml
+    const liSnippets = text.match(/([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—·|]\s*([^-–—·|]{3,40})\s*[-–—·|]\s*[^|]*LinkedIn/gi) || []
+    for (const snippet of liSnippets) {
+      const m = snippet.match(/([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,2})\s*[-–—·|]\s*([^-–—·|]{3,40})/i)
+      if (!m) continue
+      const name = m[1]?.trim()
+      const role = m[2]?.trim()
+      if (!name || !isValidPersonName(name)) continue
+      if (people.find(p => p.nome.toLowerCase() === name.toLowerCase())) continue
+      // Extract LinkedIn URL
+      const urlIdx = allHtml.toLowerCase().indexOf(name.toLowerCase())
+      let linkedinUrl: string | undefined
+      if (urlIdx > 0) {
+        const nearby = allHtml.slice(Math.max(0, urlIdx - 500), urlIdx + 500)
+        const urlMatch = nearby.match(/linkedin\.com\/in\/([a-z0-9_-]+)/i)
+        if (urlMatch) linkedinUrl = `https://www.linkedin.com/in/${urlMatch[1]}`
+      }
+      const ruolo = role && role.length > 2 && role.length < 40 ? role : 'Dipendente'
+      people.push({ nome: name, ruolo, linkedin: linkedinUrl })
+    }
+
+    // Also extract from URL slugs
+    const slugMatches = allHtml.match(/linkedin\.com\/in\/([a-z0-9_-]+)/gi) || []
+    for (const slug of slugMatches) {
+      const parts = slug.replace(/.*linkedin\.com\/in\//i, '').replace(/\/.*/, '').split('-').filter(p => p.length > 1 && !/^\d+$/.test(p))
+      if (parts.length >= 2 && parts.length <= 4) {
+        const name = parts.slice(0, Math.min(parts.length, 3)).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+        if (isValidPersonName(name) && !people.find(p => p.nome.toLowerCase() === name.toLowerCase())) {
+          people.push({ nome: name, ruolo: 'Dipendente', linkedin: `https://www.${slug}` })
+        }
+      }
+    }
+  } catch { /* non raggiungibile */ }
+  return people.slice(0, 8)
+}
+
 // ── MAIN: Enrich people for a company ─────────────────────────
 
 export async function enrichPeople(
@@ -466,7 +1342,7 @@ export async function enrichPeople(
   titolareEta: number | null = null,
 ): Promise<PeopleEnrichmentResult> {
   const fonti: string[] = []
-  const allPeople: { nome: string; ruolo: string; fonte: string; cf?: string; data_nascita?: string; sesso?: string; eta?: number }[] = []
+  const allPeople: { nome: string; ruolo: string; fonte: string; cf?: string; data_nascita?: string; sesso?: string; eta?: number; email?: string; telefono?: string; linkedin?: string; foto_url?: string; quota?: string }[] = []
 
   // Build a set of company name variants to exclude from person results
   const companyNames = new Set<string>()
@@ -531,52 +1407,174 @@ export async function enrichPeople(
     }
   }
 
-  // 2-4. Run all external searches in parallel
-  const [crPeople, googlePeople, websitePeople] = await Promise.allSettled([
-    piva ? scrapePeopleFromCompanyReports(piva) : Promise.resolve([]),
-    googleSearchPeople(companyName, ragioneSociale, city),
+  // 2-13. Run ALL external searches in parallel — MAXIMUM FREE coverage
+  // NOTE: Sources using search engines (DDG/Bing/Google) are DISABLED because they
+  // all trigger CAPTCHA/bot detection when doing fetch(). Only DIRECT sources work:
+  // - CompanyReports (direct URL), OpenCorporates (direct), Google News RSS, Website scraping
+  const [
+    crPeople,         // CompanyReports basic
+    crPeopleEnh,      // CompanyReports enhanced (sindaci, consiglieri, soci %)
+    openApiResult,    // OpenAPI.it /IT-advanced (FREE!) — shareholders, bilancio, ATECO
+    websitePeople,    // Website privacy/chi-siamo
+    ocPeople,         // OpenCorporates (officers/directors)
+    newsPeople,       // Google News RSS (WORKS — XML feed, no CAPTCHA)
+    visuraPeople,     // DISABLED — DDG/Bing blocked
+    reportPeople,     // DISABLED — DDG/Bing blocked
+    indeedPeople,     // DISABLED — DDG/Bing blocked
+    fbPeople,         // DISABLED — DDG/Bing blocked
+    crunchPeople,     // DISABLED — DDG/Bing blocked
+    deepGooglePeople, // DISABLED — DDG/Bing blocked
+    websiteFullPeople, // Full website scraping (team/staff/about pages)
+    linkedinPeople,   // DISABLED — DDG/Bing blocked
+  ] = await Promise.allSettled([
+    scrapePeopleFromCompanyReports(piva || '', companyName),
+    piva ? scrapePeopleFromCompanyReportsEnhanced(piva) : Promise.resolve([]),
+    piva ? openApiPeople(piva) : Promise.resolve([]),  // OpenAPI.it /IT-advanced (FREE!)
     scrapeWebsiteForPeople(website),
+    scrapeOpenCorporates(companyName, city),
+    googleNewsPeople(companyName, city),               // RSS feed — WORKS
+    Promise.resolve([] as { nome: string; ruolo: string }[]),                  // googleVisuraPeople — DISABLED
+    Promise.resolve([] as { nome: string; ruolo: string }[]),                  // scrapeReportaziende — DISABLED
+    Promise.resolve([] as { nome: string; ruolo: string }[]),                  // scrapeIndeedPeople — DISABLED
+    Promise.resolve([] as { nome: string; ruolo: string }[]),                  // scrapeFacebookPeople — DISABLED
+    Promise.resolve([] as { nome: string; ruolo: string }[]),                  // scrapeCrunchbasePeople — DISABLED
+    Promise.resolve([] as { nome: string; ruolo: string; fonte: string }[]),   // googleDeepPeopleSearch — DISABLED
+    scrapeWebsiteAllPages(website),
+    Promise.resolve([] as { nome: string; ruolo: string; linkedin?: string }[]) // scrapeLinkedInEmployees — DISABLED
   ])
 
+  // Track which sources each name comes from for confidence scoring
+  const nameSourceMap = new Map<string, Set<string>>()
+  const addPerson = (p: { nome: string; ruolo: string; fonte?: string; quota?: string; email?: string; telefono?: string; linkedin?: string; foto_url?: string }, sourceName: string) => {
+    if (!p.nome || isCompanyName(p.nome) || !isValidPersonName(p.nome)) return
+    const key = p.nome.toLowerCase()
+    if (!nameSourceMap.has(key)) nameSourceMap.set(key, new Set())
+    nameSourceMap.get(key)!.add(sourceName)
+    const existing = allPeople.find(ap => ap.nome.toLowerCase() === key)
+    if (existing) {
+      // Merge: keep best data from each source
+      if (p.email && !existing.email) existing.email = p.email
+      if (p.telefono && !existing.telefono) existing.telefono = p.telefono
+      if (p.linkedin && !existing.linkedin) existing.linkedin = p.linkedin
+      if (p.foto_url && !existing.foto_url) existing.foto_url = p.foto_url
+      if (p.quota && !existing.quota) existing.quota = p.quota
+      // Upgrade role if new one is more specific
+      const specificRoles = ['CEO', 'Amministratore Unico', 'Presidente CdA', 'Fondatore', 'Direttore Generale']
+      if (specificRoles.includes(p.ruolo) && !specificRoles.includes(existing.ruolo)) {
+        existing.ruolo = p.ruolo
+      }
+    } else {
+      allPeople.push({ ...p, fonte: p.fonte || sourceName })
+    }
+  }
+
+  // CompanyReports basic
   if (crPeople.status === 'fulfilled' && crPeople.value.length > 0) {
     fonti.push('Registro Imprese (CompanyReports)')
-    for (const p of crPeople.value) {
-      if (!isCompanyName(p.nome) && !allPeople.find(ap => ap.nome.toLowerCase() === p.nome.toLowerCase())) {
-        allPeople.push({ ...p, fonte: 'Registro Imprese' })
-      }
-    }
+    for (const p of crPeople.value) addPerson({ ...p, fonte: 'Registro Imprese' }, 'CompanyReports')
   }
 
-  if (googlePeople.status === 'fulfilled' && googlePeople.value.length > 0) {
-    for (const p of googlePeople.value) {
-      if (!isCompanyName(p.nome) && !allPeople.find(ap => ap.nome.toLowerCase() === p.nome.toLowerCase())) {
-        if (!fonti.includes(p.fonte)) fonti.push(p.fonte)
-        allPeople.push(p)
-      }
-    }
+  // CompanyReports enhanced (sindaci, consiglieri, soci with %)
+  if (crPeopleEnh.status === 'fulfilled' && crPeopleEnh.value.length > 0) {
+    if (!fonti.includes('Registro Imprese (CompanyReports)')) fonti.push('Registro Imprese (CompanyReports)')
+    for (const p of crPeopleEnh.value) addPerson({ ...p, fonte: 'Registro Imprese' }, 'CompanyReports')
   }
 
+  // OpenCorporates (FREE API — officers/directors)
+  if (ocPeople.status === 'fulfilled' && ocPeople.value.length > 0) {
+    fonti.push('OpenCorporates')
+    for (const p of ocPeople.value) addPerson({ ...p, fonte: 'OpenCorporates' }, 'OpenCorporates')
+  }
+
+  // Google Search — DISABLED (replaced by OpenAPI.it)
+  // (slot now used by openApiResult above)
+
+  // Website scraping
   if (websitePeople.status === 'fulfilled' && websitePeople.value.length > 0) {
     fonti.push('Privacy Policy / Chi Siamo')
-    for (const p of websitePeople.value) {
-      if (!isCompanyName(p.nome) && !allPeople.find(ap => ap.nome.toLowerCase() === p.nome.toLowerCase())) {
-        allPeople.push({ ...p, fonte: 'Sito web (Privacy/Chi siamo)' })
-      }
-    }
+    for (const p of websitePeople.value) addPerson({ ...p, fonte: 'Sito web (Privacy/Chi siamo)' }, 'Sito web')
+  }
+
+  // Google News
+  if (newsPeople.status === 'fulfilled' && newsPeople.value.length > 0) {
+    fonti.push('Google News')
+    for (const p of newsPeople.value) addPerson({ ...p, fonte: 'Google News' }, 'News')
+  }
+
+  // Google Visura Camerale
+  if (visuraPeople.status === 'fulfilled' && visuraPeople.value.length > 0) {
+    if (!fonti.includes('Visura Camerale')) fonti.push('Visura Camerale')
+    for (const p of visuraPeople.value) addPerson({ ...p, fonte: 'Visura Camerale' }, 'Visura')
+  }
+
+  // Reportaziende.it
+  if (reportPeople.status === 'fulfilled' && reportPeople.value.length > 0) {
+    fonti.push('Reportaziende.it')
+    for (const p of reportPeople.value) addPerson({ ...p, fonte: 'Reportaziende.it' }, 'Reportaziende')
+  }
+
+  // Indeed.it / Glassdoor
+  if (indeedPeople.status === 'fulfilled' && indeedPeople.value.length > 0) {
+    fonti.push('Indeed/Glassdoor')
+    for (const p of indeedPeople.value) addPerson({ ...p, fonte: 'Indeed/Glassdoor' }, 'Indeed')
+  }
+
+  // Facebook business pages
+  if (fbPeople.status === 'fulfilled' && fbPeople.value.length > 0) {
+    fonti.push('Facebook')
+    for (const p of fbPeople.value) addPerson({ ...p, fonte: 'Facebook' }, 'Facebook')
+  }
+
+  // Crunchbase / AngelList / Startup register
+  if (crunchPeople.status === 'fulfilled' && crunchPeople.value.length > 0) {
+    fonti.push('Crunchbase/Startup')
+    for (const p of crunchPeople.value) addPerson({ ...p, fonte: 'Crunchbase' }, 'Crunchbase')
+  }
+
+  // Google DEEP search (ultra-aggressive 10 queries)
+  if (deepGooglePeople.status === 'fulfilled' && deepGooglePeople.value.length > 0) {
+    if (!fonti.includes('Google Search')) fonti.push('Google Search')
+    for (const p of deepGooglePeople.value) addPerson({ ...p, fonte: p.fonte || 'Google Search' }, 'Google Deep')
+  }
+
+  // Website FULL scraping (all team/staff/about pages + email-to-name)
+  if (websiteFullPeople.status === 'fulfilled' && websiteFullPeople.value.length > 0) {
+    if (!fonti.includes('Sito web aziendale')) fonti.push('Sito web aziendale')
+    for (const p of websiteFullPeople.value) addPerson({ ...p, fonte: 'Sito web (scraping completo)' }, 'Sito web completo')
+  }
+
+  // LinkedIn employees via Google
+  if (linkedinPeople.status === 'fulfilled' && linkedinPeople.value.length > 0) {
+    if (!fonti.includes('LinkedIn')) fonti.push('LinkedIn')
+    for (const p of linkedinPeople.value) addPerson({ ...p, fonte: 'LinkedIn' }, 'LinkedIn')
   }
 
   // Extract name from LinkedIn URL slug if we have it
-  if (linkedinPerson && allPeople.length === 0) {
+  if (linkedinPerson) {
     const slug = linkedinPerson.replace(/.*linkedin\.com\/in\//i, '').replace(/\/.*/, '')
     const parts = slug.split('-').filter(p => p.length > 1 && !/^\d+$/.test(p))
     if (parts.length >= 2) {
       const name = parts.slice(0, Math.min(parts.length, 3)).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
       if (isValidPersonName(name)) {
-        fonti.push('LinkedIn')
-        allPeople.push({ nome: name, ruolo: 'Referente (LinkedIn)', fonte: 'LinkedIn' })
+        const key = name.toLowerCase()
+        const existing = allPeople.find(ap => ap.nome.toLowerCase() === key)
+        if (existing) {
+          if (!existing.linkedin) existing.linkedin = linkedinPerson
+          if (!nameSourceMap.has(key)) nameSourceMap.set(key, new Set())
+          nameSourceMap.get(key)!.add('LinkedIn')
+        } else {
+          fonti.push('LinkedIn')
+          allPeople.push({ nome: name, ruolo: 'Referente (LinkedIn)', fonte: 'LinkedIn', linkedin: linkedinPerson })
+          nameSourceMap.set(key, new Set(['LinkedIn']))
+        }
       }
     }
   }
+
+  // ── Per-person contact enrichment — DISABLED (uses DDG/Bing which triggers CAPTCHA)
+  // TODO: Re-enable when Playwright-based search is available on CKB backend
+  // const companyDomain = website ? website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : ''
+  // const realNamedPeople = allPeople.filter(p => isValidPersonName(p.nome)).slice(0, 5)
 
   // ── Generate role-based profiles even when no names found ──
   // Normalize legal form: handle both abbreviations AND full Italian text
@@ -593,6 +1591,29 @@ export async function enrichPeople(
   const isStudio = /studio|associazione\s+professionale/.test(fgRaw)
   const isCooperativa = /cooperativa|coop|scarl|scrl/.test(fgRaw)
   const fg = isSRLS ? 'SRLS' : isSRL ? 'SRL' : isSPA ? 'SPA' : isSNC ? 'SNC' : isSAS ? 'SAS' : isDitta ? 'DITTA' : isStudio ? 'STUDIO' : isCooperativa ? 'COOP' : ''
+
+  // OpenAPI.it /IT-advanced (FREE!) — shareholders with names, CF, %
+  if (openApiResult.status === 'fulfilled' && openApiResult.value.length > 0) {
+    fonti.push('Registro Imprese (OpenAPI.it)')
+    for (const p of openApiResult.value) {
+      const person: { nome: string; ruolo: string; fonte: string; cf?: string; quota?: string } = {
+        nome: p.nome, ruolo: p.ruolo, fonte: 'Registro Imprese (Ufficiale)',
+      }
+      if (p.cf) (person as Record<string, unknown>).cf = p.cf
+      if (p.quota) person.quota = p.quota
+      addPerson(person, 'OpenAPI.it')
+      // Enrich with CF/birth data if legal representative
+      if (p.isLegalRep) {
+        const existing = allPeople.find(ap => ap.nome.toLowerCase() === p.nome.toLowerCase())
+        if (existing) {
+          if (p.cf && !existing.cf) existing.cf = p.cf
+          if (p.data_nascita && !existing.data_nascita) existing.data_nascita = p.data_nascita
+          if (p.sesso && !existing.sesso) existing.sesso = p.sesso
+          if (p.eta && !existing.eta) existing.eta = Number(p.eta)
+        }
+      }
+    }
+  }
 
   if (allPeople.length === 0) {
     fonti.push('Analisi forma giuridica')
@@ -629,19 +1650,30 @@ export async function enrichPeople(
     }
   }
 
-  // Build profiles with insurance recommendations
-  const persone: PersonInsuranceProfile[] = allPeople.slice(0, 8).map(p => {
+  // Build profiles with insurance recommendations + contact data + confidence
+  const persone: PersonInsuranceProfile[] = allPeople.slice(0, 15).map(p => {
     const ruoloNorm = normalizeRole(p.ruolo)
     const isGeneric = !isValidPersonName(p.nome) // nome generico (non trovato specifico)
+    const key = p.nome.toLowerCase()
+    const sources = nameSourceMap.get(key)
+    const sourceCount = sources?.size || 1
+    // Confidence: 30 base + 15 per additional source, max 100
+    const confidenza = isGeneric ? 10 : Math.min(100, 30 + (sourceCount - 1) * 15 + (p.cf ? 20 : 0) + (p.linkedin ? 10 : 0) + (p.email ? 5 : 0))
     return {
       nome: p.nome,
-      ruolo: p.ruolo,
+      ruolo: p.quota ? `${p.ruolo} (${p.quota})` : p.ruolo,
       ruolo_normalizzato: ruoloNorm,
       fonte: p.fonte,
+      fonti_multiple: sources ? Array.from(sources) : [p.fonte],
+      confidenza,
       ...(p.cf ? { codice_fiscale: p.cf } : {}),
       ...(p.data_nascita ? { data_nascita: p.data_nascita } : {}),
       ...(p.sesso ? { sesso: p.sesso } : {}),
       ...(p.eta ? { eta: p.eta } : {}),
+      ...(p.email ? { email: p.email } : {}),
+      ...(p.telefono ? { telefono: p.telefono } : {}),
+      ...(p.linkedin ? { linkedin: p.linkedin } : {}),
+      ...(p.foto_url ? { foto_url: p.foto_url } : {}),
       polizze_personali: getPersonalInsurance(ruoloNorm, categoria, formaGiuridica),
       rischi_personali: getPersonalRisks(ruoloNorm, formaGiuridica),
       note: isGeneric
@@ -652,6 +1684,14 @@ export async function enrichPeople(
         ? 'RC Professionale obbligatoria per legge'
         : null,
     }
+  })
+
+  // Sort by confidence (highest first) then by role priority
+  const rolePriority: Record<string, number> = { titolare: 0, amministratore: 1, dirigente: 2, professionista: 3, socio: 4, dipendente_chiave: 5, altro: 6 }
+  persone.sort((a, b) => {
+    const confDiff = b.confidenza - a.confidenza
+    if (Math.abs(confDiff) > 10) return confDiff
+    return (rolePriority[a.ruolo_normalizzato] || 6) - (rolePriority[b.ruolo_normalizzato] || 6)
   })
 
   // Team-level recommendations based on count and form

@@ -1157,7 +1157,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
           <div>
             <p className="text-sm font-semibold text-violet-700">Ricerca persone chiave...</p>
-            <p className="text-xs text-violet-500">Scraping registro imprese, fonti pubbliche</p>
+            <p className="text-xs text-violet-500">Scraping registro imprese, OpenCorporates, Google, sito web, news...</p>
           </div>
         </div>
       ) : peopleData?.persone?.length > 0 ? (
@@ -1168,7 +1168,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <Users className="w-4 h-4 text-violet-600" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">Persone Chiave — Polizze Personali</h3>
+                <h3 className="font-bold text-base text-slate-900">Persone Chiave — Intelligence Assicurativa</h3>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider">
                   {peopleData.fonti?.join(' · ')} — {peopleData.totale_trovate > 0 ? `${peopleData.totale_trovate} persone identificate` : 'Profili obbligatori per forma giuridica'}
                 </p>
@@ -1195,15 +1195,20 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${
-                      p.ruolo_normalizzato === 'titolare' ? 'bg-gradient-to-br from-amber-200 to-orange-200 text-orange-800' :
-                      p.ruolo_normalizzato === 'amministratore' ? 'bg-gradient-to-br from-blue-200 to-indigo-200 text-indigo-800' :
-                      p.ruolo_normalizzato === 'professionista' ? 'bg-gradient-to-br from-emerald-200 to-green-200 text-green-800' :
-                      p.ruolo_normalizzato === 'socio' ? 'bg-gradient-to-br from-purple-200 to-violet-200 text-violet-800' :
-                      'bg-gradient-to-br from-slate-200 to-gray-200 text-slate-700'
-                    }`}>
-                      {p.nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </div>
+                    {p.foto_url ? (
+                      <img src={p.foto_url} alt={p.nome} className="w-10 h-10 rounded-full object-cover border-2 border-violet-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${
+                        p.ruolo_normalizzato === 'titolare' ? 'bg-gradient-to-br from-amber-200 to-orange-200 text-orange-800' :
+                        p.ruolo_normalizzato === 'amministratore' ? 'bg-gradient-to-br from-blue-200 to-indigo-200 text-indigo-800' :
+                        p.ruolo_normalizzato === 'professionista' ? 'bg-gradient-to-br from-emerald-200 to-green-200 text-green-800' :
+                        p.ruolo_normalizzato === 'socio' ? 'bg-gradient-to-br from-purple-200 to-violet-200 text-violet-800' :
+                        p.ruolo_normalizzato === 'dirigente' ? 'bg-gradient-to-br from-cyan-200 to-blue-200 text-blue-800' :
+                        'bg-gradient-to-br from-slate-200 to-gray-200 text-slate-700'
+                      }`}>
+                        {p.nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-bold text-slate-900">
                         {p.nome}
@@ -1212,10 +1217,23 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                             {p.eta} anni{p.sesso === 'F' ? ' · Donna' : p.sesso === 'M' ? ' · Uomo' : ''}
                           </span>
                         )}
+                        {p.confidenza > 0 && (
+                          <span className={`ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            p.confidenza >= 70 ? 'bg-emerald-100 text-emerald-700' :
+                            p.confidenza >= 40 ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>{p.confidenza}%</span>
+                        )}
                       </p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-slate-500">{p.ruolo}</span>
-                        <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.fonte}</span>
+                        {p.fonti_multiple?.length > 1 ? (
+                          <span className="text-[9px] text-violet-600 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded font-medium">
+                            {p.fonti_multiple.length} fonti: {p.fonti_multiple.join(', ')}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.fonte}</span>
+                        )}
                         {p.codice_fiscale && (
                           <span className="text-[9px] font-mono text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">
                             C.F. {p.codice_fiscale}
@@ -1229,14 +1247,37 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       </div>
                     </div>
                   </div>
-                  {p.note && (
-                    <span className={`text-[9px] font-bold px-2 py-1 rounded-lg ${
-                      p.ruolo_normalizzato === 'titolare' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                      p.ruolo_normalizzato === 'professionista' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                      'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}>{p.note}</span>
-                  )}
+                  <div className="flex flex-col items-end gap-1">
+                    {p.note && (
+                      <span className={`text-[9px] font-bold px-2 py-1 rounded-lg ${
+                        p.ruolo_normalizzato === 'titolare' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                        p.ruolo_normalizzato === 'professionista' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                        'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>{p.note}</span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Contact info row */}
+                {(p.email || p.telefono || p.linkedin) && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {p.email && (
+                      <a href={`mailto:${p.email}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1 rounded-lg transition-colors">
+                        <Mail className="w-3 h-3" /> {p.email}
+                      </a>
+                    )}
+                    {p.telefono && (
+                      <a href={`tel:${p.telefono}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-2 py-1 rounded-lg transition-colors">
+                        <Phone className="w-3 h-3" /> {p.telefono}
+                      </a>
+                    )}
+                    {p.linkedin && (
+                      <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-medium text-[#0077B5] bg-sky-50 hover:bg-sky-100 border border-sky-100 px-2 py-1 rounded-lg transition-colors">
+                        <Linkedin className="w-3 h-3" /> LinkedIn
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 {p.polizze_personali?.length > 0 && (
                   <div className="mb-2">
@@ -1276,7 +1317,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           {/* Disclaimer accuratezza */}
           <div className="mt-4 p-3 rounded-xl bg-amber-50/60 border border-amber-200/50">
             <p className="text-[9px] text-amber-700 leading-relaxed">
-              <span className="font-bold">&#9888; Nota:</span> I nomi provengono da fonti pubbliche (Registro Imprese, privacy policy) e potrebbero contenere imprecisioni. Le polizze personali sono <span className="font-bold">raccomandazioni basate sul ruolo e sulla forma giuridica</span>, non preventivi reali. Verificare sempre i dati prima di contattare il lead.
+              <span className="font-bold">&#9888; Nota:</span> I dati provengono da fonti pubbliche (Registro Imprese, CompanyReports, OpenCorporates, privacy policy, Google News). Le polizze personali sono <span className="font-bold">raccomandazioni basate sul ruolo e sulla forma giuridica</span>, non preventivi reali. Verificare sempre i dati prima di contattare il lead.
             </p>
           </div>
         </div>
