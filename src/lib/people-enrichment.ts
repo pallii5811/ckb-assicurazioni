@@ -97,7 +97,10 @@ async function _doFetchSearch(query: string, timeoutMs: number): Promise<string>
 
 // ── Name validation (shared) ───────────────────────────────────────────
 
-const NAME_BLOCKLIST = /visura|camerale|registro|imprese|bilancio|fatturato|companyreport|company|report|societa|azienda|impresa|italia|partita iva|codice fiscale|sede legale|capitale sociale|amministrazione|informazioni|contatti|cookie|privacy|home|assistenza|servizi|supporto|ufficio|numero|telefono|email|indirizzo|orario|apertura|chiusura|lavora con noi|mappa|dove siamo|chi siamo|pagina|sito|website|google|facebook|linkedin|twitter|instagram|youtube|tiktok|whatsapp|costruzioni|ristorante|studio|impresa|ditta|bottega|gruppo|holding|fondazione|associazione|seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|articolo|paragrafo|sezione|titolare|responsabile|incaricato|interessato|destinatario|garante|autorita|disposizione|finalita|modalita|comunicazione|diffusione|profilazione|automatizzato|legittimo|interesse|necessario|obbligatorio|facoltativo|conferimento|periodo|conservazione|opposizione|reclamo|diritto|revoca|portabilita|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cleaning|consulenza|cooperativa|header|footer|sidebar|navbar|tbody|thead|tfoot|wrapper|container|content|section|button|submit|input|label|checkbox|radio|select|option|textarea|dropdown|modal|tooltip|popover|carousel|slider|widget|plugin|script|style|class|table|column|field|value|null|undefined|default|error|warning|success|loading|pending|active|disabled|hidden|visible|display|block|inline|flex|grid|margin|padding|border|width|height|color|background|font|text|image|icon|logo|menu|navigation|breadcrumb|pagination|search|filter|sort|toggle|collapse|expand|close|open|prev|next|click|hover|focus|scroll|resize|none|auto|inherit|important|pixel|viewport|media|query|responsive|breakpoint|desktop|mobile|tablet|portrait|landscape|animation|transition|transform|opacity|shadow|radius|gradient/i
+const NAME_BLOCKLIST = /visura|camerale|registro|imprese|bilancio|fatturato|companyreport|company|report|societa|azienda|impresa|italia|partita iva|codice fiscale|sede legale|capitale sociale|amministrazione|informazioni|contatti|cookie|privacy|home|assistenza|servizi|supporto|ufficio|numero|telefono|email|indirizzo|orario|apertura|chiusura|lavora con noi|mappa|dove siamo|chi siamo|pagina|sito|website|google|facebook|linkedin|twitter|instagram|youtube|tiktok|whatsapp|costruzioni|ristorante|studio|impresa|ditta|bottega|gruppo|holding|fondazione|associazione|seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|articolo|paragrafo|sezione|titolare|responsabile|incaricato|interessato|destinatario|garante|autorita|disposizione|finalita|modalita|comunicazione|diffusione|profilazione|automatizzato|legittimo|interesse|necessario|obbligatorio|facoltativo|conferimento|periodo|conservazione|opposizione|reclamo|diritto|revoca|portabilita|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cleaning|consulenza|cooperativa|customer|service|support|sales|marketing|commercial|booking|reservation|prenotazion|reception|dispatch|spedizion|logistic|warehouse|magazzino|operation|billing|account|finance|procurement|purchase|hr |human.resource|recruitment|webmaster|postmaster|noreply|no.reply|newsletter|subscribe|unsubscribe|header|footer|sidebar|navbar|tbody|thead|tfoot|wrapper|container|content|section|button|submit|input|label|checkbox|radio|select|option|textarea|dropdown|modal|tooltip|popover|carousel|slider|widget|plugin|script|style|class|table|column|field|value|null|undefined|default|error|warning|success|loading|pending|active|disabled|hidden|visible|display|block|inline|flex|grid|margin|padding|border|width|height|color|background|font|text|image|icon|logo|menu|navigation|breadcrumb|pagination|search|filter|sort|toggle|collapse|expand|close|open|prev|next|click|hover|focus|scroll|resize|none|auto|inherit|important|pixel|viewport|media|query|responsive|breakpoint|desktop|mobile|tablet|portrait|landscape|animation|transition|transform|opacity|shadow|radius|gradient/i
+
+// Blocklist for functional/generic email prefixes that are NOT person names
+const EMAIL_PREFIX_BLOCKLIST = /^(info|admin|contact|contatti|help|support|supporto|service|servizio|sales|vendite|marketing|commercial|commerciale|booking|prenotazioni|reservation|reception|accoglienza|dispatch|spedizioni|logistica|warehouse|magazzino|operations|billing|fatturazione|accounts|contabilita|finance|finanza|procurement|acquisti|purchase|hr|humanresources|recruitment|selezione|webmaster|postmaster|noreply|newsletter|subscribe|press|stampa|media|ufficio|direzione|segreteria|sede|filiale|agenzia|succursale|customer|custom|client|utente|shop|store|negozio|order|ordini|delivery|consegna|tracking|resi|reclami|qualita|tecnico|assistenza|laboratorio|produzione|arco|centro|nord|sud|est|ovest|roma|milano|torino|napoli|firenze|bologna|genova|palermo|catania|bari|verona|padova|brescia|modena|parma|aosta|cagliari|trieste|trento|perugia|ancona|potenza|campobasso)$/i
 
 // Additional blocklist for single words that are never Italian first/last names
 const WORD_BLOCKLIST = /^(the|and|for|with|from|that|this|have|been|were|are|was|not|but|all|can|had|her|his|how|its|may|new|now|old|our|out|own|say|she|too|use|way|who|why|also|back|been|come|each|find|from|give|good|have|help|here|high|just|know|last|left|like|long|look|made|make|many|more|most|much|must|name|need|next|only|over|part|same|some|such|take|tell|than|them|then|time|turn|upon|very|want|well|went|what|when|will|work|year|your|about|after|again|being|below|could|every|first|found|great|house|large|later|never|offer|order|other|place|point|right|shall|since|small|start|state|still|their|there|these|thing|think|those|three|under|until|using|which|while|world|would|write|call|col|div|span|href|link|meta|body|head|html|form|data|type|void|main|aside|thead|tfoot|tbody|param|xmlns|cdata|doctype|colspan|rowspan|cellpadding|cellspacing|align|valign|nowrap|bgcolor)$/i
@@ -131,11 +134,16 @@ const ITALIAN_FIRST_NAMES = new Set([
   'silvano','tiziano','tullio','valerio','walter','giampaolo','pierluigi','giampiero','gianpiero','gianmarco',
 ])
 
+// Corporate roles that should never be treated as person names
+const ROLE_AS_NAME_BLOCKLIST = /^(amministratore delegato|amministratore unico|amministratore|presidente cda|presidente del consiglio|presidente collegio sindacale|collegio sindacale|consiglio di amministrazione|consigliere delegato|consigliere|sindaco effettivo|sindaco supplente|sindaco|revisore legale|revisore contabile|revisore|direttore generale|direttore tecnico|direttore commerciale|direttore|procuratore speciale|procuratore|liquidatore|socio unico|socio accomandatario|socio accomandante|rappresentante legale|legale rappresentante|organo di controllo|organo amministrativo|titolare effettivo|responsabile tecnico|institore|preposto)$/i
+
 function isValidPersonName(name: string): boolean {
   if (!name || name.length < 5 || name.length > 50) return false
   // Convert ALL CAPS to Title Case before validation
   let check = name
   if (check === check.toUpperCase() && check.length > 3) check = toTitleCase(check)
+  // Block corporate role titles used as names
+  if (ROLE_AS_NAME_BLOCKLIST.test(check.trim())) return false
   if (NAME_BLOCKLIST.test(check)) return false
   if (LEGAL_FORM_BLOCKLIST.test(check)) return false
   // Must have at least 2 words (nome + cognome)
@@ -898,8 +906,9 @@ async function openApiPeople(piva: string): Promise<{ nome: string; ruolo: strin
       })
     }
 
-    // If /IT-advanced worked but no shareholders found, try /IT-stakeholders as paid fallback
-    if (people.length === 0) {
+    // ALWAYS try /IT-stakeholders for managers/administrators (especially for SPA/large companies)
+    // Even if we found shareholders, we still need to know WHO manages the company
+    {
       const res2 = await fetch(`https://company.openapi.com/IT-stakeholders/${cleanPiva}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         signal: AbortSignal.timeout(10000),
@@ -908,9 +917,11 @@ async function openApiPeople(piva: string): Promise<{ nome: string; ruolo: strin
         const json2 = (await res2.json()) as OpenApiStakeholdersResponse
         const d2 = json2.data
         if (d2) {
+          const existingNames = new Set(people.map(p => p.nome.toLowerCase()))
           for (const mgr of d2.managers || []) {
             if (!mgr.name || !mgr.surname) continue
             const nome = `${mgr.name.charAt(0).toUpperCase()}${mgr.name.slice(1).toLowerCase()} ${mgr.surname.charAt(0).toUpperCase()}${mgr.surname.slice(1).toLowerCase()}`
+            if (existingNames.has(nome.toLowerCase())) continue
             const roleDesc = mgr.roles?.[0]?.role?.description || 'Dirigente'
             const roleMap: Record<string, string> = {
               'Managing director': 'Amministratore Unico',
@@ -934,6 +945,7 @@ async function openApiPeople(piva: string): Promise<{ nome: string; ruolo: strin
               eta: mgr.age ? String(mgr.age) : undefined,
               isLegalRep: mgr.isLegalRepresentative || false,
             })
+            existingNames.add(nome.toLowerCase())
           }
         }
       }
@@ -1258,9 +1270,14 @@ async function scrapeWebsiteAllPages(website: string): Promise<{ nome: string; r
     for (const email of emailPatterns) {
       if (!email.toLowerCase().includes(domain)) continue
       // Try to match email prefix to a person name (e.g. mario.rossi@ → Mario Rossi)
-      const prefix = email.split('@')[0].replace(/[._-]/g, ' ').trim()
+      const rawPrefix = email.split('@')[0].toLowerCase()
+      // Skip functional/generic emails (info@, customer.service@, support@, etc.)
+      const prefixWords = rawPrefix.replace(/[._-]/g, ' ').trim().split(/\s+/)
+      const isFunctionalEmail = prefixWords.some(w => EMAIL_PREFIX_BLOCKLIST.test(w))
+      if (isFunctionalEmail) continue
+      const prefix = rawPrefix.replace(/[._-]/g, ' ').trim()
       const parts = prefix.split(/\s+/)
-      if (parts.length >= 2) {
+      if (parts.length >= 2 && parts.length <= 3) {
         const guessName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
         if (isValidPersonName(guessName)) {
           const existing = people.find(p => p.nome.toLowerCase() === guessName.toLowerCase())
@@ -1612,6 +1629,67 @@ export async function enrichPeople(
           if (p.eta && !existing.eta) existing.eta = Number(p.eta)
         }
       }
+    }
+  }
+
+  // ─── Perplexity AI fallback: find real people when all other sources failed ───
+  if (allPeople.length === 0) {
+    const pplxKey = process.env.PERPLEXITY_API_KEY
+    const pplxCompanyName = ragioneSociale || companyName
+    if (pplxKey && pplxCompanyName) {
+      try {
+        const pivaInfo = piva ? ` (P.IVA: ${piva})` : ''
+        const pplxPrompt = `Cerca le persone chiave dell'azienda italiana "${pplxCompanyName}"${pivaInfo} con sede a ${city || 'Italia'}.
+
+Trova:
+1. Titolare, Amministratore Delegato, Presidente, Legale Rappresentante (NOME E COGNOME reale)
+2. Soci principali con percentuale di quota se disponibile
+3. Direttori, dirigenti chiave
+
+ISTRUZIONI:
+- Cerca SOLO nomi reali di persone fisiche, NON nomi di aziende
+- Fonti: Registro Imprese, visure camerali, LinkedIn, siti aziendali, articoli stampa
+- Se non trovi un dato, NON inventarlo
+- Rispondi SOLO con JSON valido
+
+Formato:
+{"persone": [{"nome": "Nome Cognome", "ruolo": "Amministratore Delegato", "cf": null, "quota": "30%"}]}`
+
+        const pplxRes = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${pplxKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'sonar-pro',
+            messages: [
+              { role: 'system', content: 'Sei un analista aziendale. Rispondi SOLO con JSON valido. Cerca dati reali verificabili.' },
+              { role: 'user', content: pplxPrompt },
+            ],
+            temperature: 0.1,
+            max_tokens: 800,
+          }),
+          signal: AbortSignal.timeout(20000),
+        })
+        if (pplxRes.ok) {
+          const pplxJson = await pplxRes.json()
+          const content = pplxJson.choices?.[0]?.message?.content || ''
+          const jsonMatch = content.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            const aiData = JSON.parse(jsonMatch[0])
+            for (const p of (aiData.persone || [])) {
+              if (!p.nome || typeof p.nome !== 'string' || p.nome.length < 4) continue
+              if (!isValidPersonName(p.nome)) continue
+              allPeople.push({
+                nome: p.nome,
+                ruolo: p.ruolo || 'Dirigente',
+                cf: p.cf || undefined,
+                quota: p.quota || undefined,
+                fonte: 'Perplexity AI (ricerca web)',
+              })
+            }
+            if (allPeople.length > 0) fonti.push('Perplexity AI')
+          }
+        }
+      } catch { /* Perplexity non disponibile */ }
     }
   }
 

@@ -155,7 +155,21 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const citta = isNonEmptyString(lead?.citta) ? lead.citta : isNonEmptyString(lead?.city) ? lead.city : ''
   const categoria = isNonEmptyString(lead?.categoria) ? lead.categoria : isNonEmptyString(lead?.category) ? lead.category : ''
 
-  const telefono = isNonEmptyString(lead?.telefono) ? lead.telefono : isNonEmptyString(lead?.phone) ? lead.phone : ''
+  const rawTelefono = isNonEmptyString(lead?.telefono) ? lead.telefono : isNonEmptyString(lead?.phone) ? lead.phone : ''
+  // Filter out P.IVA numbers that end up in phone field (11 digits, no +/prefix, not starting with 0 or 3)
+  const telefono = (() => {
+    if (!rawTelefono) return ''
+    const parts = rawTelefono.split(/[\/,;]+/).map((p: string) => p.trim()).filter((p: string) => {
+      const d = p.replace(/\D/g, '')
+      if (!d) return false
+      // P.IVA: exactly 11 digits, doesn't start with 0 or 3 (not a phone)
+      if (d.length === 11 && !/^[03]/.test(d)) return false
+      // Too short or too long for Italian phone
+      if (d.length < 6 || d.length > 13) return false
+      return true
+    })
+    return parts.join(' / ')
+  })()
   const email = isNonEmptyString(lead?.email) ? lead.email : ''
   const sitoRaw = isNonEmptyString(lead?.sito) ? lead.sito : isNonEmptyString(lead?.website) ? lead.website : isNonEmptyString(lead?.url) ? lead.url : ''
   const sitoHref = sitoRaw ? toHref(sitoRaw) : ''
@@ -382,8 +396,8 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       }),
     })
       .then((r) => r.json())
-      .then((d) => setTriggersData(d))
-      .catch(() => setTriggersData(null))
+      .then((d) => { console.log('[TRIGGERS] Dati ricevuti:', d?.triggers?.length, 'trigger, summary:', d?.summary); setTriggersData(d) })
+      .catch((err) => { console.error('[TRIGGERS] Fetch fallito:', err); setTriggersData(null) })
       .finally(() => setLoadingTriggers(false))
 
     // Fetch people enrichment in parallel
@@ -904,8 +918,20 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Referente</span>
               </div>
               {(() => {
-                const refName = registry?.titolare || clayData.personName || null
-                const refRole = registry?.titolare ? 'Titolare / Legale Rappresentante' : (clayData.personRole || null)
+                const isCompanyName = (n: string) => /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh|inc|corp)\b/i.test(n)
+                const rawTitolare = registry?.titolare || null
+                // Try: 1) registry titolare, 2) Clay person, 3) first REAL person from peopleData (skip placeholders with confidenza<=10)
+                const realPeople = (peopleData?.persone || []).filter((p: any) => p.confidenza > 10)
+                const topPerson = realPeople.find((p: any) => /titolare|amministratore|socio unico|presidente|legale rappresentante/i.test(p.ruolo || ''))
+                  || realPeople[0]
+                const refName = (rawTitolare && !isCompanyName(rawTitolare)) ? rawTitolare
+                  : (clayData.personName && !isCompanyName(clayData.personName)) ? clayData.personName
+                  : (topPerson?.nome && !isCompanyName(topPerson.nome)) ? topPerson.nome
+                  : null
+                const refRole = refName === rawTitolare ? 'Titolare / Legale Rappresentante'
+                  : refName === clayData.personName ? (clayData.personRole || null)
+                  : refName === topPerson?.nome ? (topPerson.ruolo || 'Dirigente')
+                  : null
                 const refPhoto = clayData.personPhoto || null
                 const refInitial = refName ? refName[0]?.toUpperCase() : '?'
                 if (!refName) return <p className="text-sm text-slate-400">Nessun referente trovato</p>
@@ -1026,6 +1052,17 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     const local = d.startsWith('39') && d.length > 10 ? d.slice(2) : d
                     if (local.length < 9 || local.length > 11) return false
                     if (/^(\d)\1{5,}$/.test(local)) return false
+                    // Block P.IVA: 11 digits not starting with 0 or 3 are P.IVA, not phones
+                    if (local.length === 11 && !/^[03]/.test(local)) return false
+                    // Block P.IVA patterns: 11 digits starting with 0 but with unusual structure
+                    // Real Italian landlines: 0xx-xxxxxxx (area code 2-4 digits + number)
+                    // P.IVA starting with 0: often 0xxxxxxxxxx with no valid area code pattern
+                    if (local.length === 11 && /^0\d{10}$/.test(local)) {
+                      // Check if it looks like a real phone: area codes are 02,06,010-099,0xx
+                      // Real phones starting with 0 and 11 digits would have +39 prefix making 13 total
+                      // Standalone 11-digit numbers starting with 0 are almost always P.IVA
+                      return false
+                    }
                     if (/^3[0-9]\d{8}$/.test(local)) return true
                     if (/^0[1-9]\d{6,9}$/.test(local)) return true
                     return false
@@ -1098,55 +1135,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               </div>
             </div>
 
-            {/* Card: Intelligence & Segnali */}
-            {(clayData.triggers?.length > 0 || clayData.estimatedPotential || clayData.employmentHistory?.length > 0) && (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <Shield className="w-4 h-4 text-amber-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Intelligence & Segnali</span>
-              </div>
-
-              {/* Triggers */}
-              {clayData.triggers?.length > 0 && (
-                <div className="mb-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {clayData.triggers.map((t: string, i: number) => (
-                      <span key={i} className="text-[9px] font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Estimated potential */}
-              {clayData.estimatedPotential && (
-                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Potenziale stimato</span>
-                  <span className="text-sm font-bold text-emerald-600">{clayData.estimatedPotential}</span>
-                </div>
-              )}
-
-              {/* Employment history */}
-              {clayData.employmentHistory?.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Briefcase className="w-3 h-3 text-slate-400" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Esperienza</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {clayData.employmentHistory.slice(0, 4).map((job: any, i: number) => (
-                      <div key={i} className="text-xs">
-                        <span className="font-medium text-slate-800">{job.title}</span>
-                        <span className="text-slate-400"> · {job.company}</span>
-                        {job.current && <span className="text-emerald-600 font-bold"> • Attuale</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            )}
+            {/* Intelligence & Segnali rimossa — spostata in Profilo Aziendale */}
           </div>
         </div>
       ) : null}
@@ -1206,12 +1195,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                         p.ruolo_normalizzato === 'dirigente' ? 'bg-gradient-to-br from-cyan-200 to-blue-200 text-blue-800' :
                         'bg-gradient-to-br from-slate-200 to-gray-200 text-slate-700'
                       }`}>
-                        {p.nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        {(p.confidenza <= 10 ? p.ruolo : p.nome)?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                       </div>
                     )}
                     <div>
                       <p className="text-sm font-bold text-slate-900">
-                        {p.nome}
+                        {p.confidenza <= 10 ? p.ruolo : p.nome}
                         {p.eta && (
                           <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
                             {p.eta} anni{p.sesso === 'F' ? ' · Donna' : p.sesso === 'M' ? ' · Uomo' : ''}
@@ -1225,6 +1214,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                           }`}>{p.confidenza}%</span>
                         )}
                       </p>
+                      {p.confidenza <= 10 && (
+                        <p className="text-[10px] text-amber-600 italic">Nome reale non identificato — ruolo obbligatorio per questa forma giuridica</p>
+                      )}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-slate-500">{p.ruolo}</span>
                         {p.fonti_multiple?.length > 1 ? (
@@ -1259,18 +1251,37 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 </div>
 
                 {/* Contact info row */}
-                {(p.email || p.telefono || p.linkedin) && (
+                {(() => {
+                  // Filter P.IVA from person phone field
+                  const pTel = (() => {
+                    if (!p.telefono) return null
+                    const d = p.telefono.replace(/\D/g, '')
+                    const local = d.startsWith('39') && d.length > 10 ? d.slice(2) : d
+                    if (local.length === 11) return null // 11-digit = P.IVA
+                    if (local.length < 6 || local.length > 13) return null
+                    return p.telefono
+                  })()
+                  return null // just compute pTel
+                })() || null}
+                {(p.email || (() => { const d = (p.telefono||'').replace(/\D/g,''); const l = d.startsWith('39')&&d.length>10?d.slice(2):d; return l.length>=6&&l.length<=10?p.telefono:null })() || p.linkedin) && (
                   <div className="mb-3 flex flex-wrap gap-2">
                     {p.email && (
                       <a href={`mailto:${p.email}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1 rounded-lg transition-colors">
                         <Mail className="w-3 h-3" /> {p.email}
                       </a>
                     )}
-                    {p.telefono && (
-                      <a href={`tel:${p.telefono}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-2 py-1 rounded-lg transition-colors">
-                        <Phone className="w-3 h-3" /> {p.telefono}
-                      </a>
-                    )}
+                    {(() => {
+                      if (!p.telefono) return null
+                      const d = p.telefono.replace(/\D/g, '')
+                      const local = d.startsWith('39') && d.length > 10 ? d.slice(2) : d
+                      if (local.length === 11) return null
+                      if (local.length < 6 || local.length > 10) return null
+                      return (
+                        <a href={`tel:${p.telefono}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-2 py-1 rounded-lg transition-colors">
+                          <Phone className="w-3 h-3" /> {p.telefono}
+                        </a>
+                      )
+                    })()}
                     {p.linkedin && (
                       <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-medium text-[#0077B5] bg-sky-50 hover:bg-sky-100 border border-sky-100 px-2 py-1 rounded-lg transition-colors">
                         <Linkedin className="w-3 h-3" /> LinkedIn
@@ -1323,155 +1334,290 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
       ) : null}
 
-      {/* ── B2B Trigger Assicurativi ── */}
+      {/* ── PROFILO AZIENDALE (in primo piano) ── */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-amber-500" />
+          <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-slate-600" />
           </div>
           <div>
             <h2 style={{
               fontSize: 15, fontWeight: 700, color: '#0F172A',
               fontFamily: 'Syne, sans-serif', margin: 0,
             }}>
-              Trigger Assicurativi B2B
+              Profilo Aziendale
             </h2>
             <p style={{
               fontSize: 12, color: '#94A3B8',
               fontFamily: 'DM Sans, sans-serif', margin: 0,
             }}>
-              Segnali finanziari, assunzioni, variazioni societarie e news rilevanti per la vendita
+              Dati camerali, finanziari e intelligence assicurativa
             </p>
           </div>
-          {triggersData?.summary && (
-            <div className="ml-auto flex items-center gap-2">
-              {triggersData.summary.high > 0 && (
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">
-                  {triggersData.summary.high} CRITICI
-                </span>
-              )}
-              {triggersData.summary.medium > 0 && (
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                  {triggersData.summary.medium} MEDI
-                </span>
-              )}
-              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                triggersData.summary.riskLevel === 'critical' ? 'bg-red-600 text-white' :
-                triggersData.summary.riskLevel === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
-                triggersData.summary.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                'bg-emerald-100 text-emerald-700 border border-emerald-200'
-              }`}>
-                RISCHIO {triggersData.summary.riskLevel === 'critical' ? 'CRITICO' :
-                  triggersData.summary.riskLevel === 'high' ? 'ALTO' :
-                  triggersData.summary.riskLevel === 'medium' ? 'MEDIO' : 'BASSO'}
-              </span>
-            </div>
-          )}
         </div>
 
-        {loadingTriggers ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 flex items-center gap-3">
-            <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+        {loadingRegistry ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
             <div>
-              <p className="text-sm font-semibold text-amber-700">Analisi trigger in corso...</p>
-              <p className="text-xs text-amber-500">Scanning annunci lavoro, registro imprese, notizie, analisi AI</p>
+              <p className="text-sm font-semibold text-slate-700">Caricamento profilo aziendale...</p>
+              <p className="text-xs text-slate-400">Scraping fonti pubbliche, VIES, CompanyReports, Tavily</p>
             </div>
           </div>
-        ) : triggersData?.triggers?.length > 0 ? (
-          <div className="space-y-3">
-            {triggersData.triggers.map((trigger: any, idx: number) => {
-              const sevKey = (trigger.severity as string) || 'low'
-              const severityMap: Record<string, { bg: string; border: string; badge: string; dot: string; iconColor: string }> = {
-                high: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700 border-red-200', dot: 'bg-red-500', iconColor: 'text-red-500' },
-                medium: { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500', iconColor: 'text-amber-500' },
-                low: { bg: 'bg-slate-50', border: 'border-slate-200', badge: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400', iconColor: 'text-slate-400' },
-              }
-              const severityConfig = severityMap[sevKey] || severityMap.low
+        ) : registry?.found === false ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
+            <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500 font-medium">Azienda non trovata</p>
+          </div>
+        ) : registry ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+            {registry.fonte === 'registro_imprese' ? (
+              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-xs text-emerald-700 font-medium">Dati verificati dal Registro Imprese</span>
+              </div>
+            ) : registry.fonte === 'vies_verificato' ? (
+              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-xs text-emerald-700 font-medium">P.IVA verificata tramite VIES</span>
+              </div>
+            ) : null}
 
-              const typeKey = (trigger.type as string) || 'risk_signal'
-              const iconMap: Record<string, React.ReactNode> = {
-                hiring: <UserPlus className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-                admin_change: <Users className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-                financial: <DollarSign className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-                expansion: <TrendingUp className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-                risk_signal: <AlertTriangle className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-                legal: <Scale className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-                news: <Newspaper className={`w-4 h-4 ${severityConfig.iconColor}`} />,
-              }
-              const typeIcon = iconMap[typeKey] || iconMap.risk_signal
-
-              const labelMap: Record<string, string> = {
-                hiring: 'Assunzioni',
-                admin_change: 'Variazione Societaria',
-                financial: 'Finanziario',
-                expansion: 'Espansione',
-                risk_signal: 'Rischio Settoriale',
-                legal: 'Legale',
-                news: 'Notizia',
-              }
-              const typeLabel = labelMap[typeKey] || typeKey
-
-              return (
-                <div key={idx} className={`${severityConfig.bg} border ${severityConfig.border} rounded-xl p-4 relative`}>
-                  <div className="flex items-start gap-3">
-                    {/* Timeline dot */}
-                    <div className="flex flex-col items-center gap-1 pt-0.5">
-                      <div className={`w-3 h-3 rounded-full ${severityConfig.dot} ring-4 ring-white shadow-sm`} />
-                      {idx < triggersData.triggers.length - 1 && (
-                        <div className="w-0.5 h-8 bg-slate-200" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        {typeIcon}
-                        <span className="text-sm font-bold text-slate-900">{trigger.title}</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${severityConfig.badge}`}>
-                          {trigger.severity === 'high' ? 'ALTO' : trigger.severity === 'medium' ? 'MEDIO' : 'BASSO'}
-                        </span>
-                        <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-white text-slate-500 border border-slate-200">
-                          {typeLabel}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-600 mb-2">{trigger.description}</p>
-
-                      {/* Insurance relevance */}
-                      <div className="flex items-start gap-1.5 bg-white/70 rounded-lg px-3 py-2 border border-white">
-                        <Shield className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                        <span className="text-[11px] text-blue-700 font-medium">{trigger.insuranceRelevance}</span>
-                      </div>
-
-                      <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
-                        {trigger.date && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {trigger.date}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {registry.ragione_sociale && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">Ragione sociale</p>
+                  <p className="text-sm font-bold text-slate-900">{registry.ragione_sociale}</p>
+                </div>
+              )}
+              {registry.titolare && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">
+                    Titolare / Referente
+                    {registry.titolare_fonte === 'privacy_policy_sito' ? (
+                      <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
+                    ) : registry.titolare_fonte === 'tavily' ? (
+                      <span className="ml-1.5 text-cyan-600 font-semibold">✓ Tavily</span>
+                    ) : null}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {registry.titolare}
+                    {registry.titolare_eta ? (
+                      <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+              )}
+              {registry.partita_iva && (
+                <div>
+                  <p className="text-xs text-gray-500">
+                    Partita IVA
+                    {registry.piva_verificata ? <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificata</span> : null}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900">IT {registry.partita_iva}</p>
+                </div>
+              )}
+              {registry.forma_giuridica && (
+                <div>
+                  <p className="text-xs text-gray-500">Forma giuridica</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.forma_giuridica}</p>
+                </div>
+              )}
+              {registry.codice_ateco && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">
+                    Codice ATECO
+                    {registry.ateco_stimato ? <span className="ml-1.5 text-amber-500 font-normal text-[10px]">(stimato)</span> : null}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {registry.codice_ateco}
+                    {registry.descrizione_ateco ? <span className="text-xs text-gray-400 font-normal ml-1.5">— {registry.descrizione_ateco}</span> : null}
+                  </p>
+                </div>
+              )}
+              {registry.fatturato && (
+                <div>
+                  <p className="text-xs text-gray-500">
+                    Fatturato
+                    {registry.fatturato_fonte ? (
+                      <span className={`ml-1.5 font-semibold ${registry.fatturato_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                        ✓ {registry.fatturato_fonte === 'companyreports.it' ? 'CompanyReports.it' : registry.fatturato_fonte === 'openapi.it' ? 'OpenAPI.it' : registry.fatturato_fonte === 'tavily' ? 'Tavily' : 'Registro Imprese'}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    € {registry.fatturato}
+                    {registry.fatturato_anno ? <span className="text-xs text-gray-400 font-normal ml-1">({registry.fatturato_anno})</span> : null}
+                  </p>
+                </div>
+              )}
+              {registry.dipendenti && (
+                <div>
+                  <p className="text-xs text-gray-500">
+                    Dipendenti
+                    {registry.dipendenti_fonte ? (
+                      <span className={`ml-1.5 font-semibold ${registry.dipendenti_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                        ✓ {registry.dipendenti_fonte === 'ufficio_camerale' ? 'Ufficio Camerale' : registry.dipendenti_fonte === 'companyreports.it' ? 'CompanyReports.it' : registry.dipendenti_fonte === 'openapi.it' ? 'OpenAPI.it' : registry.dipendenti_fonte === 'tavily' ? 'Tavily' : 'Registro Imprese'}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">{registry.dipendenti}</p>
+                </div>
+              )}
+              {registry.capitale_sociale && (
+                <div>
+                  <p className="text-xs text-gray-500">Capitale sociale</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.capitale_sociale}</p>
+                </div>
+              )}
+              {registry.costo_personale && (
+                <div>
+                  <p className="text-xs text-gray-500">Costo del personale</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {registry.costo_personale}</p>
+                </div>
+              )}
+              {registry.utile_netto && (
+                <div>
+                  <p className="text-xs text-gray-500">Utile Netto</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {registry.utile_netto}</p>
+                </div>
+              )}
+              {registry.classe_fatturato && (
+                <div>
+                  <p className="text-xs text-gray-500">Classe Fatturato</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.classe_fatturato}</p>
+                </div>
+              )}
+              {registry.data_costituzione && (
+                <div>
+                  <p className="text-xs text-gray-500">Data costituzione</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {registry.data_costituzione}
+                    {(() => {
+                      const y = parseInt(String(registry.data_costituzione).match(/\d{4}/)?.[0] || '0')
+                      if (y > 1900 && y <= new Date().getFullYear()) {
+                        const anni = new Date().getFullYear() - y
+                        return (
+                          <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${anni >= 20 ? 'bg-emerald-100 text-emerald-700' : anni >= 10 ? 'bg-blue-100 text-blue-700' : anni >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {anni} anni di attività
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          Fonte: {trigger.source}
-                        </span>
-                        {trigger.ai_generated ? (
-                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 border border-purple-200">
-                            ⚡ AI
-                          </span>
-                        ) : (
-                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
-                            ✓ VERIFICATO
-                          </span>
-                        )}
+                        )
+                      }
+                      return null
+                    })()}
+                  </p>
+                </div>
+              )}
+              {registry.sede_legale && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">
+                    Sede legale
+                    {registry.sede_legale_verificata ? <span className="ml-1.5 text-emerald-600 font-semibold">✓ VIES</span> : null}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.sede_legale}</p>
+                </div>
+              )}
+              {registry.pec && (
+                <div>
+                  <p className="text-xs text-gray-500">
+                    PEC
+                    {registry.pec_fonte ? (
+                      <span className="ml-1.5 text-emerald-600 font-semibold">✓ {registry.pec_fonte === 'inipec' ? 'INIPEC' : registry.pec_fonte === 'openapi.it' ? 'OpenAPI.it' : 'Registro Imprese'}</span>
+                    ) : null}
+                  </p>
+                  <p className="text-sm font-semibold text-blue-700">{registry.pec}</p>
+                </div>
+              )}
+              {registry.codice_rea && (
+                <div>
+                  <p className="text-xs text-gray-500">Codice REA</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.codice_rea}</p>
+                </div>
+              )}
+              {registry.stato && (
+                <div>
+                  <p className="text-xs text-gray-500">Stato</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.stato}</p>
+                </div>
+              )}
+              {registry.persone?.length > 0 && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500 mb-1">Persone Chiave</p>
+                  <div className="flex flex-wrap gap-2">
+                    {registry.persone.map((p: any, i: number) => (
+                      <div key={i} className="flex items-center gap-2 p-2 bg-violet-50 rounded-lg border border-violet-100">
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{p.nome}</p>
+                          <p className="text-[10px] text-slate-500">{p.ruolo}{p.quota ? ` · ${p.quota}` : ''}</p>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        ) : !loadingTriggers && triggersData ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-            <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-500 font-medium">Nessun trigger rilevato</p>
-            <p className="text-xs text-slate-400">Non sono stati trovati segnali B2B rilevanti per questa azienda</p>
+              )}
+              {registry.partita_iva && !registry.fatturato && !registry.dipendenti && (
+                <div className="md:col-span-2 mt-1 p-2.5 rounded-lg border border-amber-200 bg-amber-50">
+                  <p className="text-[11px] text-amber-800 font-medium">
+                    Fatturato e dipendenti non disponibili — probabilmente ditta individuale o micro impresa senza obbligo di deposito bilancio pubblico.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Intelligence Assicurativa */}
+            {(registry.certificazioni?.length > 0 || registry.ha_flotta_veicoli || registry.ha_immobili_proprieta || registry.partecipa_appalti_pubblici || registry.rischi_specifici?.length > 0 || registry.note_broker) && (
+              <div className="mt-4 p-4 rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50">
+                <p className="text-xs font-bold text-cyan-800 uppercase mb-3">Intelligence Assicurativa</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {registry.certificazioni?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-cyan-700 font-bold uppercase mb-1">Certificazioni</p>
+                      <div className="flex flex-wrap gap-1">
+                        {registry.certificazioni.map((c: string, i: number) => (
+                          <span key={i} className="text-[10px] bg-cyan-200 text-cyan-900 px-2 py-0.5 rounded font-bold">{c}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {registry.ha_flotta_veicoli && (
+                    <div>
+                      <p className="text-[10px] text-cyan-700 font-bold uppercase">Flotta Veicoli</p>
+                      <p className="text-xs text-slate-800">{registry.numero_veicoli ? `${registry.numero_veicoli} veicoli` : 'Presente'}</p>
+                    </div>
+                  )}
+                  {registry.ha_immobili_proprieta && (
+                    <div>
+                      <p className="text-[10px] text-cyan-700 font-bold uppercase">Immobili di Proprietà</p>
+                      <p className="text-xs text-slate-800">{registry.immobili_descrizione || 'Rilevati'}</p>
+                    </div>
+                  )}
+                  {registry.partecipa_appalti_pubblici && (
+                    <div>
+                      <p className="text-[10px] text-cyan-700 font-bold uppercase">Appalti Pubblici</p>
+                      <p className="text-xs text-slate-800">{registry.appalti_info || 'Partecipa a bandi/appalti'}</p>
+                    </div>
+                  )}
+                  {registry.rischi_specifici?.length > 0 && (
+                    <div className="md:col-span-2">
+                      <p className="text-[10px] text-red-700 font-bold uppercase mb-1">Rischi Specifici</p>
+                      <div className="flex flex-wrap gap-1">
+                        {registry.rischi_specifici.map((r: string, i: number) => (
+                          <span key={i} className="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold">{r}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {registry.note_broker && (
+                    <div className="md:col-span-2 mt-1 p-2 bg-amber-50 rounded-lg border border-amber-200">
+                      <p className="text-[10px] text-amber-700 font-bold uppercase mb-0.5">Note per il Broker</p>
+                      <p className="text-[11px] text-slate-700">{registry.note_broker}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
@@ -1891,258 +2037,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             )}
           </div>
 
-          <div className="bg-white rounded-2xl border 
-            border-slate-200 p-6 shadow-sm 
-            hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-8 h-8 rounded-xl 
-                bg-slate-100 border border-slate-200 
-                flex items-center justify-center">
-                <Building2 className="w-4 h-4 text-slate-600" />
-              </div>
-              <h3 className="font-bold text-base text-slate-900">
-                Profilo Aziendale
-              </h3>
-            </div>
-            {loadingRegistry ? (
-              <div className="animate-pulse space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
-              </div>
-            ) : registry?.found === false ? (
-              <p className="text-gray-500 text-sm">Azienda non trovata nel Registro Imprese</p>
-            ) : registry ? (
-              <div className="space-y-3">
-                {registry.fonte === 'registro_imprese' ? (
-                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-xs text-emerald-700 font-medium">Dati verificati dal Registro Imprese</span>
-                  </div>
-                ) : registry.fonte === 'vies_verificato' ? (
-                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-xs text-emerald-700 font-medium">P.IVA verificata tramite VIES (Agenzia delle Entrate UE)</span>
-                  </div>
-                ) : registry.fonte === 'google_maps' ? (
-                  <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-                    <Target className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="text-xs text-blue-700 font-medium">Dati da fonti pubbliche aziendali</span>
-                  </div>
-                ) : null}
-                <div className="grid grid-cols-1 gap-2">
-                  {registry.ragione_sociale ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Ragione sociale</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.ragione_sociale}</p>
-                    </div>
-                  ) : null}
-                  {registry.titolare ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Titolare / Referente
-                        {registry.titolare_fonte === 'privacy_policy_sito' ? (
-                          <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {registry.titolare}
-                        {registry.titolare_eta ? (
-                          <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                            {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
-                          </span>
-                        ) : null}
-                      </p>
-                    </div>
-                  ) : null}
-                  {registry.codice_fiscale_titolare ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Codice Fiscale titolare
-                        <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900 font-mono tracking-wide">
-                        {registry.codice_fiscale_titolare}
-                        {registry.titolare_data_nascita ? (
-                          <span className="ml-2 text-xs font-sans font-normal text-slate-500">
-                            nato/a il {registry.titolare_data_nascita}
-                          </span>
-                        ) : null}
-                      </p>
-                    </div>
-                  ) : null}
-                  {registry.email_privacy ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Email
-                        <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.email_privacy}</p>
-                    </div>
-                  ) : null}
-                  {registry.partita_iva ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Partita IVA
-                        {registry.piva_verificata ? (
-                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificata</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">IT {registry.partita_iva}</p>
-                    </div>
-                  ) : null}
-                  {registry.forma_giuridica ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Forma giuridica</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.forma_giuridica}</p>
-                    </div>
-                  ) : null}
-                  {registry.codice_ateco ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Codice ATECO
-                        {registry.ateco_stimato ? (
-                          <span className="ml-1.5 text-amber-500 font-normal text-[10px]">(stimato)</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {registry.codice_ateco}
-                        {registry.descrizione_ateco ? (
-                          <span className="text-xs text-gray-400 font-normal ml-1.5">— {registry.descrizione_ateco}</span>
-                        ) : null}
-                      </p>
-                    </div>
-                  ) : null}
-                  {registry.fatturato ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Fatturato
-                        {registry.fatturato_fonte ? (
-                          <span className={`ml-1.5 font-semibold ${
-                            registry.fatturato_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'
-                          }`}>✓ {
-                            registry.fatturato_fonte === 'companyreports.it' ? 'CompanyReports.it' :
-                            registry.fatturato_fonte === 'openapi.it' ? 'OpenAPI.it' :
-                            'Registro Imprese'
-                          }</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        € {registry.fatturato}
-                        {registry.fatturato_anno ? (
-                          <span className="text-xs text-gray-400 font-normal ml-1">({registry.fatturato_anno})</span>
-                        ) : null}
-                      </p>
-                    </div>
-                  ) : null}
-                  {registry.dipendenti ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Dipendenti
-                        {registry.dipendenti_fonte ? (
-                          <span className={`ml-1.5 font-semibold ${
-                            registry.dipendenti_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'
-                          }`}>✓ {
-                            registry.dipendenti_fonte === 'ufficio_camerale' ? 'Ufficio Camerale' :
-                            registry.dipendenti_fonte === 'companyreports.it' ? 'CompanyReports.it' :
-                            registry.dipendenti_fonte === 'openapi.it' ? 'OpenAPI.it' :
-                            registry.dipendenti_fonte === 'fonti_pubbliche' ? 'Fonti Pubbliche' :
-                            'Registro Imprese'
-                          }</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.dipendenti}</p>
-                    </div>
-                  ) : null}
-                  {registry.costo_personale ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Costo del personale</p>
-                      <p className="text-sm font-semibold text-slate-900">€ {registry.costo_personale}</p>
-                    </div>
-                  ) : null}
-                  {registry.capitale_sociale ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Capitale sociale</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.capitale_sociale}</p>
-                    </div>
-                  ) : null}
-                  {registry.data_costituzione ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Data costituzione</p>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {registry.data_costituzione}
-                        {(() => {
-                          const y = parseInt(String(registry.data_costituzione).match(/\d{4}/)?.[0] || '0')
-                          if (y > 1900 && y <= new Date().getFullYear()) {
-                            const anni = new Date().getFullYear() - y
-                            return (
-                              <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${
-                                anni >= 20 ? 'bg-emerald-100 text-emerald-700' :
-                                anni >= 10 ? 'bg-blue-100 text-blue-700' :
-                                anni >= 5 ? 'bg-amber-100 text-amber-700' :
-                                'bg-slate-100 text-slate-600'
-                              }`}>
-                                {anni} anni di attività
-                              </span>
-                            )
-                          }
-                          return null
-                        })()}
-                      </p>
-                    </div>
-                  ) : null}
-                  {registry.sede_legale ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Sede legale
-                        {registry.sede_legale_verificata ? (
-                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ VIES</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.sede_legale}</p>
-                    </div>
-                  ) : null}
-                  {registry.codice_rea ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Codice REA</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.codice_rea}</p>
-                    </div>
-                  ) : null}
-                  {registry.pec ? (
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        PEC
-                        {registry.pec_fonte ? (
-                          <span className="ml-1.5 text-emerald-600 font-semibold">✓ {
-                            registry.pec_fonte === 'ufficio_camerale' ? 'Ufficio Camerale' :
-                            registry.pec_fonte === 'inipec' ? 'INIPEC' :
-                            registry.pec_fonte === 'openapi.it' ? 'OpenAPI.it' :
-                            'Registro Imprese'
-                          }</span>
-                        ) : null}
-                      </p>
-                      <p className="text-sm font-semibold text-blue-700">{registry.pec}</p>
-                    </div>
-                  ) : null}
-                  {registry.stato ? (
-                    <div>
-                      <p className="text-xs text-gray-500">Stato</p>
-                      <p className="text-sm font-semibold text-slate-900">{registry.stato}</p>
-                    </div>
-                  ) : null}
-                  {registry.partita_iva && !registry.fatturato && !registry.dipendenti && (
-                    <div className="col-span-1 mt-1 p-2.5 rounded-lg border border-amber-200 bg-amber-50">
-                      <p className="text-[11px] text-amber-800 font-medium">
-                        Fatturato e dipendenti non disponibili — probabilmente ditta individuale o micro impresa senza obbligo di deposito bilancio pubblico.
-                        Questi dati potranno essere verificati durante la prima call con il cliente.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-400 text-sm">Dati aziendali non disponibili</p>
-            )}
-          </div>
         </div>
       </div>
 

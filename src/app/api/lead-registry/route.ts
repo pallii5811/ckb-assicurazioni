@@ -472,9 +472,11 @@ export async function POST(req: NextRequest) {
           const toTitleCase = (s: string) => s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
           // Blocklist: common Italian legal/privacy text words that are NOT person names
           const NAME_JUNK = /seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|titolare|responsabile|interessato|garante|disposizione|finalita|modalita|comunicazione|profilazione|legittimo|necessario|obbligatorio|conservazione|opposizione|reclamo|diritto|revoca|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cooperativa|impresa|societa|azienda|servizi|costruzioni/i
+          const COMPANY_SUFFIXES = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|s\.?s\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh|inc|corp|group|holding|consorzio|coop|cooperativa|onlus|ets|associazione)\b/i
           const isValidName = (n: string) => {
             if (!n || n.length < 5 || n.length > 50) return false
             if (NAME_JUNK.test(n)) return false
+            if (COMPANY_SUFFIXES.test(n)) return false
             const words = n.trim().split(/\s+/).filter(w => w.length > 1)
             if (words.length < 2 || words.length > 5) return false
             if (!words.every(w => /^[A-ZÀ-Ú]/.test(w))) return false
@@ -799,6 +801,128 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     }
   }
 
+  // ─── Step 6b: Tavily Deep Enrichment (FREE — 1000 ricerche/mese) ──
+  const tavilyKey = process.env.TAVILY_API_KEY
+  const hasMissing = !profile.titolare || !profile.fatturato || !profile.dipendenti || !profile.capitale_sociale
+  if (hasMissing && tavilyKey) {
+    const companyId = profile.ragione_sociale || business_name || ''
+    const pivaStr = websitePiva || ''
+    const openaiKey = process.env.OPENAI_API_KEY
+
+    // Helper: single Tavily search
+    async function tavilySearch(query: string): Promise<string> {
+      try {
+        const res = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: tavilyKey, query, search_depth: 'advanced', include_answer: true, max_results: 5 }),
+          signal: AbortSignal.timeout(12000),
+        })
+        if (!res.ok) return ''
+        const data = await res.json()
+        return (data.answer || '') + ' ' + (data.results || []).map((r: any) => (r.title || '') + ' ' + (r.content || '')).join(' ')
+      } catch { return '' }
+    }
+
+    // Helper: GPT extract JSON from text
+    async function gptExtract(text: string, extractPrompt: string): Promise<Record<string, any>> {
+      if (!openaiKey) return {}
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+          body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: extractPrompt + '\n\nTESTO:\n' + text.slice(0, 5000) + '\n\nSOLO JSON.' }], temperature: 0, max_tokens: 1200 }),
+          signal: AbortSignal.timeout(12000),
+        })
+        if (!res.ok) return {}
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content?.trim() || '{}'
+        const m = content.match(/\{[\s\S]*\}/)
+        return m ? JSON.parse(m[0]) : {}
+      } catch { return {} }
+    }
+
+    // Helper: merge only missing fields — with aggressive junk filtering
+    const JUNK_VALUES = ['nome e cognome', 'nome cognome', 'codice numerico', 'descrizione attività', 'tipo società', 'importo', 'indirizzo completo', 'indirizzo pec', 'anno o data', 'numero p.iva', 'cf azienda', 'codice fiscale se', 'amministratore/socio', 'numero se noto', 'dettagli', 'eventuali sinistri', 'altre info', 'numero dipendenti', 'importo in euro', 'anno di riferimento', 'es. 100k', 'rischio 1', 'rischio 2', 'iso 9001', 'non divulgato', 'non disponibile', 'n/d', 'null', 'numero p.iva']
+    function isJunkValue(v: any): boolean {
+      if (v === null || v === undefined || v === '' || v === 0 || v === '0') return true
+      if (typeof v === 'string') {
+        const low = v.toLowerCase().trim()
+        if (low.length < 2) return true
+        if (JUNK_VALUES.some(j => low.includes(j))) return true
+        // Filter out template-like values (contain "/" suggesting alternatives)
+        if (low.includes('/') && low.length > 20) return true
+      }
+      return false
+    }
+    function mergeTavily(extracted: Record<string, any>) {
+      for (const [k, v] of Object.entries(extracted)) {
+        if (isJunkValue(v)) continue
+        if (k === 'persone' || k === 'soci' || k === 'amministratori') {
+          if (Array.isArray(v) && v.length > 0) {
+            // Filter out junk person entries
+            const clean = v.filter((p: any) => p?.nome && !isJunkValue(p.nome))
+            if (clean.length > 0 && !profile.persone) profile.persone = clean
+          }
+        } else if (!profile[k]) {
+          profile[k] = v
+        }
+      }
+    }
+
+    let tavilyUsed = false
+
+    // ── Search 1: Visura / camerale (titolare, soci, ATECO, capitale) ──
+    if (!profile.titolare || !profile.codice_ateco) {
+      const q1 = `"${companyId}" ${pivaStr} visura camerale amministratore titolare soci codice ATECO capitale sociale`
+      const text1 = await tavilySearch(q1)
+      if (text1.length > 50) {
+        const ext1 = await gptExtract(text1, `Estrai i dati della visura camerale per "${companyId}". JSON:
+{"titolare":"nome e cognome del titolare/amministratore unico/legale rappresentante","titolare_ruolo":"ruolo","codice_ateco":"codice numerico ATECO","descrizione_ateco":"descrizione attività","forma_giuridica":"tipo società","capitale_sociale":"importo","sede_legale":"indirizzo completo con CAP e città","data_costituzione":"anno o data","pec":"indirizzo PEC","partita_iva":"numero P.IVA","codice_fiscale":"CF azienda","persone":[{"nome":"Nome Cognome","ruolo":"Amministratore/Socio/ecc","cf":"codice fiscale se disponibile","quota":"% se socio"}]}`)
+        // Validate titolare is a person name, not company
+        if (ext1.titolare) {
+          const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh)\b/i
+          if (compSuffix.test(ext1.titolare) || ext1.titolare === 'Non divulgato') delete ext1.titolare
+        }
+        mergeTavily(ext1)
+        if (ext1.titolare && profile.titolare === ext1.titolare) profile.titolare_fonte = 'tavily'
+        tavilyUsed = true
+      }
+    }
+
+    // ── Search 2: Bilancio / dati finanziari ──
+    if (!profile.fatturato || !profile.dipendenti) {
+      const q2 = `"${companyId}" ${pivaStr} bilancio fatturato ricavi dipendenti utile netto`
+      const text2 = await tavilySearch(q2)
+      if (text2.length > 50) {
+        const ext2 = await gptExtract(text2, `Estrai i dati finanziari per "${companyId}". JSON:
+{"fatturato":"importo in euro dell'ultimo bilancio","dipendenti":"numero dipendenti","utile_netto":"importo","totale_attivo":"importo","fatturato_anno":"anno di riferimento","classe_fatturato":"es. 100K-500K o 1M-5M","costo_personale":"importo","capitale_sociale":"importo"}`)
+        // Add fonte tracking
+        if (ext2.fatturato && !profile.fatturato) { mergeTavily(ext2); profile.fatturato_fonte = 'tavily' }
+        else if (ext2.dipendenti && !profile.dipendenti) { mergeTavily(ext2); profile.dipendenti_fonte = 'tavily' }
+        else mergeTavily(ext2)
+        tavilyUsed = true
+      }
+    }
+
+    // ── Search 3: Info per assicuratori (rischi, certificazioni, flotta) ──
+    {
+      const q3 = `"${companyId}" ${city} certificazioni ISO SOA flotta veicoli immobili proprietà bandi appalti`
+      const text3 = await tavilySearch(q3)
+      if (text3.length > 50) {
+        const ext3 = await gptExtract(text3, `Estrai TUTTE le informazioni utili per un broker assicurativo su "${companyId}". JSON:
+{"certificazioni":["ISO 9001","SOA","ecc"],"ha_flotta_veicoli":true/false,"numero_veicoli":"numero se noto","ha_immobili_proprieta":true/false,"immobili_descrizione":"descrizione","partecipa_appalti_pubblici":true/false,"appalti_info":"dettagli","sinistri_noti":"eventuali sinistri noti","attivita_estero":true/false,"rischi_specifici":["rischio 1","rischio 2"],"note_broker":"altre info utili per assicuratore"}`)
+        mergeTavily(ext3)
+        tavilyUsed = true
+      }
+    }
+
+    if (tavilyUsed) {
+      profile.ai_enriched = true
+      profile.ai_fonti = ['Tavily (ricerca web)']
+    }
+  }
+
   // ─── Step 7: Rischio Territoriale (GRATIS — dati Protezione Civile) ──
   const cityForRisk = city || profile.sede_legale || ''
   if (cityForRisk) {
@@ -862,9 +986,15 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     gapAnalysis: profile.gap_analysis || null,
   })
 
-  // Rimuovi campi null/vuoti
+  // Rimuovi campi null/vuoti/zero inutili
+  const ZERO_FILTER_KEYS = ['fatturato', 'dipendenti', 'costo_personale', 'capitale_sociale', 'utile_netto', 'totale_attivo']
   for (const key of Object.keys(profile)) {
-    if (profile[key] === null || profile[key] === '') delete profile[key]
+    if (profile[key] === null || profile[key] === '') { delete profile[key]; continue }
+    // Filter zero values for financial/numeric fields
+    if (ZERO_FILTER_KEYS.includes(key)) {
+      const v = String(profile[key]).replace(/[^\d.-]/g, '')
+      if (v === '0' || v === '0.00' || v === '') delete profile[key]
+    }
   }
 
   return NextResponse.json(profile)

@@ -18,7 +18,7 @@ import MiraxLogo from '@/components/MiraxLogo' // We will keep the filename for 
 
 import { Button } from '@/components/ui/button'
 
-import { Folder, Sparkles, Search, Database, MapPin } from 'lucide-react'
+import { Folder, Sparkles, Search, Database, MapPin, Building2, Loader2 } from 'lucide-react'
 
 import DatabaseSearchSection from '@/components/DatabaseSearchSection'
 
@@ -393,7 +393,15 @@ export default function DashboardShell() {
     try { sessionStorage.setItem('ckb_aiDebug', JSON.stringify(aiDebug)) } catch {}
   }, [aiDebug, isRestored])
 
-  const [searchMode, setSearchMode] = useState<'maps' | 'database' | 'ambiente'>('maps')
+  const [searchMode, setSearchMode] = useState<'maps' | 'database' | 'ambiente' | 'azienda' | 'referente'>('maps')
+  const [companySearchQuery, setCompanySearchQuery] = useState('')
+  const [companySearchLoading, setCompanySearchLoading] = useState(false)
+  const [companySearchResult, setCompanySearchResult] = useState<any>(null)
+  const [companySearchError, setCompanySearchError] = useState<string | null>(null)
+  const [personSearchQuery, setPersonSearchQuery] = useState('')
+  const [personSearchLoading, setPersonSearchLoading] = useState(false)
+  const [personSearchResult, setPersonSearchResult] = useState<any>(null)
+  const [personSearchError, setPersonSearchError] = useState<string | null>(null)
   const [autoScrapeTriggered, setAutoScrapeTriggered] = useState(false)
   const [autoScrapeLoading, setAutoScrapeLoading] = useState(false)
   const [autoScrapeMessage, setAutoScrapeMessage] = useState<string | null>(null)
@@ -1421,12 +1429,15 @@ export default function DashboardShell() {
       {/* ── Tab switcher ── */}
       <div className="flex items-center gap-1 mb-4 bg-slate-100 rounded-xl p-1 max-w-2xl overflow-x-auto">
         <button
-          disabled
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-400 cursor-not-allowed opacity-60 relative"
+          onClick={() => setSearchMode('referente')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+            searchMode === 'referente'
+              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
         >
           <Database className="w-4 h-4" />
           Ricerca Referenti
-          <span className="absolute -top-1.5 -right-1 text-[7px] bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full font-bold uppercase">WIP</span>
         </button>
         <button
           onClick={() => setSearchMode('maps')}
@@ -1438,6 +1449,17 @@ export default function DashboardShell() {
         >
           <MapPin className="w-4 h-4" />
           Ricerca per Categoria e Città
+        </button>
+        <button
+          onClick={() => setSearchMode('azienda')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+            searchMode === 'azienda'
+              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          Cerca Azienda / P.IVA
         </button>
         <button
           onClick={() => setSearchMode('ambiente')}
@@ -1452,15 +1474,702 @@ export default function DashboardShell() {
         </button>
       </div>
 
-      {/* ── Database Search Mode (WIP) ── */}
-      {searchMode === 'database' && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
-            <Database className="w-7 h-7 text-amber-500" />
+      {/* ── Ricerca Referenti ── */}
+      {searchMode === 'referente' && (
+        <div className="mb-6 space-y-4 bg-slate-50 border border-slate-200 rounded-2xl p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+              <Database className="w-5 h-5 text-purple-600" /> Cerca Referente / Persona
+            </h2>
+            <p className="text-sm text-slate-500">
+              Inserisci <strong>nome e cognome</strong> per ottenere informazioni professionali, contatti e analisi assicurativa.
+            </p>
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Ricerca Referenti — In Arrivo</h3>
-          <p className="text-slate-500 text-sm max-w-md mb-1">Questa funzionalità sarà disponibile tra qualche giorno.</p>
-          <p className="text-slate-400 text-xs">Cerca per ruolo/settore + città e ottieni nome, cognome, email, telefono, LinkedIn e molto altro.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder='Es. "Mario Rossi" oppure "Marco Bianchi Milano"'
+              value={personSearchQuery}
+              onChange={(e) => setPersonSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') document.getElementById('btn-person-search')?.click() }}
+              className="flex-1 px-4 py-3 text-sm text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-slate-400"
+            />
+            <button
+              id="btn-person-search"
+              disabled={personSearchLoading || !personSearchQuery.trim()}
+              onClick={async () => {
+                const q = personSearchQuery.trim()
+                if (!q) return
+                setPersonSearchLoading(true)
+                setPersonSearchError(null)
+                setPersonSearchResult(null)
+                try {
+                  const res = await fetch('/api/person-lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q }),
+                  })
+                  const data = await res.json()
+                  if (data.error) {
+                    setPersonSearchError(data.error)
+                  } else {
+                    setPersonSearchResult(data)
+                  }
+                } catch {
+                  setPersonSearchError('Errore di connessione. Riprova.')
+                } finally {
+                  setPersonSearchLoading(false)
+                }
+              }}
+              className="rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-purple-500/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105 whitespace-nowrap"
+            >
+              {personSearchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {personSearchLoading ? 'Ricerca...' : 'Cerca Persona'}
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Funziona con: nome e cognome (es. &quot;Mario Rossi&quot;), nome + città (es. &quot;Marco Bianchi Milano&quot;), nome + azienda (es. &quot;Luigi Verdi Enel&quot;)
+          </p>
+
+          {personSearchError && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+              {personSearchError}
+            </div>
+          )}
+
+          {personSearchResult && (
+            <div className="space-y-4">
+              {/* Person header */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{personSearchResult.nome_completo || personSearchResult.nome_cercato || '—'}</h3>
+                    <p className="text-sm text-slate-500">{personSearchResult.ruolo || ''} {personSearchResult.azienda ? `presso ${personSearchResult.azienda}` : ''}</p>
+                  </div>
+                </div>
+                {personSearchResult.descrizione && (
+                  <p className="text-sm text-slate-600 mb-4 italic">{personSearchResult.descrizione}</p>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {personSearchResult.azienda && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Azienda</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.azienda}</p>
+                    </div>
+                  )}
+                  {personSearchResult.ruolo && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Ruolo</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.ruolo}</p>
+                    </div>
+                  )}
+                  {personSearchResult.settore && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Settore</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.settore}</p>
+                    </div>
+                  )}
+                  {personSearchResult.citta && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Città</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.citta}</p>
+                    </div>
+                  )}
+                  {personSearchResult.email && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
+                      <a href={`mailto:${personSearchResult.email}`} className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.email}</a>
+                    </div>
+                  )}
+                  {personSearchResult.telefono && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Telefono</p>
+                      <div className="flex items-center gap-2">
+                        <a href={`tel:${personSearchResult.telefono}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{personSearchResult.telefono}</a>
+                        {/^(\+39\s?)?3\d{2}/.test(personSearchResult.telefono.replace(/[\s\-()]/g, '')) && (
+                          <a href={`https://wa.me/${personSearchResult.telefono.replace(/[\s\-()]/g, '').replace(/^\+/, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {personSearchResult.linkedin && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">LinkedIn</p>
+                      <a href={personSearchResult.linkedin.startsWith('http') ? personSearchResult.linkedin : `https://${personSearchResult.linkedin}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.linkedin}</a>
+                    </div>
+                  )}
+                  {personSearchResult.instagram && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Instagram</p>
+                      <a href={personSearchResult.instagram.startsWith('http') ? personSearchResult.instagram : `https://instagram.com/${personSearchResult.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-pink-600 hover:underline">@{personSearchResult.instagram.replace(/.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, '')}</a>
+                    </div>
+                  )}
+                  {personSearchResult.facebook && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Facebook</p>
+                      <a href={personSearchResult.facebook.startsWith('http') ? personSearchResult.facebook : `https://facebook.com/${personSearchResult.facebook}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:underline">{personSearchResult.facebook.replace(/.*facebook\.com\//, 'facebook.com/')}</a>
+                    </div>
+                  )}
+                  {personSearchResult.sito_web && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Sito Web</p>
+                      <a href={personSearchResult.sito_web.startsWith('http') ? personSearchResult.sito_web : `https://${personSearchResult.sito_web}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.sito_web}</a>
+                    </div>
+                  )}
+                  {personSearchResult.partita_iva && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">P.IVA</p>
+                      <p className="text-sm font-mono font-bold text-slate-800">{personSearchResult.partita_iva}</p>
+                    </div>
+                  )}
+                  {personSearchResult.formazione && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Formazione</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.formazione}</p>
+                    </div>
+                  )}
+                  {personSearchResult.esperienze_precedenti && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Esperienze Precedenti</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.esperienze_precedenti}</p>
+                    </div>
+                  )}
+                  {personSearchResult.competenze && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Competenze</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.competenze}</p>
+                    </div>
+                  )}
+                  {personSearchResult.anni_esperienza && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Anni Esperienza</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.anni_esperienza}</p>
+                    </div>
+                  )}
+                  {personSearchResult.note && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Note</p>
+                      <p className="text-sm text-slate-700">{personSearchResult.note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Polizze consigliate */}
+              {personSearchResult.polizze_consigliate?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Polizze Consigliate</h4>
+                  <div className="space-y-2">
+                    {personSearchResult.polizze_consigliate.map((p: any, i: number) => (
+                      <div key={i} className={`rounded-lg p-3 ${p.priorita === 'obbligatoria' ? 'bg-red-50 border border-red-200' : p.priorita === 'critica' ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-200'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${p.priorita === 'obbligatoria' ? 'bg-red-200 text-red-800' : p.priorita === 'critica' ? 'bg-amber-200 text-amber-800' : 'bg-blue-200 text-blue-800'}`}>{p.priorita}</span>
+                          <p className="text-sm font-bold text-slate-800">{p.polizza}</p>
+                        </div>
+                        <p className="text-xs text-slate-600">{p.motivo}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rischi professionali */}
+              {personSearchResult.rischi_professionali?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-red-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Rischi Professionali</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {personSearchResult.rischi_professionali.map((r: string, i: number) => (
+                      <span key={i} className="text-[10px] bg-red-100 text-red-800 px-2 py-1 rounded font-bold">{r}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Note broker */}
+              {personSearchResult.note_broker && (
+                <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-2">Note per il Broker</h4>
+                  <p className="text-sm text-slate-700">{personSearchResult.note_broker}</p>
+                </div>
+              )}
+
+              {/* Fonti */}
+              {personSearchResult.fonti?.length > 0 && (
+                <p className="text-[10px] text-slate-400">Fonti: {personSearchResult.fonti.join(', ')}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Ricerca Azienda / P.IVA ── */}
+      {searchMode === 'azienda' && (
+        <div className="mb-6 space-y-4 bg-slate-50 border border-slate-200 rounded-2xl p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+              <Building2 className="w-5 h-5 text-blue-600" /> Cerca Azienda Singola
+            </h2>
+            <p className="text-sm text-slate-500">
+              Inserisci il <strong>nome dell&apos;azienda</strong> o la <strong>Partita IVA</strong> per ottenere tutti i dati disponibili.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <input
+              type="text"
+              placeholder='Es. "Zanardi Srl" oppure "01234567890"'
+              value={companySearchQuery}
+              onChange={(e) => setCompanySearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') document.getElementById('btn-company-search')?.click() }}
+              className="flex-1 px-4 py-3 text-sm text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-400"
+            />
+            <button
+              id="btn-company-search"
+              disabled={companySearchLoading || !companySearchQuery.trim()}
+              onClick={async () => {
+                const q = companySearchQuery.trim()
+                if (!q) return
+                setCompanySearchLoading(true)
+                setCompanySearchError(null)
+                setCompanySearchResult(null)
+                try {
+                  const res = await fetch('/api/company-lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q }),
+                  })
+                  const data = await res.json()
+                  if (data.error) {
+                    setCompanySearchError(data.error)
+                  } else {
+                    setCompanySearchResult(data)
+                  }
+                } catch {
+                  setCompanySearchError('Errore di connessione. Riprova.')
+                } finally {
+                  setCompanySearchLoading(false)
+                }
+              }}
+              className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105 whitespace-nowrap"
+            >
+              {companySearchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {companySearchLoading ? 'Ricerca...' : 'Cerca Azienda'}
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Funziona con: nome azienda (es. &quot;Edil SMG&quot;), ragione sociale (es. &quot;EDIL SMG S.R.L.S.&quot;), P.IVA (es. &quot;11708820011&quot;)
+          </p>
+
+          {companySearchError && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+              {companySearchError}
+            </div>
+          )}
+
+          {companySearchResult && (
+            <div className="space-y-4">
+              {/* Company header */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{companySearchResult.ragione_sociale || companySearchResult.nome || '—'}</h3>
+                    <p className="text-sm text-slate-500">{companySearchResult.forma_giuridica || ''} {companySearchResult.citta ? `· ${companySearchResult.citta}` : ''}</p>
+                  </div>
+                  {companySearchResult.stato_attivita && (
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                      /attiv/i.test(companySearchResult.stato_attivita) ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'
+                    }`}>
+                      {companySearchResult.stato_attivita}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {companySearchResult.partita_iva && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">P.IVA</p>
+                      <p className="text-sm font-mono font-bold text-slate-800">{companySearchResult.partita_iva}</p>
+                    </div>
+                  )}
+                  {companySearchResult.codice_ateco && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">ATECO</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.codice_ateco}</p>
+                      {companySearchResult.descrizione_ateco && <p className="text-[10px] text-slate-500">{companySearchResult.descrizione_ateco}</p>}
+                    </div>
+                  )}
+                  {companySearchResult.fatturato && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Fatturato</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.fatturato}</p>
+                    </div>
+                  )}
+                  {companySearchResult.dipendenti && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Dipendenti</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.dipendenti}</p>
+                    </div>
+                  )}
+                  {companySearchResult.capitale_sociale && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Capitale Sociale</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.capitale_sociale}</p>
+                    </div>
+                  )}
+                  {companySearchResult.data_costituzione && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Costituzione</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.data_costituzione}</p>
+                    </div>
+                  )}
+                  {companySearchResult.sede_legale && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Sede Legale</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.sede_legale}</p>
+                    </div>
+                  )}
+                  {companySearchResult.pec && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">PEC</p>
+                      <p className="text-sm font-bold text-blue-700">{companySearchResult.pec}</p>
+                    </div>
+                  )}
+                  {companySearchResult.telefono && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Telefono</p>
+                      <div className="flex items-center gap-2">
+                        <a href={`tel:${companySearchResult.telefono}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{companySearchResult.telefono}</a>
+                        {/^(\+39\s?)?3\d{2}/.test(companySearchResult.telefono.replace(/[\s\-()]/g, '')) && (
+                          <a href={`https://wa.me/${companySearchResult.telefono.replace(/[\s\-()]/g, '').replace(/^\+/, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {companySearchResult.email && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
+                      <a href={`mailto:${companySearchResult.email}`} className="text-sm font-bold text-blue-700 hover:underline">{companySearchResult.email}</a>
+                    </div>
+                  )}
+                  {(companySearchResult.sito_web || companySearchResult.sito) && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Sito Web</p>
+                      <a href={(companySearchResult.sito_web || companySearchResult.sito).startsWith('http') ? (companySearchResult.sito_web || companySearchResult.sito) : `https://${companySearchResult.sito_web || companySearchResult.sito}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">{companySearchResult.sito_web || companySearchResult.sito}</a>
+                    </div>
+                  )}
+                  {companySearchResult.instagram && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Instagram</p>
+                      <a href={companySearchResult.instagram.startsWith('http') ? companySearchResult.instagram : `https://instagram.com/${companySearchResult.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-pink-600 hover:underline">@{companySearchResult.instagram.replace(/.*instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, '')}</a>
+                    </div>
+                  )}
+                  {companySearchResult.linkedin && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">LinkedIn</p>
+                      <a href={companySearchResult.linkedin.startsWith('http') ? companySearchResult.linkedin : `https://linkedin.com/company/${companySearchResult.linkedin}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">{companySearchResult.linkedin.replace(/.*linkedin\.com\//, 'linkedin.com/')}</a>
+                    </div>
+                  )}
+                  {companySearchResult.facebook && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Facebook</p>
+                      <a href={companySearchResult.facebook.startsWith('http') ? companySearchResult.facebook : `https://facebook.com/${companySearchResult.facebook}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:underline">{companySearchResult.facebook.replace(/.*facebook\.com\//, 'facebook.com/')}</a>
+                    </div>
+                  )}
+                  {companySearchResult.indirizzo && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.indirizzo}</p>
+                    </div>
+                  )}
+                  {companySearchResult.rating && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Rating</p>
+                      <p className="text-sm font-bold text-amber-600">⭐ {companySearchResult.rating}{companySearchResult.reviews ? ` (${companySearchResult.reviews} recensioni)` : ''}</p>
+                    </div>
+                  )}
+                  {companySearchResult.categoria && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Categoria</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.categoria}</p>
+                    </div>
+                  )}
+                  {companySearchResult.titolare && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Titolare / Amministratore</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.titolare}</p>
+                    </div>
+                  )}
+                  {companySearchResult.anno_fondazione && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Anno Fondazione</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.anno_fondazione}</p>
+                    </div>
+                  )}
+                  {companySearchResult.settore && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Settore</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.settore}</p>
+                    </div>
+                  )}
+                  {companySearchResult.utile_netto && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Utile Netto</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.utile_netto}</p>
+                    </div>
+                  )}
+                  {companySearchResult.classe_fatturato && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Classe Fatturato</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.classe_fatturato}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Intelligence Assicurativa — dati da Tavily */}
+              {(companySearchResult.certificazioni?.length > 0 || companySearchResult.ha_flotta_veicoli || companySearchResult.ha_immobili_proprieta || companySearchResult.partecipa_appalti_pubblici || companySearchResult.rischi_specifici?.length > 0 || companySearchResult.note_broker) && (
+                <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Intelligence Assicurativa</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {companySearchResult.certificazioni?.length > 0 && (
+                      <div className="bg-cyan-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Certificazioni</p>
+                        <div className="flex flex-wrap gap-1">
+                          {companySearchResult.certificazioni.map((c: string, i: number) => (
+                            <span key={i} className="text-[10px] bg-cyan-200 text-cyan-800 px-2 py-0.5 rounded font-bold">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {companySearchResult.ha_flotta_veicoli && (
+                      <div className="bg-cyan-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Flotta Veicoli</p>
+                        <p className="text-sm text-slate-800">{companySearchResult.numero_veicoli ? `${companySearchResult.numero_veicoli} veicoli` : 'Presente'}</p>
+                      </div>
+                    )}
+                    {companySearchResult.ha_immobili_proprieta && (
+                      <div className="bg-cyan-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Immobili</p>
+                        <p className="text-sm text-slate-800">{companySearchResult.immobili_descrizione || 'Proprietà immobiliari rilevate'}</p>
+                      </div>
+                    )}
+                    {companySearchResult.partecipa_appalti_pubblici && (
+                      <div className="bg-cyan-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Appalti Pubblici</p>
+                        <p className="text-sm text-slate-800">{companySearchResult.appalti_info || 'Partecipa a bandi/appalti'}</p>
+                      </div>
+                    )}
+                    {companySearchResult.rischi_specifici?.length > 0 && (
+                      <div className="bg-red-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-red-700 uppercase mb-1">Rischi Specifici Rilevati</p>
+                        <div className="flex flex-wrap gap-1">
+                          {companySearchResult.rischi_specifici.map((r: string, i: number) => (
+                            <span key={i} className="text-[10px] bg-red-200 text-red-800 px-2 py-0.5 rounded font-bold">{r}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {companySearchResult.note_broker && (
+                      <div className="bg-amber-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-amber-700 uppercase mb-1">Note per il Broker</p>
+                        <p className="text-[11px] text-slate-700">{companySearchResult.note_broker}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Persone / Soci */}
+              {companySearchResult.persone?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-violet-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center text-violet-600 text-xs font-black">{companySearchResult.persone.length}</span>
+                    Persone Chiave
+                  </h4>
+                  <div className="space-y-2">
+                    {companySearchResult.persone.map((p: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-violet-50 rounded-xl border border-violet-100">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{p.nome}</p>
+                          <p className="text-xs text-slate-500">{p.ruolo}{p.quota ? ` · ${p.quota}` : ''}</p>
+                        </div>
+                        {p.cf && <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">{p.cf}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Analisi Polizze AI — cosa ha e cosa non ha */}
+              {companySearchResult.verifica_polizze?.length > 0 && (() => {
+                const policies = companySearchResult.verifica_polizze
+                const nonHa = policies.filter((p: any) => p.stato === 'probabilmente_no')
+                const daVerificare = policies.filter((p: any) => p.stato === 'da_verificare')
+                const ceLha = policies.filter((p: any) => p.stato === 'ce_lha')
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <h4 className="text-sm font-bold text-slate-800 mb-1">Mappa Assicurativa</h4>
+                    <p className="text-[10px] text-slate-500 mb-4">Analisi basata su normativa + statistiche ANIA/IVASS di penetrazione per settore</p>
+
+                    {nonHa.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[10px] font-black text-red-700 uppercase mb-2 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          Probabilmente NON ha ({nonHa.length})
+                        </p>
+                        <div className="space-y-1.5">
+                          {nonHa.map((p: any, i: number) => (
+                            <div key={i} className="p-2.5 rounded-lg bg-red-50 border border-red-200">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-[11px] font-bold text-slate-800">{p.polizza}</span>
+                                <span className="text-[9px] font-mono font-bold text-red-600">{p.probabilita_possesso || '< 25%'}</span>
+                              </div>
+                              <p className="text-[10px] text-slate-600">{p.motivo}</p>
+                              {p.domanda_broker && <p className="text-[9px] text-blue-700 font-medium mt-1">&ldquo;{p.domanda_broker}&rdquo;</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {daVerificare.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[10px] font-black text-amber-700 uppercase mb-2 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          Da verificare ({daVerificare.length})
+                        </p>
+                        <div className="space-y-1.5">
+                          {daVerificare.map((p: any, i: number) => (
+                            <div key={i} className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-[11px] font-bold text-slate-800">{p.polizza}</span>
+                                <span className="text-[9px] font-mono font-bold text-amber-600">{p.probabilita_possesso || '~50%'}</span>
+                              </div>
+                              <p className="text-[10px] text-slate-600">{p.motivo}</p>
+                              {p.domanda_broker && <p className="text-[9px] text-blue-700 font-medium mt-1">&ldquo;{p.domanda_broker}&rdquo;</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {ceLha.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-emerald-700 uppercase mb-2 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Quasi certamente ha ({ceLha.length})
+                        </p>
+                        <div className="space-y-1">
+                          {ceLha.map((p: any, i: number) => (
+                            <div key={i} className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-800">{p.polizza}</span>
+                              <span className="text-[9px] font-mono font-bold text-emerald-600">{p.probabilita_possesso || '> 75%'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[9px] text-slate-400 mt-4">Probabilit&agrave; basate su dati ANIA/IVASS penetrazione assicurativa per settore. Le domande in blu sono suggerimenti per la call con il cliente.</p>
+                  </div>
+                )
+              })()}
+
+              {/* Obblighi Assicurativi Settore */}
+              {companySearchResult.obblighi_assicurativi && (
+                <div className="bg-white rounded-2xl border border-amber-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Obblighi Assicurativi — {companySearchResult.obblighi_assicurativi.settore}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold text-red-600 uppercase mb-1.5">Obbligatorie per legge</p>
+                      {companySearchResult.obblighi_assicurativi.polizze_obbligatorie?.map((p: string, i: number) => (
+                        <div key={i} className="flex items-start gap-1.5 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                          <span className="text-[11px] text-slate-700">{p}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-amber-600 uppercase mb-1.5">Raccomandate</p>
+                      {companySearchResult.obblighi_assicurativi.polizze_raccomandate?.map((p: string, i: number) => (
+                        <div key={i} className="flex items-start gap-1.5 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                          <span className="text-[11px] text-slate-700">{p}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Stima Premio Annuale */}
+              {companySearchResult.stima_premio && (
+                <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Stima Premio Annuale</h4>
+                  <p className="text-2xl font-black text-emerald-700 mb-3">{companySearchResult.stima_premio.totale_stimato}</p>
+                  <div className="space-y-1.5">
+                    {companySearchResult.stima_premio.dettaglio?.map((d: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] py-1.5 border-b border-slate-100 last:border-0">
+                        <span className="font-bold text-slate-700">{d.polizza}</span>
+                        <span className="text-slate-500">&euro;{d.premio_min?.toLocaleString('it-IT')} - &euro;{d.premio_max?.toLocaleString('it-IT')}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-slate-400 mt-2">{companySearchResult.stima_premio.disclaimer}</p>
+                </div>
+              )}
+
+              {/* Bisogni Assicurativi — Playbook Commerciale */}
+              {companySearchResult.bisogni_assicurativi?.bisogni_raccomandati?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-blue-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Bisogni Assicurativi Rilevati</h4>
+                  <div className="space-y-2">
+                    {companySearchResult.bisogni_assicurativi.bisogni_raccomandati.map((b: any, i: number) => (
+                      <div key={i} className={`p-3 rounded-xl border ${
+                        b.priority === 'immediata' ? 'bg-red-50 border-red-200' :
+                        b.priority === 'alta' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                            b.priority === 'immediata' ? 'bg-red-200 text-red-800' :
+                            b.priority === 'alta' ? 'bg-orange-200 text-orange-800' : 'bg-blue-200 text-blue-800'
+                          }`}>{b.priority}</span>
+                          <span className="text-xs font-bold text-slate-800">{b.product}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600">{b.sales_reason}</p>
+                        {b.why_now && <p className="text-[10px] text-blue-700 font-medium mt-1">{b.why_now}</p>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Playbook */}
+                  {companySearchResult.bisogni_assicurativi.playbook_commerciale && (
+                    <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">Playbook Commerciale</p>
+                      {companySearchResult.bisogni_assicurativi.playbook_commerciale.angolo_attacco && (
+                        <p className="text-[11px] text-slate-700 mb-1"><strong>Angolo:</strong> {companySearchResult.bisogni_assicurativi.playbook_commerciale.angolo_attacco}</p>
+                      )}
+                      {companySearchResult.bisogni_assicurativi.playbook_commerciale.apertura_consigliata && (
+                        <p className="text-[11px] text-slate-700 mb-1"><strong>Apertura:</strong> {companySearchResult.bisogni_assicurativi.playbook_commerciale.apertura_consigliata}</p>
+                      )}
+                      {companySearchResult.bisogni_assicurativi.playbook_commerciale.call_to_action && (
+                        <p className="text-[11px] text-blue-700 font-bold mt-1">{companySearchResult.bisogni_assicurativi.playbook_commerciale.call_to_action}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Fonti */}
+              {companySearchResult.fonti?.length > 0 && (
+                <p className="text-[9px] text-slate-400">Fonti: {companySearchResult.fonti.join(' · ')}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1518,7 +2227,7 @@ export default function DashboardShell() {
       )}
 
       {/* ── Maps Search Mode (+ Shared Results Render) ── */}
-      {searchMode !== 'database' && (
+      {searchMode !== 'database' && searchMode !== 'azienda' && (
       <>
 
       {/* ── Maps-specific: Spiegazione + Filter chips + Search ── */}
