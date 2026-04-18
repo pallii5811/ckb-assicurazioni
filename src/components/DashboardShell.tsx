@@ -18,7 +18,7 @@ import MiraxLogo from '@/components/MiraxLogo' // We will keep the filename for 
 
 import { Button } from '@/components/ui/button'
 
-import { Folder, Sparkles, Search, Database, MapPin, Building2, Loader2 } from 'lucide-react'
+import { Folder, Sparkles, Search, Database, MapPin, Building2, Loader2, UserSearch } from 'lucide-react'
 
 import DatabaseSearchSection from '@/components/DatabaseSearchSection'
 
@@ -293,6 +293,24 @@ function buildTechFilter(q: string): ((l: any) => boolean) | null {
   }
 }
 
+// Helper: safely convert any GPT value to a displayable string
+function safeStr(v: any): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (Array.isArray(v)) return v.map(item => typeof item === 'string' ? item : typeof item === 'object' ? Object.values(item).filter(Boolean).join(' — ') : String(item)).join(', ')
+  if (typeof v === 'object') return Object.values(v).filter(Boolean).join(' — ')
+  return String(v)
+}
+
+// Helper: check if a value is a real displayable value (not null/undefined/"null"/"N/D" etc)
+const NULL_DISPLAY = ['null', 'undefined', 'n/d', 'n/a', 'non disponibile', 'non specificato', '@null']
+function hasValue(v: any): boolean {
+  if (v === null || v === undefined || v === '' || v === 0) return false
+  if (typeof v === 'string' && NULL_DISPLAY.includes(v.toLowerCase().trim())) return false
+  return true
+}
+
 export default function DashboardShell() {
 
   const { credits, setCredits } = useDashboard()
@@ -393,7 +411,7 @@ export default function DashboardShell() {
     try { sessionStorage.setItem('ckb_aiDebug', JSON.stringify(aiDebug)) } catch {}
   }, [aiDebug, isRestored])
 
-  const [searchMode, setSearchMode] = useState<'maps' | 'database' | 'ambiente' | 'azienda' | 'referente'>('maps')
+  const [searchMode, setSearchMode] = useState<'maps' | 'database' | 'ambiente' | 'azienda' | 'referente' | 'dipendente'>('maps')
   const [companySearchQuery, setCompanySearchQuery] = useState('')
   const [companySearchLoading, setCompanySearchLoading] = useState(false)
   const [companySearchResult, setCompanySearchResult] = useState<any>(null)
@@ -402,6 +420,10 @@ export default function DashboardShell() {
   const [personSearchLoading, setPersonSearchLoading] = useState(false)
   const [personSearchResult, setPersonSearchResult] = useState<any>(null)
   const [personSearchError, setPersonSearchError] = useState<string | null>(null)
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('')
+  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false)
+  const [employeeSearchResult, setEmployeeSearchResult] = useState<any>(null)
+  const [employeeSearchError, setEmployeeSearchError] = useState<string | null>(null)
   const [autoScrapeTriggered, setAutoScrapeTriggered] = useState(false)
   const [autoScrapeLoading, setAutoScrapeLoading] = useState(false)
   const [autoScrapeMessage, setAutoScrapeMessage] = useState<string | null>(null)
@@ -1437,7 +1459,7 @@ export default function DashboardShell() {
           }`}
         >
           <Database className="w-4 h-4" />
-          Ricerca Referenti
+          Cerca Referente
         </button>
         <button
           onClick={() => setSearchMode('maps')}
@@ -1462,6 +1484,17 @@ export default function DashboardShell() {
           Cerca Azienda / P.IVA
         </button>
         <button
+          onClick={() => setSearchMode('dipendente')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+            searchMode === 'dipendente'
+              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <UserSearch className="w-4 h-4" />
+          Cerca Persona
+        </button>
+        <button
           onClick={() => setSearchMode('ambiente')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
             searchMode === 'ambiente'
@@ -1479,10 +1512,13 @@ export default function DashboardShell() {
         <div className="mb-6 space-y-4 bg-slate-50 border border-slate-200 rounded-2xl p-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-              <Database className="w-5 h-5 text-purple-600" /> Cerca Referente / Persona
+              <Database className="w-5 h-5 text-purple-600" /> Cerca Referente / Titolare
             </h2>
             <p className="text-sm text-slate-500">
-              Inserisci <strong>nome e cognome</strong> per ottenere informazioni professionali, contatti e analisi assicurativa.
+              Cerca <strong>titolari di aziende</strong>, <strong>liberi professionisti</strong> o <strong>imprenditori</strong>. Restituisce contatti completi, dati aziendali, profilo assicurativo e trigger finanziari.
+            </p>
+            <p className="text-[10px] text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+              ⚠️ Questa ricerca è pensata per titolari e liberi professionisti. Per cercare dipendenti o collaboratori, usa la tab &quot;Cerca Persona&quot;.
             </p>
           </div>
           <div className="flex gap-2">
@@ -1514,6 +1550,67 @@ export default function DashboardShell() {
                     setPersonSearchError(data.error)
                   } else {
                     setPersonSearchResult(data)
+                    // Fetch dati aziendali in parallelo
+                    const companyName = data.azienda
+                    if (companyName) {
+                      fetch('/api/company-lookup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: companyName }),
+                      })
+                        .then(r => r.json())
+                        .then(compData => {
+                          if (compData && !compData.error) {
+                            // Verify the returned company actually matches the searched name
+                            const foundName = (compData.ragione_sociale || compData.nome || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
+                            const searchedName = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
+                            // Strict match: the found name must contain the searched name OR vice versa
+                            const directMatch = foundName.includes(searchedName) || searchedName.includes(foundName)
+                            // Word-level match: ALL significant words from search must appear in found name
+                            const searchWords = searchedName.split(/\s+/).filter((w: string) => w.length >= 3)
+                            const allWordsMatch = searchWords.length > 0 && searchWords.every((w: string) => foundName.includes(w))
+                            if (!directMatch && !allWordsMatch && foundName.length > 0) {
+                              console.log(`[PERSON] Company mismatch: searched "${companyName}" but found "${compData.ragione_sociale}" — skipping company data`)
+                              return
+                            }
+                            setPersonSearchResult((prev: any) => prev ? {
+                              ...prev,
+                              dati_azienda: {
+                                ragione_sociale: compData.ragione_sociale || compData.nome || companyName,
+                                partita_iva: compData.partita_iva || null,
+                                forma_giuridica: compData.forma_giuridica || null,
+                                codice_ateco: compData.codice_ateco || null,
+                                descrizione_ateco: compData.descrizione_ateco || null,
+                                fatturato: compData.fatturato || null,
+                                dipendenti: compData.dipendenti || null,
+                                capitale_sociale: compData.capitale_sociale || null,
+                                sede_legale: compData.sede_legale || null,
+                                pec: compData.pec || null,
+                                telefono: compData.telefono || null,
+                                cellulare: compData.cellulare || null,
+                                email: compData.email || null,
+                                sito: compData.sito || compData.sito_web || null,
+                                titolare: compData.titolare || null,
+                                persone: compData.persone || null,
+                                linkedin: compData.linkedin || null,
+                                instagram: compData.instagram || null,
+                                facebook: compData.facebook || null,
+                                utile_netto: compData.utile_netto || null,
+                                classe_fatturato: compData.classe_fatturato || null,
+                                anno_bilancio: compData.anno_bilancio || null,
+                                anno_fondazione: compData.anno_fondazione || null,
+                                indirizzo: compData.indirizzo || null,
+                              },
+                              telefono: prev.telefono || compData.telefono || null,
+                              email: prev.email || compData.email || null,
+                              sito_web: prev.sito_web || compData.sito || null,
+                              partita_iva: prev.partita_iva || compData.partita_iva || null,
+                              pec: prev.pec || compData.pec || null,
+                            } : prev)
+                          }
+                        })
+                        .catch(() => {})
+                    }
                   }
                 } catch {
                   setPersonSearchError('Errore di connessione. Riprova.')
@@ -1625,22 +1722,46 @@ export default function DashboardShell() {
                       <p className="text-sm font-mono font-bold text-slate-800">{personSearchResult.partita_iva}</p>
                     </div>
                   )}
+                  {personSearchResult.pec && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">PEC</p>
+                      <a href={`mailto:${personSearchResult.pec}`} className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.pec}</a>
+                    </div>
+                  )}
+                  {personSearchResult.indirizzo && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.indirizzo}</p>
+                    </div>
+                  )}
                   {personSearchResult.formazione && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Formazione</p>
-                      <p className="text-sm font-bold text-slate-800">{personSearchResult.formazione}</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(personSearchResult.formazione)}</p>
                     </div>
                   )}
                   {personSearchResult.esperienze_precedenti && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Esperienze Precedenti</p>
-                      <p className="text-sm font-bold text-slate-800">{personSearchResult.esperienze_precedenti}</p>
+                      {typeof personSearchResult.esperienze_precedenti === 'string' ? (
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.esperienze_precedenti}</p>
+                      ) : Array.isArray(personSearchResult.esperienze_precedenti) ? (
+                        <div className="space-y-1">
+                          {personSearchResult.esperienze_precedenti.map((e: any, i: number) => (
+                            <p key={i} className="text-sm text-slate-800">
+                              {typeof e === 'string' ? e : `${e.ruolo || ''} ${e.azienda ? `@ ${e.azienda}` : ''} ${e.periodo ? `(${e.periodo})` : ''}`.trim()}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm font-bold text-slate-800">{JSON.stringify(personSearchResult.esperienze_precedenti)}</p>
+                      )}
                     </div>
                   )}
                   {personSearchResult.competenze && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Competenze</p>
-                      <p className="text-sm font-bold text-slate-800">{personSearchResult.competenze}</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(personSearchResult.competenze)}</p>
                     </div>
                   )}
                   {personSearchResult.anni_esperienza && (
@@ -1649,14 +1770,294 @@ export default function DashboardShell() {
                       <p className="text-sm font-bold text-slate-800">{personSearchResult.anni_esperienza}</p>
                     </div>
                   )}
+                  {personSearchResult.tipo_lavoro && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Tipo Lavoro</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.tipo_lavoro}</p>
+                    </div>
+                  )}
+                  {personSearchResult.seniority && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Seniority</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.seniority}</p>
+                    </div>
+                  )}
+                  {personSearchResult.dimensione_azienda && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Dimensione Azienda</p>
+                      <p className="text-sm font-bold text-slate-800">{personSearchResult.dimensione_azienda}</p>
+                    </div>
+                  )}
+                  {personSearchResult.tiktok && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">TikTok</p>
+                      <a href={personSearchResult.tiktok.startsWith('http') ? personSearchResult.tiktok : `https://tiktok.com/@${personSearchResult.tiktok.replace('@','')}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-slate-800 hover:underline">{personSearchResult.tiktok}</a>
+                    </div>
+                  )}
+                  {personSearchResult.twitter_x && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">X / Twitter</p>
+                      <a href={personSearchResult.twitter_x.startsWith('http') ? personSearchResult.twitter_x : `https://x.com/${personSearchResult.twitter_x.replace('@','')}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-slate-800 hover:underline">{personSearchResult.twitter_x}</a>
+                    </div>
+                  )}
+                  {personSearchResult.colleghi_noti && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Colleghi / Collaboratori noti</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(personSearchResult.colleghi_noti)}</p>
+                    </div>
+                  )}
+                  {personSearchResult.legami_familiari && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Legami Familiari</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(personSearchResult.legami_familiari)}</p>
+                    </div>
+                  )}
+                  {(personSearchResult.stato_civile || personSearchResult.figli) && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Stato Civile / Figli</p>
+                      <p className="text-sm font-bold text-slate-800">{[safeStr(personSearchResult.stato_civile), safeStr(personSearchResult.figli)].filter(Boolean).join(' · ')}</p>
+                    </div>
+                  )}
                   {personSearchResult.note && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Note</p>
-                      <p className="text-sm text-slate-700">{personSearchResult.note}</p>
+                      <p className="text-sm text-slate-700">{safeStr(personSearchResult.note)}</p>
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Stima Capacità & Priorità Commerciale */}
+              {(personSearchResult.stima_capacita_risparmio || personSearchResult.priorita_commerciale) && (
+                <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Stima Potenziale</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {personSearchResult.stima_capacita_risparmio && (
+                      <div className={`rounded-lg p-3 ${personSearchResult.stima_capacita_risparmio.includes('alta') || personSearchResult.stima_capacita_risparmio.includes('molto') ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50'}`}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Capacità Risparmio</p>
+                        <p className="text-sm font-bold text-emerald-800">{personSearchResult.stima_capacita_risparmio}</p>
+                      </div>
+                    )}
+                    {personSearchResult.priorita_commerciale && (
+                      <div className={`rounded-lg p-3 ${personSearchResult.priorita_commerciale.includes('caldo') ? 'bg-red-50 border border-red-200' : personSearchResult.priorita_commerciale.includes('tiepido') ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}`}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Priorità Commerciale</p>
+                        <p className="text-sm font-bold">{personSearchResult.priorita_commerciale}</p>
+                      </div>
+                    )}
+                    {personSearchResult.ambiti_protection?.length > 0 && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2 md:col-span-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Ambiti Protection</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {personSearchResult.ambiti_protection.map((a: string, i: number) => (
+                            <span key={i} className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{a}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {personSearchResult.interessi_social && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2 md:col-span-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Interessi Social</p>
+                        <p className="text-sm text-slate-700">{safeStr(personSearchResult.interessi_social)}</p>
+                      </div>
+                    )}
+                    {personSearchResult.segnali_comportamentali && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2 md:col-span-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Segnali Comportamentali</p>
+                        <p className="text-sm text-slate-700">{safeStr(personSearchResult.segnali_comportamentali)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Trigger Finanziari */}
+              {personSearchResult.trigger_finanziari?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-orange-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Trigger Finanziari</h4>
+                  <div className="space-y-2">
+                    {personSearchResult.trigger_finanziari.map((t: any, i: number) => (
+                      <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full uppercase">{t.tipo}</span>
+                          {t.data_stimata && <span className="text-[10px] text-slate-500">{t.data_stimata}</span>}
+                        </div>
+                        <p className="text-sm text-slate-700">{t.dettaglio}</p>
+                        {t.fonte && <p className="text-[10px] text-slate-400 mt-1">Fonte: {t.fonte}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dati Aziendali */}
+              {personSearchResult.dati_azienda && (
+                <div className="bg-white rounded-2xl border border-blue-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-500" /> Profilo Aziendale
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {personSearchResult.dati_azienda.ragione_sociale && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Ragione Sociale</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.ragione_sociale}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.partita_iva && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">P.IVA Azienda</p>
+                        <p className="text-sm font-mono font-bold text-slate-800">{personSearchResult.dati_azienda.partita_iva}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.forma_giuridica && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Forma Giuridica</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.forma_giuridica}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.codice_ateco && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">ATECO</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.codice_ateco}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.fatturato && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Fatturato</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.fatturato}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.dipendenti && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Dipendenti</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.dipendenti}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.sede_legale && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Sede Legale</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.sede_legale}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.pec && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">PEC Azienda</p>
+                        <a href={`mailto:${personSearchResult.dati_azienda.pec}`} className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.dati_azienda.pec}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.sito && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Sito Azienda</p>
+                        <a href={personSearchResult.dati_azienda.sito.startsWith('http') ? personSearchResult.dati_azienda.sito : `https://${personSearchResult.dati_azienda.sito}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.dati_azienda.sito}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.capitale_sociale && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Capitale Sociale</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.capitale_sociale}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.descrizione_ateco && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Descrizione ATECO</p>
+                        <p className="text-sm text-slate-700">{personSearchResult.dati_azienda.descrizione_ateco}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.utile_netto && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Utile Netto</p>
+                        <p className="text-sm font-bold text-slate-800">{String(personSearchResult.dati_azienda.utile_netto).includes('€') ? personSearchResult.dati_azienda.utile_netto : `€${personSearchResult.dati_azienda.utile_netto}`}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.classe_fatturato && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Classe Fatturato</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.classe_fatturato}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.anno_fondazione && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Anno Fondazione</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.anno_fondazione}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.anno_bilancio && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Anno Bilancio</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.anno_bilancio}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.telefono && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Telefono Azienda</p>
+                        <a href={`tel:${personSearchResult.dati_azienda.telefono}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{personSearchResult.dati_azienda.telefono}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.cellulare && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Cellulare Azienda</p>
+                        <a href={`tel:${personSearchResult.dati_azienda.cellulare}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{personSearchResult.dati_azienda.cellulare}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.email && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Email Azienda</p>
+                        <a href={`mailto:${personSearchResult.dati_azienda.email}`} className="text-sm font-bold text-blue-700 hover:underline">{personSearchResult.dati_azienda.email}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.linkedin && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">LinkedIn Azienda</p>
+                        <a href={personSearchResult.dati_azienda.linkedin.startsWith('http') ? personSearchResult.dati_azienda.linkedin : `https://${personSearchResult.dati_azienda.linkedin}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline truncate block">{personSearchResult.dati_azienda.linkedin}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.instagram && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Instagram Azienda</p>
+                        <p className="text-sm font-bold text-pink-600">{personSearchResult.dati_azienda.instagram}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.facebook && (
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Facebook Azienda</p>
+                        <a href={personSearchResult.dati_azienda.facebook.startsWith('http') ? personSearchResult.dati_azienda.facebook : `https://${personSearchResult.dati_azienda.facebook}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline truncate block">{personSearchResult.dati_azienda.facebook}</a>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.indirizzo && !personSearchResult.dati_azienda.sede_legale && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.indirizzo}</p>
+                      </div>
+                    )}
+                    {personSearchResult.dati_azienda.titolare && !/nome.*(cognome|titolare)/i.test(personSearchResult.dati_azienda.titolare) && (
+                      <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Titolare / Amministratore</p>
+                        <p className="text-sm font-bold text-slate-800">{personSearchResult.dati_azienda.titolare}</p>
+                      </div>
+                    )}
+                  </div>
+                  {personSearchResult.dati_azienda.persone?.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Soci / Titolari</p>
+                      <div className="space-y-2">
+                        {personSearchResult.dati_azienda.persone.map((p: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs">
+                                {(p.nome || '??').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-800">{p.nome}</p>
+                                <p className="text-[10px] text-slate-500">{p.ruolo}{p.cf ? ` · CF: ${p.cf}` : ''}</p>
+                              </div>
+                            </div>
+                            {p.quota && <span className="text-xs font-bold bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">{p.quota}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Polizze consigliate */}
               {personSearchResult.polizze_consigliate?.length > 0 && (
@@ -1692,13 +2093,223 @@ export default function DashboardShell() {
               {personSearchResult.note_broker && (
                 <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-2">Note per il Broker</h4>
-                  <p className="text-sm text-slate-700">{personSearchResult.note_broker}</p>
+                  <p className="text-sm text-slate-700">{safeStr(personSearchResult.note_broker)}</p>
                 </div>
               )}
 
               {/* Fonti */}
               {personSearchResult.fonti?.length > 0 && (
                 <p className="text-[10px] text-slate-400">Fonti: {personSearchResult.fonti.join(', ')}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Cerca Persona (Dipendente) ── */}
+      {searchMode === 'dipendente' && (
+        <div className="mb-6 space-y-4 bg-slate-50 border border-slate-200 rounded-2xl p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+              <UserSearch className="w-5 h-5 text-teal-600" /> Cerca Persona
+            </h2>
+            <p className="text-sm text-slate-500">
+              Cerca <strong>qualsiasi persona</strong> (dipendenti, manager, collaboratori). Mostra solo contatti <strong>verificati e diretti</strong> della persona — se non li trova, non li inventa.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder='Es. "Emanuele Gorgone Allianz" oppure "nome + azienda"'
+              value={employeeSearchQuery}
+              onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') document.getElementById('btn-employee-search')?.click() }}
+              className="flex-1 px-4 py-3 text-sm text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 placeholder:text-slate-400"
+            />
+            <button
+              id="btn-employee-search"
+              disabled={employeeSearchLoading || !employeeSearchQuery.trim()}
+              onClick={async () => {
+                const q = employeeSearchQuery.trim()
+                if (!q) return
+                setEmployeeSearchLoading(true)
+                setEmployeeSearchError(null)
+                setEmployeeSearchResult(null)
+                try {
+                  const res = await fetch('/api/employee-lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q }),
+                  })
+                  const data = await res.json()
+                  if (data.error) setEmployeeSearchError(data.error)
+                  else setEmployeeSearchResult(data)
+                } catch {
+                  setEmployeeSearchError('Errore di connessione. Riprova.')
+                } finally {
+                  setEmployeeSearchLoading(false)
+                }
+              }}
+              className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-teal-500/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105 whitespace-nowrap"
+            >
+              {employeeSearchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {employeeSearchLoading ? 'Ricerca...' : 'Cerca Persona'}
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Questa ricerca mostra solo contatti personali verificati. Se non trova il numero diretto, mostra la PEC o altri dati disponibili.
+          </p>
+
+          {employeeSearchLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
+              <span className="ml-2 text-sm text-slate-500">Ricerca in corso...</span>
+            </div>
+          )}
+
+          {employeeSearchError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <p className="text-sm text-red-700">{employeeSearchError}</p>
+            </div>
+          )}
+
+          {employeeSearchResult && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl border border-teal-200 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900">{employeeSearchResult.nome_completo || employeeSearchResult.nome_cercato}</h3>
+                {employeeSearchResult.ruolo && <p className="text-sm text-slate-500">{employeeSearchResult.ruolo}{employeeSearchResult.azienda ? ` presso ${employeeSearchResult.azienda}` : ''}</p>}
+                {employeeSearchResult.descrizione && <p className="text-sm text-slate-600 mt-2 italic">{employeeSearchResult.descrizione}</p>}
+
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  {employeeSearchResult.azienda && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Azienda</p>
+                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.azienda}</p>
+                    </div>
+                  )}
+                  {employeeSearchResult.ruolo && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Ruolo</p>
+                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.ruolo}</p>
+                    </div>
+                  )}
+                  {employeeSearchResult.settore && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Settore</p>
+                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.settore}</p>
+                    </div>
+                  )}
+                  {employeeSearchResult.citta && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Città</p>
+                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.citta}</p>
+                    </div>
+                  )}
+                  {employeeSearchResult.telefono && (
+                    <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                      <p className="text-[10px] font-bold text-green-600 uppercase">Telefono Diretto</p>
+                      <div className="flex items-center gap-2">
+                        <a href={`tel:${employeeSearchResult.telefono}`} className="text-sm font-bold text-green-800 hover:underline">{employeeSearchResult.telefono}</a>
+                        {/^(\+39)?3\d/.test(employeeSearchResult.telefono.replace(/[\s\-()./]/g, '')) && (
+                          <a href={`https://wa.me/${employeeSearchResult.telefono.replace(/[\s\-()./+]/g, '')}`} target="_blank" rel="noreferrer" className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold">WA</a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {employeeSearchResult.email && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
+                      <a href={`mailto:${employeeSearchResult.email}`} className="text-sm font-bold text-blue-700 hover:underline">{employeeSearchResult.email}</a>
+                    </div>
+                  )}
+                  {employeeSearchResult.pec && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">PEC</p>
+                      <a href={`mailto:${employeeSearchResult.pec}`} className="text-sm font-bold text-blue-700 hover:underline">{employeeSearchResult.pec}</a>
+                    </div>
+                  )}
+                  {employeeSearchResult.partita_iva && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">P.IVA</p>
+                      <p className="text-sm font-mono font-bold text-slate-800">{employeeSearchResult.partita_iva}</p>
+                    </div>
+                  )}
+                  {employeeSearchResult.linkedin && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">LinkedIn</p>
+                      <a href={employeeSearchResult.linkedin} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">Profilo</a>
+                    </div>
+                  )}
+                  {employeeSearchResult.formazione && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Formazione</p>
+                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.formazione}</p>
+                    </div>
+                  )}
+                  {employeeSearchResult.competenze && (
+                    <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Competenze</p>
+                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.competenze}</p>
+                    </div>
+                  )}
+                </div>
+
+                {!employeeSearchResult.telefono && !employeeSearchResult.email && (
+                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-xs text-amber-700 font-semibold">Contatti personali diretti non trovati. Sono disponibili solo dati professionali e PEC (se presente).</p>
+                  </div>
+                )}
+
+                {/* Social */}
+                <div className="flex gap-2 mt-3">
+                  {employeeSearchResult.instagram && (
+                    <a href={employeeSearchResult.instagram.startsWith('http') ? employeeSearchResult.instagram : `https://instagram.com/${employeeSearchResult.instagram.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded-full font-bold hover:bg-pink-200">Instagram</a>
+                  )}
+                  {employeeSearchResult.facebook && (
+                    <a href={employeeSearchResult.facebook.startsWith('http') ? employeeSearchResult.facebook : `https://facebook.com/${employeeSearchResult.facebook}`} target="_blank" rel="noreferrer" className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold hover:bg-blue-200">Facebook</a>
+                  )}
+                </div>
+              </div>
+
+              {/* Polizze */}
+              {employeeSearchResult.polizze_consigliate?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-teal-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Polizze Consigliate</h4>
+                  <div className="space-y-2">
+                    {employeeSearchResult.polizze_consigliate.map((p: any, i: number) => (
+                      <div key={i} className={`rounded-lg p-3 ${p.priorita === 'obbligatoria' ? 'bg-red-50 border border-red-200' : p.priorita === 'critica' ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-200'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${p.priorita === 'obbligatoria' ? 'bg-red-200 text-red-800' : p.priorita === 'critica' ? 'bg-amber-200 text-amber-800' : 'bg-blue-200 text-blue-800'}`}>{p.priorita}</span>
+                          <p className="text-sm font-bold text-slate-800">{p.polizza}</p>
+                        </div>
+                        <p className="text-xs text-slate-600">{p.motivo}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rischi */}
+              {employeeSearchResult.rischi_professionali?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-red-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Rischi Professionali</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {employeeSearchResult.rischi_professionali.map((r: string, i: number) => (
+                      <span key={i} className="text-[10px] bg-red-100 text-red-800 px-2 py-1 rounded font-bold">{r}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {employeeSearchResult.note_broker && (
+                <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-2">Note per il Broker</h4>
+                  <p className="text-sm text-slate-700">{employeeSearchResult.note_broker}</p>
+                </div>
+              )}
+
+              {employeeSearchResult.fonti?.length > 0 && (
+                <p className="text-[10px] text-slate-400">Fonti: {employeeSearchResult.fonti.join(', ')}</p>
               )}
             </div>
           )}
@@ -1802,7 +2413,7 @@ export default function DashboardShell() {
                   {companySearchResult.fatturato && (
                     <div className="bg-slate-50 rounded-lg p-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Fatturato</p>
-                      <p className="text-sm font-bold text-slate-800">{companySearchResult.fatturato}</p>
+                      <p className="text-sm font-bold text-slate-800">{String(companySearchResult.fatturato).includes('€') ? companySearchResult.fatturato : `€${String(companySearchResult.fatturato).replace(/[^\d.,]/g, '').trim() || companySearchResult.fatturato}`}</p>
                     </div>
                   )}
                   {companySearchResult.dipendenti && (
@@ -1846,6 +2457,18 @@ export default function DashboardShell() {
                             WhatsApp
                           </a>
                         )}
+                      </div>
+                    </div>
+                  )}
+                  {companySearchResult.cellulare && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Cellulare</p>
+                      <div className="flex items-center gap-2">
+                        <a href={`tel:${companySearchResult.cellulare}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{companySearchResult.cellulare}</a>
+                        <a href={`https://wa.me/${companySearchResult.cellulare.replace(/[\s\-()]/g, '').replace(/^\+/, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                          WhatsApp
+                        </a>
                       </div>
                     </div>
                   )}
@@ -1897,7 +2520,7 @@ export default function DashboardShell() {
                       <p className="text-sm font-bold text-slate-800">{companySearchResult.categoria}</p>
                     </div>
                   )}
-                  {companySearchResult.titolare && (
+                  {companySearchResult.titolare && !/nome.*(cognome|titolare)/i.test(companySearchResult.titolare) && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Titolare / Amministratore</p>
                       <p className="text-sm font-bold text-slate-800">{companySearchResult.titolare}</p>
@@ -1918,7 +2541,7 @@ export default function DashboardShell() {
                   {companySearchResult.utile_netto && (
                     <div className="bg-slate-50 rounded-lg p-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Utile Netto</p>
-                      <p className="text-sm font-bold text-slate-800">{companySearchResult.utile_netto}</p>
+                      <p className="text-sm font-bold text-slate-800">{String(companySearchResult.utile_netto).includes('€') ? companySearchResult.utile_netto : `€${String(companySearchResult.utile_netto).replace(/[^\d.,\-]/g, '').trim() || companySearchResult.utile_netto}`}</p>
                     </div>
                   )}
                   {companySearchResult.classe_fatturato && (
@@ -1927,8 +2550,57 @@ export default function DashboardShell() {
                       <p className="text-sm font-bold text-slate-800">{companySearchResult.classe_fatturato}</p>
                     </div>
                   )}
+                  {companySearchResult.codice_fiscale && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Codice Fiscale</p>
+                      <p className="text-sm font-mono font-bold text-slate-800">{companySearchResult.codice_fiscale}</p>
+                    </div>
+                  )}
+                  {companySearchResult.codice_rea && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Codice REA</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.codice_rea}</p>
+                    </div>
+                  )}
+                  {companySearchResult.costo_personale && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Costo Personale</p>
+                      <p className="text-sm font-bold text-slate-800">€{String(companySearchResult.costo_personale).replace(/[^\d.,]/g, '')}</p>
+                    </div>
+                  )}
+                  {companySearchResult.classificazione_eu && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Dimensione EU</p>
+                      <p className="text-sm font-bold text-slate-800">{typeof companySearchResult.classificazione_eu === 'string' ? companySearchResult.classificazione_eu : companySearchResult.classificazione_eu?.label || companySearchResult.classificazione_eu?.classe || ''}</p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Soci / Titolari / Persone chiave */}
+              {companySearchResult.persone?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">Soci / Titolari</h4>
+                  <div className="space-y-2">
+                    {companySearchResult.persone.map((p: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between bg-purple-50 border border-purple-100 rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-bold text-xs">
+                            {(p.nome || '??').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{p.nome}</p>
+                            <p className="text-[10px] text-slate-500">{p.ruolo}{p.cf ? ` · CF: ${p.cf}` : ''}</p>
+                          </div>
+                        </div>
+                        {p.quota && (
+                          <span className="text-xs font-bold bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full">{p.quota}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Intelligence Assicurativa — dati da Tavily */}
               {(companySearchResult.certificazioni?.length > 0 || companySearchResult.ha_flotta_veicoli || companySearchResult.ha_immobili_proprieta || companySearchResult.partecipa_appalti_pubblici || companySearchResult.rischi_specifici?.length > 0 || companySearchResult.note_broker) && (
@@ -2227,7 +2899,7 @@ export default function DashboardShell() {
       )}
 
       {/* ── Maps Search Mode (+ Shared Results Render) ── */}
-      {searchMode !== 'database' && searchMode !== 'azienda' && (
+      {searchMode !== 'database' && searchMode !== 'azienda' && searchMode !== 'dipendente' && (
       <>
 
       {/* ── Maps-specific: Spiegazione + Filter chips + Search ── */}

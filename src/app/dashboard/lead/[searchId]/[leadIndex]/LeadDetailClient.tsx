@@ -925,14 +925,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 const topPerson = realPeople.find((p: any) => /titolare|amministratore|socio unico|presidente|legale rappresentante/i.test(p.ruolo || ''))
                   || realPeople[0]
                 const refName = (rawTitolare && !isCompanyName(rawTitolare)) ? rawTitolare
-                  : (clayData.personName && !isCompanyName(clayData.personName)) ? clayData.personName
+                  : (clayData?.personName && !isCompanyName(clayData.personName)) ? clayData.personName
                   : (topPerson?.nome && !isCompanyName(topPerson.nome)) ? topPerson.nome
                   : null
                 const refRole = refName === rawTitolare ? 'Titolare / Legale Rappresentante'
-                  : refName === clayData.personName ? (clayData.personRole || null)
+                  : refName === clayData?.personName ? (clayData?.personRole || null)
                   : refName === topPerson?.nome ? (topPerson.ruolo || 'Dirigente')
                   : null
-                const refPhoto = clayData.personPhoto || null
+                const refPhoto = clayData?.personPhoto || null
                 const refInitial = refName ? refName[0]?.toUpperCase() : '?'
                 if (!refName) return <p className="text-sm text-slate-400">Nessun referente trovato</p>
                 return (
