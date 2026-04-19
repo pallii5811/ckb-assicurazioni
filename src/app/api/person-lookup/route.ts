@@ -609,7 +609,7 @@ JSON:
   const text2 = await tavilySearch(`"${personName}" ${company} ${result.ruolo || ''} esperienza professionale famiglia`)
   if (text2.length > 50) {
     const ext2 = await gptExtract(text2, `Estrai il profilo completo di "${personName}" come ${result.ruolo || 'professionista'}${company ? ` presso ${company}` : ''}. ATTENZIONE: includi SOLO informazioni che riguardano questa specifica persona. JSON:
-{"esperienze_precedenti":"aziende/ruoli precedenti se noti","formazione":"titoli di studio","competenze":"competenze professionali principali","anni_esperienza":"anni di esperienza stimati","colleghi_noti":"nomi di colleghi/soci/collaboratori noti nella stessa azienda","legami_familiari":"familiari noti menzionati pubblicamente (coniuge, figli, genitori, fratelli) con nome se disponibile","stato_civile":"singolo/sposato/convivente se menzionato pubblicamente","figli":"numero o menzione di figli se pubblico","note":"altre info rilevanti"}`)
+{"esperienze_precedenti":"aziende/ruoli precedenti se noti","formazione":"titoli di studio","competenze":"competenze professionali principali","anni_esperienza":"anni di esperienza stimati","colleghi_noti":"nomi di colleghi/soci/collaboratori noti nella stessa azienda","legami_familiari":"SOLO legami di SANGUE o matrimonio: coniuge/compagno/a, figli, genitori, fratelli, sorelle, zii, cugini — con NOME se disponibile. NON inserire colleghi, collaboratori, ruoli lavorativi o informazioni professionali qui.","stato_civile":"singolo/sposato/convivente se menzionato pubblicamente","figli":"numero o menzione di figli se pubblico","note":"altre info rilevanti"}`)
     for (const [k, v] of Object.entries(ext2)) {
       if (!isJunk(v) && !result[k]) result[k] = v
     }
@@ -685,6 +685,86 @@ JSON:
       }
     }
     console.log(`[PERSON-LOOKUP] Search 3 done`)
+  }
+
+  // ── Search 4: Proprietà immobiliari + patrimonio ──
+  {
+    const q4 = `"${personName}" ${city} immobile proprietà casa acquisto vendita catasto agenzia entrate`
+    const text4 = await tavilySearch(q4)
+    if (text4.length > 50) {
+      const ext4 = await gptExtract(text4, `Cerca informazioni su PROPRIETÀ IMMOBILIARI e PATRIMONIO di "${personName}"${city ? ` (${city})` : ''}. 
+IMPORTANTE: includi SOLO dati che trovi ESPLICITAMENTE nel testo. NON inventare.
+JSON:
+{"proprieta_immobiliari":"immobili di proprietà noti (indirizzo, tipo, anno acquisto se disponibile)","zona_residenza":"quartiere/zona dove vive","tipo_abitazione":"proprietà / affitto / altro se menzionato","valore_stimato_immobili":"valore stimato degli immobili se disponibile","mutuo":"informazioni su mutui se disponibili","altri_beni":"auto di lusso, barche, altri beni di valore menzionati"}`)
+      for (const [k, v] of Object.entries(ext4)) {
+        if (!isJunk(v) && !result[k]) result[k] = v
+      }
+      console.log(`[PERSON-LOOKUP] Search 4 immobili done`)
+    }
+  }
+
+  // ── Search 5: Altre aziende + cariche societarie ──
+  {
+    const q5 = `"${personName}" amministratore socio titolare cariche societarie visura camerale aziende`
+    const text5 = await tavilySearch(q5)
+    if (text5.length > 50) {
+      const ext5 = await gptExtract(text5, `Cerca TUTTE le cariche societarie e aziende collegate a "${personName}". 
+IMPORTANTE: restituisci SOLO dati REALI trovati nel testo. NON inventare aziende.
+JSON:
+{"cariche_societarie":[{"azienda":"nome azienda","ruolo":"ruolo/carica","stato":"attiva/cessata","partita_iva":"P.IVA se disponibile"}],"numero_aziende_attive":"quante aziende attive ha","partecipazioni":"partecipazioni societarie note","storico_imprenditoriale":"breve cronologia imprenditoriale se disponibile"}`)
+      for (const [k, v] of Object.entries(ext5)) {
+        if (!isJunk(v) && !result[k]) result[k] = v
+      }
+      console.log(`[PERSON-LOOKUP] Search 5 cariche done`)
+    }
+  }
+
+  // ── Search 6: Albi professionali + certificazioni + onorificenze ──
+  {
+    const q6 = `"${personName}" albo professionale ordine iscrizione certificazione abilitazione`
+    const text6 = await tavilySearch(q6)
+    if (text6.length > 50) {
+      const ext6 = await gptExtract(text6, `Cerca iscrizioni ad ALBI PROFESSIONALI, certificazioni e onorificenze di "${personName}".
+IMPORTANTE: SOLO dati REALI trovati nel testo.
+JSON:
+{"albo_professionale":"albo a cui è iscritto (es. Ordine Avvocati, Ordine Ingegneri, Albo Agenti IVASS, ecc.)","numero_iscrizione":"numero iscrizione albo se disponibile","certificazioni":"certificazioni professionali (es. EFPA, CFA, ANASF, ecc.)","onorificenze":"onorificenze, premi, riconoscimenti","pubblicazioni":"libri, articoli, pubblicazioni accademiche","docenze":"incarichi accademici o di docenza","associazioni":"associazioni di categoria o professionali di cui è membro"}`)
+      for (const [k, v] of Object.entries(ext6)) {
+        if (!isJunk(v) && !result[k]) result[k] = v
+      }
+      console.log(`[PERSON-LOOKUP] Search 6 albi done`)
+    }
+  }
+
+  // ── Search 7: Notizie recenti + reputazione + contenziosi ──
+  {
+    const q7 = `"${personName}" ${company} notizie news articolo intervista contenzioso causa tribunale`
+    const text7 = await tavilySearch(q7)
+    if (text7.length > 50) {
+      const ext7 = await gptExtract(text7, `Cerca NOTIZIE, articoli di stampa, interviste e informazioni legali su "${personName}"${company ? ` (${company})` : ''}.
+IMPORTANTE: SOLO fatti REALI trovati nel testo con data e fonte. NON inventare.
+JSON:
+{"notizie_recenti":[{"titolo":"titolo notizia","data":"data","fonte":"nome testata/sito","rilevanza_assicurativa":"perché è rilevante per un assicuratore"}],"interviste":"interviste o apparizioni mediatiche","contenziosi":"cause legali, contenziosi, procedure note pubblicamente","reputazione_online":"sentiment generale della reputazione online","donazioni_beneficenza":"attività filantropiche o donazioni note"}`)
+      for (const [k, v] of Object.entries(ext7)) {
+        if (!isJunk(v) && !result[k]) result[k] = v
+      }
+      console.log(`[PERSON-LOOKUP] Search 7 notizie done`)
+    }
+  }
+
+  // ── Search 8: Network relazionale + influenza ──
+  {
+    const q8 = `"${personName}" ${company} con insieme evento conferenza consiglio amministrazione board relazione`
+    const text8 = await tavilySearch(q8)
+    if (text8.length > 50) {
+      const ext8 = await gptExtract(text8, `Cerca il NETWORK RELAZIONALE di "${personName}" — con chi si relaziona professionalmente e personalmente.
+IMPORTANTE: SOLO persone e relazioni REALI trovate nel testo.
+JSON:
+{"relazioni_chiave":[{"nome":"nome persona","relazione":"tipo di relazione (collega, socio, membro stesso CdA, ecc.)","contesto":"dove/come sono collegati"}],"eventi_conferenze":"eventi, conferenze, convegni a cui ha partecipato","consigli_amministrazione":"CdA o board di cui fa parte","influenza_stimata":"bassa / media / alta / molto alta (basata su ruoli, connessioni, visibilità)","circoli_club":"circoli, club, associazioni esclusive di cui è membro"}`)
+      for (const [k, v] of Object.entries(ext8)) {
+        if (!isJunk(v) && !result[k]) result[k] = v
+      }
+      console.log(`[PERSON-LOOKUP] Search 8 network done`)
+    }
   }
 
   // ── Final cleanup: validate data formats ──

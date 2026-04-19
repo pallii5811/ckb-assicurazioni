@@ -77,6 +77,15 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0
 }
 
+function safeStr(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (Array.isArray(v)) return v.map(safeStr).filter(Boolean).join(', ')
+  if (typeof v === 'object') return Object.values(v as Record<string, unknown>).map(safeStr).filter(Boolean).join(' — ')
+  return String(v)
+}
+
 function toHref(raw: string): string {
   const s = raw.trim()
   if (!s) return ''
@@ -849,22 +858,22 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Profilo rapido</span>
             {registry.forma_giuridica && (
               <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
-                {registry.forma_giuridica}
+                {safeStr(registry.forma_giuridica)}
               </span>
             )}
             {registry.codice_ateco && (
               <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-                ATECO {registry.codice_ateco}
+                ATECO {safeStr(registry.codice_ateco)}
               </span>
             )}
             {registry.fatturato && (
               <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                € {registry.fatturato}
+                € {safeStr(registry.fatturato)}
               </span>
             )}
             {registry.dipendenti && (
               <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200">
-                {registry.dipendenti} dipendenti
+                {safeStr(registry.dipendenti)} dipendenti
               </span>
             )}
             {registry.classificazione_eu?.classe && (
@@ -874,12 +883,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 registry.classificazione_eu.classe === 'piccola' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                 'bg-slate-50 text-slate-600 border-slate-200'
               }`}>
-                {registry.classificazione_eu.label}
+                {safeStr(registry.classificazione_eu.label)}
               </span>
             )}
             {registry.obblighi_assicurativi?.polizze_obbligatorie?.slice(0, 2).map((p: string, i: number) => (
               <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200">
-                {p.length > 40 ? p.slice(0, 37) + '...' : p}
+                {typeof p === 'string' ? (p.length > 40 ? p.slice(0, 37) + '...' : p) : safeStr(p)}
               </span>
             ))}
           </div>
@@ -952,12 +961,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     </div>
                     {registry?.titolare_eta && (
                       <span className="inline-block text-sm font-semibold px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200">
-                        {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
+                        {safeStr(registry.titolare_eta)} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
                       </span>
                     )}
                     {registry?.codice_fiscale_titolare && (
                       <div className="text-xs font-mono text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-                        C.F. {registry.codice_fiscale_titolare}
+                        C.F. {safeStr(registry.codice_fiscale_titolare)}
                         {registry.titolare_data_nascita && (
                           <span className="ml-1.5 font-sans">· nato/a {registry.titolare_data_nascita}</span>
                         )}
@@ -1387,7 +1396,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               {registry.ragione_sociale && (
                 <div className="md:col-span-2">
                   <p className="text-xs text-gray-500">Ragione sociale</p>
-                  <p className="text-sm font-bold text-slate-900">{registry.ragione_sociale}</p>
+                  <p className="text-sm font-bold text-slate-900">{safeStr(registry.ragione_sociale)}</p>
                 </div>
               )}
               {registry.titolare && (
@@ -1401,10 +1410,10 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     ) : null}
                   </p>
                   <p className="text-sm font-bold text-slate-900">
-                    {registry.titolare}
+                    {safeStr(registry.titolare)}
                     {registry.titolare_eta ? (
                       <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        {registry.titolare_eta} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
+                        {safeStr(registry.titolare_eta)} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
                       </span>
                     ) : null}
                   </p>
@@ -1416,13 +1425,13 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     Partita IVA
                     {registry.piva_verificata ? <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificata</span> : null}
                   </p>
-                  <p className="text-sm font-semibold text-slate-900">IT {registry.partita_iva}</p>
+                  <p className="text-sm font-semibold text-slate-900">IT {safeStr(registry.partita_iva)}</p>
                 </div>
               )}
               {registry.forma_giuridica && (
                 <div>
                   <p className="text-xs text-gray-500">Forma giuridica</p>
-                  <p className="text-sm font-semibold text-slate-900">{registry.forma_giuridica}</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.forma_giuridica)}</p>
                 </div>
               )}
               {registry.codice_ateco && (
@@ -1432,8 +1441,8 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     {registry.ateco_stimato ? <span className="ml-1.5 text-amber-500 font-normal text-[10px]">(stimato)</span> : null}
                   </p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {registry.codice_ateco}
-                    {registry.descrizione_ateco ? <span className="text-xs text-gray-400 font-normal ml-1.5">— {registry.descrizione_ateco}</span> : null}
+                    {safeStr(registry.codice_ateco)}
+                    {registry.descrizione_ateco ? <span className="text-xs text-gray-400 font-normal ml-1.5">— {safeStr(registry.descrizione_ateco)}</span> : null}
                   </p>
                 </div>
               )}
@@ -1448,8 +1457,8 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     ) : null}
                   </p>
                   <p className="text-sm font-bold text-slate-900">
-                    € {registry.fatturato}
-                    {registry.fatturato_anno ? <span className="text-xs text-gray-400 font-normal ml-1">({registry.fatturato_anno})</span> : null}
+                    € {safeStr(registry.fatturato)}
+                    {registry.fatturato_anno ? <span className="text-xs text-gray-400 font-normal ml-1">({safeStr(registry.fatturato_anno)})</span> : null}
                   </p>
                 </div>
               )}
@@ -1463,38 +1472,38 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       </span>
                     ) : null}
                   </p>
-                  <p className="text-sm font-bold text-slate-900">{registry.dipendenti}</p>
+                  <p className="text-sm font-bold text-slate-900">{safeStr(registry.dipendenti)}</p>
                 </div>
               )}
               {registry.capitale_sociale && (
                 <div>
                   <p className="text-xs text-gray-500">Capitale sociale</p>
-                  <p className="text-sm font-semibold text-slate-900">{registry.capitale_sociale}</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.capitale_sociale)}</p>
                 </div>
               )}
               {registry.costo_personale && (
                 <div>
                   <p className="text-xs text-gray-500">Costo del personale</p>
-                  <p className="text-sm font-semibold text-slate-900">€ {registry.costo_personale}</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {safeStr(registry.costo_personale)}</p>
                 </div>
               )}
               {registry.utile_netto && (
                 <div>
                   <p className="text-xs text-gray-500">Utile Netto</p>
-                  <p className="text-sm font-semibold text-slate-900">€ {registry.utile_netto}</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {safeStr(registry.utile_netto)}</p>
                 </div>
               )}
               {registry.classe_fatturato && (
                 <div>
                   <p className="text-xs text-gray-500">Classe Fatturato</p>
-                  <p className="text-sm font-semibold text-slate-900">{registry.classe_fatturato}</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.classe_fatturato)}</p>
                 </div>
               )}
               {registry.data_costituzione && (
                 <div>
                   <p className="text-xs text-gray-500">Data costituzione</p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {registry.data_costituzione}
+                    {safeStr(registry.data_costituzione)}
                     {(() => {
                       const y = parseInt(String(registry.data_costituzione).match(/\d{4}/)?.[0] || '0')
                       if (y > 1900 && y <= new Date().getFullYear()) {
@@ -1516,7 +1525,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     Sede legale
                     {registry.sede_legale_verificata ? <span className="ml-1.5 text-emerald-600 font-semibold">✓ VIES</span> : null}
                   </p>
-                  <p className="text-sm font-semibold text-slate-900">{registry.sede_legale}</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.sede_legale)}</p>
                 </div>
               )}
               {registry.pec && (
@@ -1527,19 +1536,19 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                       <span className="ml-1.5 text-emerald-600 font-semibold">✓ {registry.pec_fonte === 'inipec' ? 'INIPEC' : registry.pec_fonte === 'openapi.it' ? 'OpenAPI.it' : 'Registro Imprese'}</span>
                     ) : null}
                   </p>
-                  <p className="text-sm font-semibold text-blue-700">{registry.pec}</p>
+                  <p className="text-sm font-semibold text-blue-700">{safeStr(registry.pec)}</p>
                 </div>
               )}
               {registry.codice_rea && (
                 <div>
                   <p className="text-xs text-gray-500">Codice REA</p>
-                  <p className="text-sm font-semibold text-slate-900">{registry.codice_rea}</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.codice_rea)}</p>
                 </div>
               )}
               {registry.stato && (
                 <div>
                   <p className="text-xs text-gray-500">Stato</p>
-                  <p className="text-sm font-semibold text-slate-900">{registry.stato}</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.stato)}</p>
                 </div>
               )}
               {registry.persone?.length > 0 && (
@@ -1549,8 +1558,8 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     {registry.persone.map((p: any, i: number) => (
                       <div key={i} className="flex items-center gap-2 p-2 bg-violet-50 rounded-lg border border-violet-100">
                         <div>
-                          <p className="text-xs font-bold text-slate-900">{p.nome}</p>
-                          <p className="text-[10px] text-slate-500">{p.ruolo}{p.quota ? ` · ${p.quota}` : ''}</p>
+                          <p className="text-xs font-bold text-slate-900">{safeStr(p.nome)}</p>
+                          <p className="text-[10px] text-slate-500">{safeStr(p.ruolo)}{p.quota ? ` · ${safeStr(p.quota)}` : ''}</p>
                         </div>
                       </div>
                     ))}

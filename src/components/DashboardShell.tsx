@@ -2097,6 +2097,109 @@ export default function DashboardShell() {
                 </div>
               )}
 
+              {/* Proprietà immobiliari */}
+              {(personSearchResult.proprieta_immobiliari || personSearchResult.zona_residenza || personSearchResult.tipo_abitazione || personSearchResult.valore_stimato_immobili || personSearchResult.mutuo || personSearchResult.altri_beni) && (
+                <div className="bg-white rounded-2xl border border-amber-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">🏠 Patrimonio Immobiliare</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {personSearchResult.proprieta_immobiliari && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Proprietà</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.proprieta_immobiliari)}</p></div>}
+                    {personSearchResult.zona_residenza && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Zona Residenza</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.zona_residenza)}</p></div>}
+                    {personSearchResult.tipo_abitazione && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Tipo Abitazione</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.tipo_abitazione)}</p></div>}
+                    {personSearchResult.valore_stimato_immobili && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Valore Stimato</p><p className="text-sm font-bold text-amber-700">{safeStr(personSearchResult.valore_stimato_immobili)}</p></div>}
+                    {personSearchResult.mutuo && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Mutuo</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.mutuo)}</p></div>}
+                    {personSearchResult.altri_beni && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Altri Beni</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.altri_beni)}</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Cariche societarie */}
+              {(personSearchResult.cariche_societarie || personSearchResult.numero_aziende_attive || personSearchResult.partecipazioni || personSearchResult.storico_imprenditoriale) && (
+                <div className="bg-white rounded-2xl border border-indigo-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">🏢 Cariche Societarie</h4>
+                  {personSearchResult.numero_aziende_attive && <p className="text-sm text-indigo-700 font-semibold mb-2">Aziende attive: {safeStr(personSearchResult.numero_aziende_attive)}</p>}
+                  {Array.isArray(personSearchResult.cariche_societarie) ? (
+                    <div className="space-y-2">
+                      {personSearchResult.cariche_societarie.map((c: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 bg-indigo-50 rounded-lg px-3 py-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${String(c.stato || '').toLowerCase() === 'attiva' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{safeStr(c.stato) || 'attiva'}</span>
+                          <span className="text-sm font-semibold text-slate-800">{safeStr(c.azienda)}</span>
+                          {c.ruolo && <span className="text-xs text-slate-500">— {safeStr(c.ruolo)}</span>}
+                          {c.partita_iva && <span className="text-[10px] text-slate-400 ml-auto">{safeStr(c.partita_iva)}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : personSearchResult.cariche_societarie && (
+                    <p className="text-sm text-slate-700">{safeStr(personSearchResult.cariche_societarie)}</p>
+                  )}
+                  {personSearchResult.partecipazioni && <div className="mt-2"><p className="text-[10px] font-semibold text-slate-500 uppercase">Partecipazioni</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.partecipazioni)}</p></div>}
+                  {personSearchResult.storico_imprenditoriale && <div className="mt-2"><p className="text-[10px] font-semibold text-slate-500 uppercase">Storico Imprenditoriale</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.storico_imprenditoriale)}</p></div>}
+                </div>
+              )}
+
+              {/* Albi professionali + certificazioni */}
+              {(personSearchResult.albo_professionale || personSearchResult.certificazioni || personSearchResult.onorificenze || personSearchResult.pubblicazioni || personSearchResult.docenze || personSearchResult.associazioni) && (
+                <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">📜 Albi e Certificazioni</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {personSearchResult.albo_professionale && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Albo Professionale</p><p className="text-sm font-bold text-emerald-700">{safeStr(personSearchResult.albo_professionale)}</p></div>}
+                    {personSearchResult.numero_iscrizione && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">N° Iscrizione</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.numero_iscrizione)}</p></div>}
+                    {personSearchResult.certificazioni && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Certificazioni</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.certificazioni)}</p></div>}
+                    {personSearchResult.onorificenze && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Onorificenze</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.onorificenze)}</p></div>}
+                    {personSearchResult.pubblicazioni && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Pubblicazioni</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.pubblicazioni)}</p></div>}
+                    {personSearchResult.docenze && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Docenze</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.docenze)}</p></div>}
+                    {personSearchResult.associazioni && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Associazioni</p><p className="text-sm text-slate-800">{safeStr(personSearchResult.associazioni)}</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Notizie + contenziosi */}
+              {(personSearchResult.notizie_recenti || personSearchResult.contenziosi || personSearchResult.reputazione_online || personSearchResult.donazioni_beneficenza || personSearchResult.interviste) && (
+                <div className="bg-white rounded-2xl border border-rose-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">📰 Notizie e Reputazione</h4>
+                  {Array.isArray(personSearchResult.notizie_recenti) && personSearchResult.notizie_recenti.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      {personSearchResult.notizie_recenti.map((n: any, i: number) => (
+                        <div key={i} className="bg-rose-50 rounded-lg px-3 py-2">
+                          <p className="text-sm font-semibold text-slate-800">{safeStr(n.titolo)}</p>
+                          <div className="flex gap-3 mt-1">
+                            {n.data && <span className="text-[10px] text-slate-500">{safeStr(n.data)}</span>}
+                            {n.fonte && <span className="text-[10px] text-rose-600">{safeStr(n.fonte)}</span>}
+                          </div>
+                          {n.rilevanza_assicurativa && <p className="text-[10px] text-slate-500 mt-1 italic">{safeStr(n.rilevanza_assicurativa)}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {personSearchResult.contenziosi && <div className="mb-2"><p className="text-[10px] font-semibold text-red-500 uppercase">Contenziosi</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.contenziosi)}</p></div>}
+                  {personSearchResult.interviste && <div className="mb-2"><p className="text-[10px] font-semibold text-slate-500 uppercase">Interviste</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.interviste)}</p></div>}
+                  {personSearchResult.reputazione_online && <div className="mb-2"><p className="text-[10px] font-semibold text-slate-500 uppercase">Reputazione Online</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.reputazione_online)}</p></div>}
+                  {personSearchResult.donazioni_beneficenza && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Donazioni / Beneficenza</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.donazioni_beneficenza)}</p></div>}
+                </div>
+              )}
+
+              {/* Network relazionale */}
+              {(personSearchResult.relazioni_chiave || personSearchResult.eventi_conferenze || personSearchResult.consigli_amministrazione || personSearchResult.influenza_stimata || personSearchResult.circoli_club) && (
+                <div className="bg-white rounded-2xl border border-violet-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">🤝 Network Relazionale</h4>
+                  {personSearchResult.influenza_stimata && <p className="text-sm mb-2">Influenza stimata: <span className="font-bold text-violet-700">{safeStr(personSearchResult.influenza_stimata)}</span></p>}
+                  {Array.isArray(personSearchResult.relazioni_chiave) && personSearchResult.relazioni_chiave.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase">Relazioni Chiave</p>
+                      {personSearchResult.relazioni_chiave.map((r: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 bg-violet-50 rounded-lg px-3 py-2">
+                          <span className="text-sm font-semibold text-slate-800">{safeStr(r.nome)}</span>
+                          {r.relazione && <span className="text-xs text-violet-600">— {safeStr(r.relazione)}</span>}
+                          {r.contesto && <span className="text-[10px] text-slate-400 ml-auto">{safeStr(r.contesto)}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {personSearchResult.consigli_amministrazione && <div className="mb-2"><p className="text-[10px] font-semibold text-slate-500 uppercase">CdA / Board</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.consigli_amministrazione)}</p></div>}
+                  {personSearchResult.eventi_conferenze && <div className="mb-2"><p className="text-[10px] font-semibold text-slate-500 uppercase">Eventi / Conferenze</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.eventi_conferenze)}</p></div>}
+                  {personSearchResult.circoli_club && <div><p className="text-[10px] font-semibold text-slate-500 uppercase">Circoli / Club</p><p className="text-sm text-slate-700">{safeStr(personSearchResult.circoli_club)}</p></div>}
+                </div>
+              )}
+
               {/* Fonti */}
               {personSearchResult.fonti?.length > 0 && (
                 <p className="text-[10px] text-slate-400">Fonti: {personSearchResult.fonti.join(', ')}</p>
