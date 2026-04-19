@@ -571,39 +571,73 @@ export async function POST(req: NextRequest) {
   let result: Record<string, unknown> = {}
   const fonti: string[] = []
 
-  // ─── Step 0: P.IVA diretta → OpenAPI.it SUBITO per nome REALE dal registro imprese ───
+  // ─── Step 0: P.IVA diretta → CompanyReports.it (gratuito) per nome REALE, OpenAPI ULTIMO ───
   if (isPiva) {
     result.partita_iva = cleanQuery
-    console.log(`[COMPANY-LOOKUP] P.IVA query: "${cleanQuery}" — calling OpenAPI.it FIRST for authoritative data`)
+    console.log(`[COMPANY-LOOKUP] P.IVA query: "${cleanQuery}" — CompanyReports FIRST (free), OpenAPI LAST`)
 
-    // OpenAPI.it FIRST — only authoritative source for P.IVA → company name mapping
-    if (token) {
-      const registryData = await searchByPiva(cleanQuery, token)
-      if (registryData?.ragione_sociale) {
-        result = { ...result, ...registryData }
-        fonti.push(...(registryData.fonti as string[] || []))
-        console.log(`[COMPANY-LOOKUP] OpenAPI.it found: "${result.ragione_sociale}" for P.IVA ${cleanQuery}`)
-      } else {
-        console.log(`[COMPANY-LOOKUP] OpenAPI.it: no result for P.IVA ${cleanQuery}`)
-      }
-    }
-
-    // CompanyReports.it SECOND — for fatturato, dipendenti, ATECO
+    // CompanyReports.it FIRST — free scraping, gives company name + financial data
     if (cleanQuery.length === 11) {
-      console.log(`[COMPANY-LOOKUP] Step 0b: CompanyReports.it for P.IVA ${cleanQuery}`)
+      console.log(`[COMPANY-LOOKUP] Step 0: CompanyReports.it for P.IVA ${cleanQuery}`)
       const crData = await scrapeCompanyReports(cleanQuery)
       if (crData) {
-        // Only merge financial/registry data, NEVER overwrite ragione_sociale from OpenAPI
-        if (crData.fatturato && !result.fatturato) result.fatturato = crData.fatturato
+        if (crData.ragione_sociale && !result.ragione_sociale) result.ragione_sociale = crData.ragione_sociale
+        if (crData.fatturato) result.fatturato = crData.fatturato
         if (crData.fatturato_anno) result.fatturato_anno = crData.fatturato_anno
-        if (crData.dipendenti && !result.dipendenti) result.dipendenti = crData.dipendenti
+        if (crData.dipendenti) result.dipendenti = crData.dipendenti
         if (crData.codice_ateco && !result.codice_ateco) result.codice_ateco = crData.codice_ateco
         if (crData.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crData.descrizione_ateco
         if (crData.forma_giuridica && !result.forma_giuridica) result.forma_giuridica = crData.forma_giuridica
         if (crData.sede_legale && !result.sede_legale) result.sede_legale = crData.sede_legale
         if (crData.pec && !result.pec) result.pec = crData.pec
         fonti.push('CompanyReports.it')
-        console.log(`[COMPANY-LOOKUP] CompanyReports data merged for P.IVA ${cleanQuery}`)
+        console.log(`[COMPANY-LOOKUP] CompanyReports: "${crData.ragione_sociale || 'no name'}" for P.IVA ${cleanQuery}`)
+      }
+    }
+
+    // If CompanyReports didn't find the name, try quick Tavily to find it
+    if (!result.ragione_sociale) {
+      console.log(`[COMPANY-LOOKUP] Step 0b: Tavily quick search for P.IVA ${cleanQuery}`)
+      const tavilyKey = process.env.TAVILY_API_KEY
+      if (tavilyKey) {
+        try {
+          const res = await fetch('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: tavilyKey, query: `"${cleanQuery}" partita IVA azienda ragione sociale`, search_depth: 'basic', max_results: 3 }),
+            signal: AbortSignal.timeout(10000),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            const allText = (data.results || []).map((r: any) => (r.title || '') + ' ' + (r.content || '')).join(' ')
+            if (allText.length > 50) {
+              const openaiKey = process.env.OPENAI_API_KEY
+              if (openaiKey) {
+                const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+                  body: JSON.stringify({
+                    model: 'gpt-4o-mini', temperature: 0,
+                    messages: [
+                      { role: 'system', content: 'Estrai SOLO la ragione sociale ESATTA dell\'azienda con P.IVA specificata. Rispondi SOLO con JSON.' },
+                      { role: 'user', content: `Trova la ragione sociale dell'azienda con P.IVA ${cleanQuery} dal seguente testo. Restituisci SOLO il nome UFFICIALE come appare nel registro imprese.\n\nTesto:\n${allText.slice(0, 4000)}\n\nJSON:\n{"ragione_sociale":"nome esatto"}` },
+                    ],
+                  }),
+                  signal: AbortSignal.timeout(10000),
+                })
+                if (gptRes.ok) {
+                  const gptData = await gptRes.json()
+                  const raw = gptData.choices?.[0]?.message?.content || '{}'
+                  const parsed = JSON.parse(raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+                  if (parsed.ragione_sociale && parsed.ragione_sociale.length > 2) {
+                    result.ragione_sociale = parsed.ragione_sociale
+                    console.log(`[COMPANY-LOOKUP] Step 0b: Tavily found name: "${parsed.ragione_sociale}"`)
+                  }
+                }
+              }
+            }
+          }
+        } catch { /* Tavily quick search failed */ }
       }
     }
   }
@@ -612,7 +646,7 @@ export async function POST(req: NextRequest) {
   console.log(`[COMPANY-LOOKUP] Query: "${query}"`)
   const dbResult = await searchInDatabase(query)
   if (dbResult) {
-    // Merge DB data but DON'T overwrite authoritative OpenAPI data (for P.IVA searches)
+    // Merge DB data but DON'T overwrite authoritative CompanyReports data (for P.IVA searches)
     result = isPiva && result.ragione_sociale ? mergeResults(result, dbResult) : dbResult
     fonti.push('Database CKB (lead esistente)')
     console.log(`[COMPANY-LOOKUP] DB found: "${result.ragione_sociale}"`)
@@ -1242,37 +1276,80 @@ JSON:
       }
     }
 
-    // ── Search 2d: Titolari / Amministratori / Soci (se ancora mancanti) ──
+    // ── Search 2d: Titolare / Rappresentante Legale — SEMPRE cercato, anche se ci sono già soci ──
+    // I soci (da OpenAPI/ufficiocamerale) possono essere diversi dal rappresentante legale/titolare
+    if (!result.titolare) {
+      // Search 2d1: LinkedIn + web per rappresentante legale
+      const q2d1 = `"${companyName}" titolare rappresentante legale amministratore linkedin.com`
+      const text2d1 = await tavilySearch(q2d1, true)
+      if (text2d1.length > 50) {
+        const ext2d1 = await gptExtract(text2d1, `Cerca il TITOLARE o RAPPRESENTANTE LEGALE o AMMINISTRATORE UNICO dell'azienda "${companyName}" (P.IVA: ${piva || 'N/D'}).
+ATTENZIONE CRITICA:
+- Il rappresentante legale / titolare è chi GESTISCE e RAPPRESENTA legalmente l'azienda.
+- NON è necessariamente un socio. I soci possono essere persone diverse dal titolare.
+- Cerca su LinkedIn, ufficiocamerale.it, registroimprese.it, il sito dell'azienda.
+- Se trovi il profilo LinkedIn della persona, includi l'URL.
+JSON:
+{"titolare":"nome e cognome del rappresentante legale/titolare","ruolo_titolare":"Titolare / Rappresentante Legale / Amministratore Unico / Amministratore Delegato","linkedin_titolare":"URL LinkedIn del titolare se trovato"}`)
+        if (ext2d1.titolare && !isJunkValue(ext2d1.titolare)) {
+          result.titolare = ext2d1.titolare
+          if (ext2d1.ruolo_titolare) result.ruolo_titolare = ext2d1.ruolo_titolare
+          if (ext2d1.linkedin_titolare && !isJunkValue(ext2d1.linkedin_titolare)) result.linkedin_titolare = ext2d1.linkedin_titolare
+          tavilyUsed = true
+          console.log(`[COMPANY-LOOKUP] Search 2d1: titolare = "${ext2d1.titolare}" (${ext2d1.ruolo_titolare || ''})`)
+        }
+      }
+
+      // Search 2d1b: Fallback — cerca più ampiamente
+      if (!result.titolare) {
+        const q2d1b = `"${companyName}" ${city} chi è il titolare fondatore proprietario`
+        const text2d1b = await tavilySearch(q2d1b)
+        if (text2d1b.length > 50) {
+          const ext2d1b = await gptExtract(text2d1b, `Chi è il titolare/fondatore/proprietario di "${companyName}"? JSON:
+{"titolare":"nome e cognome","ruolo_titolare":"ruolo","linkedin_titolare":"URL LinkedIn se trovato"}`)
+          if (ext2d1b.titolare && !isJunkValue(ext2d1b.titolare)) {
+            result.titolare = ext2d1b.titolare
+            if (ext2d1b.ruolo_titolare) result.ruolo_titolare = ext2d1b.ruolo_titolare
+            if (ext2d1b.linkedin_titolare && !isJunkValue(ext2d1b.linkedin_titolare)) result.linkedin_titolare = ext2d1b.linkedin_titolare
+            tavilyUsed = true
+          }
+        }
+      }
+    }
+
+    // ── Search 2d2: Soci / Amministratori (se ancora mancanti) ──
     if (!result.persone || (Array.isArray(result.persone) && result.persone.length === 0)) {
-      const q2d = `${companyName} ${piva} amministratore titolare socio ufficiocamerale.it`
+      const q2d = `${companyName} ${piva} amministratore socio ufficiocamerale.it registroimprese.it`
       const text2d = await tavilySearch(q2d, true)
       if (text2d.length > 50) {
-        const ext2d = await gptExtract(text2d, `Cerca TUTTI i titolari, amministratori, soci e persone chiave dell'azienda "${companyName}" (P.IVA: ${piva || 'N/D'}).
-ATTENZIONE: restituisci SOLO persone che sono SOCI, AMMINISTRATORI o TITOLARI di questa azienda. NON includere dipendenti, collaboratori, organizzatori di eventi, o persone menzionate in altri contesti.
+        const ext2d = await gptExtract(text2d, `Cerca TUTTI i soci, amministratori e persone chiave dell'azienda "${companyName}" (P.IVA: ${piva || 'N/D'}).
+ATTENZIONE: restituisci SOLO persone che sono SOCI o AMMINISTRATORI di questa azienda. NON includere dipendenti o collaboratori.
 JSON:
-{"titolare":"nome e cognome del titolare/amministratore/legale rappresentante","persone":[{"nome":"Nome Cognome","ruolo":"Amministratore Delegato / Socio Accomandatario / Titolare / ecc","cf":"codice fiscale se disponibile","quota":"percentuale quota se socio","data_nomina":"data nomina","data_nascita":"data nascita","luogo_nascita":"luogo nascita"}]}`)
-        if (ext2d.titolare && !result.titolare) { result.titolare = ext2d.titolare; tavilyUsed = true }
+{"persone":[{"nome":"Nome Cognome","ruolo":"Amministratore / Socio / Consigliere di Amministrazione / ecc","cf":"codice fiscale se disponibile","quota":"percentuale quota se socio"}]}`)
         if (Array.isArray(ext2d.persone) && ext2d.persone.length > 0) {
           const clean = ext2d.persone.filter((p: any) => p?.nome && !isJunkValue(p.nome))
           if (clean.length > 0) { result.persone = clean; tavilyUsed = true }
         }
       }
-      // Fallback: search more broadly
-      if (!result.persone || (Array.isArray(result.persone) && result.persone.length === 0)) {
-        const q2d2 = `"${companyName}" chi è il titolare amministratore socio fondatore`
-        const text2d2 = await tavilySearch(q2d2)
-        if (text2d2.length > 50) {
-          const ext2d2 = await gptExtract(text2d2, `Chi sono i titolari/amministratori/soci di "${companyName}"? JSON:
-{"titolare":"nome e cognome","persone":[{"nome":"Nome Cognome","ruolo":"ruolo nella società"}]}`)
-          if (ext2d2.titolare && !result.titolare) { result.titolare = ext2d2.titolare; tavilyUsed = true }
-          if (Array.isArray(ext2d2.persone) && ext2d2.persone.length > 0) {
-            const clean = ext2d2.persone.filter((p: any) => p?.nome && !isJunkValue(p.nome))
-            if (clean.length > 0 && !result.persone) { result.persone = clean; tavilyUsed = true }
-          }
-        }
-      }
-      console.log(`[COMPANY-LOOKUP] Search 2d persone: ${result.persone ? JSON.stringify(result.persone) : 'NONE'}`)
     }
+
+    // If titolare was found but not in persone array, add them
+    if (result.titolare && Array.isArray(result.persone)) {
+      const titName = String(result.titolare).toLowerCase()
+      const alreadyInList = result.persone.some((p: any) => p?.nome && String(p.nome).toLowerCase() === titName)
+      if (!alreadyInList) {
+        (result.persone as any[]).unshift({
+          nome: result.titolare,
+          ruolo: result.ruolo_titolare || 'Titolare / Rappresentante Legale',
+        })
+      }
+    } else if (result.titolare && !result.persone) {
+      result.persone = [{
+        nome: result.titolare,
+        ruolo: result.ruolo_titolare || 'Titolare / Rappresentante Legale',
+      }]
+    }
+    console.log(`[COMPANY-LOOKUP] Search 2d final — titolare: "${result.titolare || 'N/A'}", persone: ${result.persone ? JSON.stringify(result.persone) : 'NONE'}`)
 
     // ── Search 3: Info per assicuratori (rischi, certificazioni, sinistri, flotta) ──
     {
@@ -1429,10 +1506,9 @@ JSON:
     if (pivaFromSite) result.partita_iva = pivaFromSite
   }
 
-  // ─── Step 6: OpenAPI.it — ULTIMO, solo se mancano ancora dati critici (skip se già fatto in Step 0) ───
-  const alreadyUsedOpenApi = isPiva && fonti.some(f => f.includes('OpenAPI'))
+  // ─── Step 6: OpenAPI.it — ULTIMO, solo se mancano ancora dati critici ───
   const stillMissing = !result.partita_iva || !result.forma_giuridica || !result.pec || !result.sede_legale || !result.codice_ateco
-  if (token && stillMissing && !alreadyUsedOpenApi) {
+  if (token && stillMissing) {
     if (result.partita_iva) {
       const registryData = await searchByPiva(result.partita_iva as string, token)
       if (registryData?.ragione_sociale) {

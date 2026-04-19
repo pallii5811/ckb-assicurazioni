@@ -1645,7 +1645,7 @@ export default function DashboardShell() {
                   </div>
                 </div>
                 {personSearchResult.descrizione && (
-                  <p className="text-sm text-slate-600 mb-4 italic">{personSearchResult.descrizione}</p>
+                  <p className="text-sm text-slate-600 mb-4 italic">{safeStr(personSearchResult.descrizione)}</p>
                 )}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {personSearchResult.azienda && (
@@ -1731,7 +1731,7 @@ export default function DashboardShell() {
                   {personSearchResult.indirizzo && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p>
-                      <p className="text-sm font-bold text-slate-800">{personSearchResult.indirizzo}</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(personSearchResult.indirizzo)}</p>
                     </div>
                   )}
                   {personSearchResult.formazione && (
@@ -2178,7 +2178,7 @@ export default function DashboardShell() {
               <div className="bg-white rounded-2xl border border-teal-200 p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-900">{employeeSearchResult.nome_completo || employeeSearchResult.nome_cercato}</h3>
                 {employeeSearchResult.ruolo && <p className="text-sm text-slate-500">{employeeSearchResult.ruolo}{employeeSearchResult.azienda ? ` presso ${employeeSearchResult.azienda}` : ''}</p>}
-                {employeeSearchResult.descrizione && <p className="text-sm text-slate-600 mt-2 italic">{employeeSearchResult.descrizione}</p>}
+                {employeeSearchResult.descrizione && <p className="text-sm text-slate-600 mt-2 italic">{safeStr(employeeSearchResult.descrizione)}</p>}
 
                 <div className="grid grid-cols-2 gap-3 mt-4">
                   {employeeSearchResult.azienda && (
@@ -2243,13 +2243,13 @@ export default function DashboardShell() {
                   {employeeSearchResult.formazione && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Formazione</p>
-                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.formazione}</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(employeeSearchResult.formazione)}</p>
                     </div>
                   )}
                   {employeeSearchResult.competenze && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Competenze</p>
-                      <p className="text-sm font-bold text-slate-800">{employeeSearchResult.competenze}</p>
+                      <p className="text-sm font-bold text-slate-800">{safeStr(employeeSearchResult.competenze)}</p>
                     </div>
                   )}
                 </div>
@@ -2304,7 +2304,7 @@ export default function DashboardShell() {
               {employeeSearchResult.note_broker && (
                 <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-2">Note per il Broker</h4>
-                  <p className="text-sm text-slate-700">{employeeSearchResult.note_broker}</p>
+                  <p className="text-sm text-slate-700">{safeStr(employeeSearchResult.note_broker)}</p>
                 </div>
               )}
 
@@ -2522,8 +2522,15 @@ export default function DashboardShell() {
                   )}
                   {companySearchResult.titolare && !/nome.*(cognome|titolare)/i.test(companySearchResult.titolare) && (
                     <div className="bg-slate-50 rounded-lg p-3 col-span-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Titolare / Amministratore</p>
-                      <p className="text-sm font-bold text-slate-800">{companySearchResult.titolare}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">{companySearchResult.ruolo_titolare || 'Titolare / Amministratore'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-slate-800">{companySearchResult.titolare}</p>
+                        {companySearchResult.linkedin_titolare && (
+                          <a href={companySearchResult.linkedin_titolare} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
                   {companySearchResult.anno_fondazione && (
