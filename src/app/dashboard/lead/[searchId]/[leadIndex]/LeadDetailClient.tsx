@@ -1575,6 +1575,76 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               )}
             </div>
 
+            {/* Profilo Titolare dettagliato */}
+            {registry.titolare && (registry.bio_titolare || registry.linkedin_titolare || registry.esperienze_titolare || registry.formazione_titolare || registry.competenze_titolare || registry.seniority_titolare) && (
+              <div className="mt-4 rounded-2xl border border-indigo-200 p-5 bg-white shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                    {String(registry.titolare).split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{safeStr(registry.titolare)}</p>
+                    <p className="text-[10px] text-slate-500">{safeStr(registry.ruolo_titolare) || 'Titolare / Amministratore'}{registry.seniority_titolare ? ` · ${safeStr(registry.seniority_titolare)}` : ''}</p>
+                  </div>
+                </div>
+                {registry.bio_titolare && (
+                  <p className="text-xs text-slate-600 mb-3 leading-relaxed">{safeStr(registry.bio_titolare)}</p>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {registry.linkedin_titolare && (
+                    <div className="bg-indigo-50 rounded-lg p-2.5">
+                      <p className="text-[9px] font-bold text-indigo-400 uppercase">LinkedIn</p>
+                      <a href={String(registry.linkedin_titolare)} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 hover:underline">Profilo LinkedIn</a>
+                    </div>
+                  )}
+                  {registry.instagram_titolare && (
+                    <div className="bg-indigo-50 rounded-lg p-2.5">
+                      <p className="text-[9px] font-bold text-indigo-400 uppercase">Instagram</p>
+                      <a href={String(registry.instagram_titolare)} target="_blank" rel="noreferrer" className="text-xs font-bold text-pink-600 hover:underline">Instagram</a>
+                    </div>
+                  )}
+                  {registry.facebook_titolare && (
+                    <div className="bg-indigo-50 rounded-lg p-2.5">
+                      <p className="text-[9px] font-bold text-indigo-400 uppercase">Facebook</p>
+                      <a href={String(registry.facebook_titolare)} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:underline">Facebook</a>
+                    </div>
+                  )}
+                  {registry.seniority_titolare && (
+                    <div className="bg-indigo-50 rounded-lg p-2.5">
+                      <p className="text-[9px] font-bold text-indigo-400 uppercase">Seniority</p>
+                      <p className="text-xs font-bold text-slate-800 capitalize">{safeStr(registry.seniority_titolare)}</p>
+                    </div>
+                  )}
+                </div>
+                {registry.formazione_titolare && (
+                  <div className="mt-2 bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-[9px] font-bold text-indigo-400 uppercase mb-0.5">Formazione</p>
+                    <p className="text-xs text-slate-700">{safeStr(registry.formazione_titolare)}</p>
+                  </div>
+                )}
+                {registry.esperienze_titolare && Array.isArray(registry.esperienze_titolare) && registry.esperienze_titolare.length > 0 && (
+                  <div className="mt-2 bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-[9px] font-bold text-indigo-400 uppercase mb-0.5">Esperienze Precedenti</p>
+                    <div className="space-y-0.5">
+                      {registry.esperienze_titolare.map((e: any, i: number) => (
+                        <p key={i} className="text-xs text-slate-700">{e.ruolo && e.ruolo !== e.azienda ? `${safeStr(e.ruolo)} @ ` : ''}{safeStr(e.azienda)}{e.periodo ? ` (${safeStr(e.periodo)})` : ''}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {registry.competenze_titolare && Array.isArray(registry.competenze_titolare) && registry.competenze_titolare.length > 0 && (
+                  <div className="mt-2 bg-indigo-50 rounded-lg p-2.5">
+                    <p className="text-[9px] font-bold text-indigo-400 uppercase mb-0.5">Competenze</p>
+                    <div className="flex flex-wrap gap-1">
+                      {registry.competenze_titolare.map((c: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded font-bold">{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Intelligence Assicurativa */}
             {(registry.certificazioni?.length > 0 || registry.ha_flotta_veicoli || registry.ha_immobili_proprieta || registry.partecipa_appalti_pubblici || registry.rischi_specifici?.length > 0 || registry.note_broker) && (
               <div className="mt-4 p-4 rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 // ── Person Lookup via Tavily + GPT ──────────────────────────────
 // Cerca una persona specifica e restituisce info dettagliate
@@ -80,8 +80,8 @@ async function handlePersonLookup(req: NextRequest) {
           if (score > bestScore) { bestScore = score; bestResult = r }
         }
         if (bestResult && bestScore > 0) {
-          console.log(`[PERSON-LOOKUP] Tavily best match (${bestScore}/${nameWords.length}): "${bestResult.title}"`)
-          return (bestResult.title || '') + ' ' + (bestResult.content || '')
+          console.log(`[PERSON-LOOKUP] Tavily best match (${bestScore}/${nameWords.length}): "${bestResult.title}" url="${bestResult.url || ''}"`)
+          return (bestResult.title || '') + ' ' + (bestResult.content || '') + ' ' + (bestResult.url || '')
         }
         return ''
       }
@@ -128,10 +128,25 @@ async function handlePersonLookup(req: NextRequest) {
       if (!isJunk(v)) result[k] = v
     }
     // If user specified a company and GPT found a different one, prefer user's hint
+    // AND discard identity-specific fields that may belong to the WRONG person (omonimo)
     if (queryCompanyHint && result.azienda && !result.azienda.toLowerCase().includes(queryCompanyHint.toLowerCase())) {
-      console.log(`[PERSON-LOOKUP] User specified "${queryCompanyHint}" but found "${result.azienda}" — keeping user hint as primary`)
-      result.azienda_alternativa = result.azienda
-      result.azienda = queryCompanyHint
+      const hintWords = queryCompanyHint.toLowerCase().replace(/[^a-zà-ú\s]/gi, '').split(/\s+/).filter((w: string) => w.length > 3)
+      const aziendaLow = (result.azienda || '').toLowerCase()
+      const isMismatch = hintWords.length > 0 && !hintWords.some((w: string) => aziendaLow.includes(w))
+      if (isMismatch) {
+        console.log(`[PERSON-LOOKUP] COMPANY MISMATCH: user specified "${queryCompanyHint}" but Search 1 found "${result.azienda}" — discarding potentially wrong identity data`)
+        result.azienda_alternativa = result.azienda
+        result.azienda = queryCompanyHint
+        // Discard fields that likely belong to the wrong person
+        if (result.linkedin) {
+          console.log(`[PERSON-LOOKUP] Discarding LinkedIn "${result.linkedin}" — likely belongs to different person at "${result.azienda_alternativa}"`)
+          delete result.linkedin
+        }
+        if (result.descrizione) delete result.descrizione
+      } else {
+        result.azienda_alternativa = result.azienda
+        result.azienda = queryCompanyHint
+      }
     }
     result.fonti.push('Tavily (ricerca web)')
     console.log(`[PERSON-LOOKUP] Search 1 done — nome: "${ext1.nome_completo}", azienda: "${result.azienda}"`)
@@ -450,168 +465,71 @@ JSON:
     }
   }
 
-  // Build dati_azienda from all gathered company data
-  if (company || result.azienda) {
-    if (!result.dati_azienda) result.dati_azienda = {}
-    const da = result.dati_azienda
-    const companyName = result.azienda || company
-    if (!da.ragione_sociale && companyName) da.ragione_sociale = companyName
-    if (!da.nome && companyName) da.nome = companyName
-    if (!da.partita_iva && result.partita_iva) da.partita_iva = result.partita_iva
-    if (!da.pec && result.pec) da.pec = result.pec
-    if (!da.telefono && result.telefono) da.telefono = result.telefono
-    if (!da.cellulare && result.cellulare) da.cellulare = result.cellulare
-    if (!da.email && result.email) da.email = result.email
-    if (!da.sito && result.sito_web) da.sito = result.sito_web
-    if (!da.indirizzo && result.indirizzo) da.indirizzo = result.indirizzo
-    if (!da.citta && city) da.citta = city
-
-    // ── Tavily: company data enrichment (same as company-lookup) ──
-    // If we have a company name, search for comprehensive company data
-    const missingCompanyData = !da.fatturato || !da.codice_ateco || !da.sede_legale || !da.titolare
-    if (companyName && missingCompanyData) {
-      console.log(`[PERSON-LOOKUP] Enriching company data for "${companyName}" via Tavily...`)
-      const piva = da.partita_iva || ''
-
-      // Search for company registry data (P.IVA, ATECO, sede, forma giuridica)
-      if (!da.partita_iva || !da.codice_ateco || !da.sede_legale) {
-        const qReg = `"${companyName}" ${piva} partita IVA codice ATECO sede legale ufficiocamerale.it`
-        const textReg = await tavilySearch(qReg, true, companyName)
-        if (textReg.length > 50) {
-          const extReg = await gptExtract(textReg, `Estrai i dati camerali SOLO per l'azienda "${companyName}"${piva ? ` (P.IVA: ${piva})` : ''}. NON usare dati di altre aziende. JSON:
-{"partita_iva":"P.IVA 11 cifre","codice_ateco":"codice ATECO (es. 25.62.00)","descrizione_ateco":"descrizione attività","sede_legale":"indirizzo completo sede legale","forma_giuridica":"SRL/SPA/SNC/ecc","stato_attivita":"attiva/cessata","pec":"PEC aziendale","capitale_sociale":"capitale sociale","anno_fondazione":"anno"}`)
-          if (!isJunk(extReg.partita_iva) && !da.partita_iva) {
-            const cleanP = String(extReg.partita_iva).replace(/\D/g, '')
-            if (cleanP.length === 11) da.partita_iva = cleanP
-          }
-          if (!isJunk(extReg.codice_ateco) && !da.codice_ateco) da.codice_ateco = extReg.codice_ateco
-          if (!isJunk(extReg.descrizione_ateco) && !da.descrizione_ateco) da.descrizione_ateco = extReg.descrizione_ateco
-          if (!isJunk(extReg.sede_legale) && !da.sede_legale) da.sede_legale = extReg.sede_legale
-          if (!isJunk(extReg.forma_giuridica) && !da.forma_giuridica) da.forma_giuridica = extReg.forma_giuridica
-          if (!isJunk(extReg.stato_attivita) && !da.stato_attivita) da.stato_attivita = extReg.stato_attivita
-          if (!isJunk(extReg.pec) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extReg.pec) && !da.pec) da.pec = extReg.pec
-          if (!isJunk(extReg.capitale_sociale) && !da.capitale_sociale) da.capitale_sociale = extReg.capitale_sociale
-          if (!isJunk(extReg.anno_fondazione) && !da.anno_fondazione) da.anno_fondazione = extReg.anno_fondazione
-          console.log(`[PERSON-LOOKUP] Company registry data: ATECO=${da.codice_ateco}, sede=${da.sede_legale}`)
+  // Build dati_azienda using lead-registry (SAME identical pipeline as dettaglio lead)
+  const companyName = result.azienda || company
+  if (companyName) {
+    console.log(`[PERSON-LOOKUP] Calling lead-registry for "${companyName}" (same pipeline as dettaglio lead)...`)
+    try {
+      const origin = req.headers.get('host') ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}` : 'http://localhost:3000'
+      const leadObj = {
+        nome: companyName,
+        azienda: companyName,
+        citta: city || result.citta || '',
+        sito: result.sito_web || '',
+        indirizzo: result.indirizzo || '',
+      }
+      const regRes = await fetch(`${origin}/api/lead-registry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead: leadObj }),
+        signal: AbortSignal.timeout(120000),
+      })
+      if (regRes.ok) {
+        const regData = await regRes.json()
+        if (regData && regData.found) {
+          // Use lead-registry response AS dati_azienda (authoritative, same as dettaglio lead)
+          result.dati_azienda = regData
+          // Sync key fields back to top-level result
+          if (regData.partita_iva && !result.partita_iva) result.partita_iva = regData.partita_iva
+          if (regData.pec && !result.pec) result.pec = regData.pec
+          if (regData.sede_legale && !result.indirizzo) result.indirizzo = regData.sede_legale
+          // Override sito_web with validated website from lead-registry (fixes wrong sites like 1240.it)
+          if (regData.sito) result.sito_web = regData.sito
+          // Fill missing contact data from lead-registry
+          if (regData.email_privacy && !result.email) result.email = regData.email_privacy
+          result.fonti.push('lead-registry (dettaglio lead)')
+          console.log(`[PERSON-LOOKUP] lead-registry returned: "${regData.ragione_sociale}" P.IVA=${regData.partita_iva} fatturato=${regData.fatturato} dip=${regData.dipendenti} titolare=${regData.titolare}`)
         }
       }
-
-      // Search for financial data (fatturato, dipendenti)
-      if (!da.fatturato || !da.dipendenti) {
-        const qFin = `"${companyName}" ${piva} fatturato bilancio dipendenti`
-        const textFin = await tavilySearch(qFin, true, companyName)
-        if (textFin.length > 50) {
-          const extFin = await gptExtract(textFin, `Estrai i dati finanziari SOLO per "${companyName}"${piva ? ` (P.IVA: ${piva})` : ''}. JSON:
-{"fatturato":"importo in euro","dipendenti":"numero","utile_netto":"importo","anno_bilancio":"anno","classe_fatturato":"es. 100K-500K"}`)
-          if (!isJunk(extFin.fatturato) && !da.fatturato) da.fatturato = String(extFin.fatturato).includes('€') ? extFin.fatturato : `€${extFin.fatturato}`
-          if (!isJunk(extFin.dipendenti) && !da.dipendenti) da.dipendenti = extFin.dipendenti
-          if (!isJunk(extFin.utile_netto) && !da.utile_netto) da.utile_netto = extFin.utile_netto
-          if (!isJunk(extFin.anno_bilancio) && !da.anno_bilancio) da.anno_bilancio = extFin.anno_bilancio
-          if (!isJunk(extFin.classe_fatturato) && !da.classe_fatturato) da.classe_fatturato = extFin.classe_fatturato
-          console.log(`[PERSON-LOOKUP] Company financial data: fatturato=${da.fatturato}, dip=${da.dipendenti}`)
-        }
-      }
-
-      // Search for titolare / rappresentante legale
-      if (!da.titolare) {
-        const qTit = `"${companyName}" titolare rappresentante legale amministratore linkedin.com`
-        const textTit = await tavilySearch(qTit, true, companyName)
-        if (textTit.length > 50) {
-          const extTit = await gptExtract(textTit, `Cerca il TITOLARE o RAPPRESENTANTE LEGALE di "${companyName}". JSON:
-{"titolare":"nome e cognome","ruolo_titolare":"ruolo esatto"}`)
-          if (!isJunk(extTit.titolare)) {
-            da.titolare = extTit.titolare
-            if (extTit.ruolo_titolare) da.ruolo_titolare = extTit.ruolo_titolare
-          }
-        }
-      }
-
-      // Search for social media
-      if (!da.linkedin || !da.instagram) {
-        const qSoc = `"${companyName}" linkedin instagram facebook social`
-        const textSoc = await tavilySearch(qSoc)
-        if (textSoc.length > 50) {
-          const extSoc = await gptExtract(textSoc, `Cerca i profili social media dell'azienda "${companyName}". Restituisci SOLO URL trovati ESPLICITAMENTE nel testo. JSON:
-{"linkedin":"URL LinkedIn company","instagram":"URL o @username Instagram","facebook":"URL Facebook"}`)
-          if (!isJunk(extSoc.linkedin) && !da.linkedin) da.linkedin = extSoc.linkedin
-          if (!isJunk(extSoc.instagram) && !da.instagram) da.instagram = extSoc.instagram
-          if (!isJunk(extSoc.facebook) && !da.facebook) da.facebook = extSoc.facebook
-        }
-      }
-
-      // If we now have P.IVA from Tavily, try CompanyReports for authoritative financial data
-      if (da.partita_iva && (!da.fatturato || !da.dipendenti)) {
-        const pivaStr = String(da.partita_iva).replace(/\D/g, '')
-        if (pivaStr.length === 11) {
-          console.log(`[PERSON-LOOKUP] Trying CompanyReports with newly found P.IVA ${pivaStr}`)
-          try {
-            const crRes = await fetch(`https://www.companyreports.it/${pivaStr}`, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', Accept: 'text/html', 'Accept-Language': 'it-IT,it;q=0.9' },
-              signal: AbortSignal.timeout(10000), redirect: 'follow',
-            })
-            if (crRes.ok) {
-              const html = await crRes.text()
-              if (html.length > 5000 && !html.includes('<title>CompanyReports - Il fatturato')) {
-                const meta = html.match(/meta name="description" content="([^"]+)"/i)
-                if (meta) {
-                  const fatM = meta[1].match(/Fatturato\s+([\d.,]+)/i)
-                  if (fatM && !da.fatturato) da.fatturato = `€${fatM[1].replace(/,+$/, '').trim()}`
-                  const ateM = meta[1].match(/Ateco\s+([\d.]+)/i)
-                  if (ateM && !da.codice_ateco) da.codice_ateco = ateM[1].replace(/\.+$/, '').trim()
-                }
-                const jsonLdBlocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi) || []
-                for (const block of jsonLdBlocks) {
-                  try {
-                    const d = JSON.parse(block.replace(/<\/?script[^>]*>/gi, '').trim()) as any
-                    for (const item of (d.mainEntity || [])) {
-                      const q = (item.name || '').toLowerCase()
-                      const a: string = item.acceptedAnswer?.text || ''
-                      if (q.includes('fatturato') && !da.fatturato) {
-                        const m = a.match(/pari a\s+€?\s*([\d.,]+)/i) || a.match(/€\s*([\d.,]+)/)
-                        if (m) da.fatturato = `€${m[1].replace(/,+$/, '').trim()}`
-                        const y = a.match(/\((\d{4})\)/)
-                        if (y) da.fatturato_anno = y[1]
-                      }
-                      if (q.includes('dipendenti') && !da.dipendenti) {
-                        const m = a.match(/da\s*(\d+)\s*a\s*(\d+)/i)
-                        if (m) da.dipendenti = `${m[1]}-${m[2]}`
-                        else { const m2 = a.match(/(\d+)\s*dipendenti/i) || a.match(/pari a\s*(\d+)/i); if (m2) da.dipendenti = m2[1] }
-                      }
-                      if (q.includes('sede legale') && !da.sede_legale) {
-                        const m = a.match(/è\s+(.+?)(?:\.$|$)/i)
-                        if (m) da.sede_legale = m[1].trim()
-                      }
-                    }
-                  } catch { /* */ }
-                }
-                const formaM = html.match(/Forma Giuridica<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/i)
-                if (formaM && !da.forma_giuridica) da.forma_giuridica = formaM[1].trim()
-                if (!da.dipendenti) {
-                  const dipM = html.match(/N\.?\s*Dipendenti<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+)/i)
-                  if (dipM) da.dipendenti = dipM[1].trim()
-                }
-                result.fonti.push('CompanyReports.it (2nd)')
-              }
-            }
-          } catch { /* */ }
-        }
-      }
-
-      console.log(`[PERSON-LOOKUP] dati_azienda enriched:`, JSON.stringify(da))
+    } catch (e) {
+      console.log(`[PERSON-LOOKUP] lead-registry call failed:`, e)
     }
-
-    // Sync back to result
-    if (da.partita_iva && !result.partita_iva) result.partita_iva = da.partita_iva
-    if (da.pec && !result.pec) result.pec = da.pec
+    // Fallback: minimal dati_azienda if lead-registry failed
+    if (!result.dati_azienda) {
+      result.dati_azienda = { ragione_sociale: companyName, nome: companyName }
+      if (result.partita_iva) result.dati_azienda.partita_iva = result.partita_iva
+      if (city) result.dati_azienda.citta = city
+    }
   }
 
   // ── Search 2: Info professionale + famiglia + trigger ──
   const text2 = await tavilySearch(`"${personName}" ${company} ${result.ruolo || ''} esperienza professionale famiglia`)
   if (text2.length > 50) {
-    const ext2 = await gptExtract(text2, `Estrai il profilo completo di "${personName}" come ${result.ruolo || 'professionista'}${company ? ` presso ${company}` : ''}. ATTENZIONE: includi SOLO informazioni che riguardano questa specifica persona. JSON:
+    const ext2 = await gptExtract(text2, `Estrai il profilo completo di "${personName}" come ${result.ruolo || 'professionista'}${company ? ` presso ${company}` : ''}.
+ATTENZIONE CRITICA: "${personName}" è un nome che potrebbe avere OMONIMI. Includi SOLO informazioni che riguardano la persona che lavora/ha lavorato presso "${company || 'azienda non specificata'}". Se trovi esperienze lavorative presso aziende completamente diverse e non collegate, probabilmente riguardano un OMONIMO — in quel caso scrivi null per quel campo. JSON:
 {"esperienze_precedenti":"aziende/ruoli precedenti se noti","formazione":"titoli di studio","competenze":"competenze professionali principali","anni_esperienza":"anni di esperienza stimati","colleghi_noti":"nomi di colleghi/soci/collaboratori noti nella stessa azienda","legami_familiari":"SOLO legami di SANGUE o matrimonio: coniuge/compagno/a, figli, genitori, fratelli, sorelle, zii, cugini — con NOME se disponibile. NON inserire colleghi, collaboratori, ruoli lavorativi o informazioni professionali qui.","stato_civile":"singolo/sposato/convivente se menzionato pubblicamente","figli":"numero o menzione di figli se pubblico","note":"altre info rilevanti"}`)
     for (const [k, v] of Object.entries(ext2)) {
       if (!isJunk(v) && !result[k]) result[k] = v
+    }
+    // Post-validate esperienze: if they mention unrelated companies but NOT ours, discard (omonimo data)
+    if (company && result.esperienze_precedenti && typeof result.esperienze_precedenti === 'string') {
+      const compWordsCheck = company.toLowerCase().replace(/[^a-zà-ú\s]/gi, '').split(/\s+/).filter((w: string) => w.length > 3 && !/^(srl|srls|spa|sas|snc|societa|società)$/i.test(w))
+      const espLow = result.esperienze_precedenti.toLowerCase()
+      const espMentionsCompany = compWordsCheck.some((w: string) => espLow.includes(w))
+      if (!espMentionsCompany && espLow.length > 20) {
+        console.log(`[PERSON-LOOKUP] Esperienze DON'T reference "${company}" — likely omonimo data, discarding: "${result.esperienze_precedenti.slice(0, 80)}..."`)
+        delete result.esperienze_precedenti
+      }
     }
     console.log(`[PERSON-LOOKUP] Search 2 done`)
   }
@@ -693,11 +611,50 @@ JSON:
     const text4 = await tavilySearch(q4)
     if (text4.length > 50) {
       const ext4 = await gptExtract(text4, `Cerca informazioni su PROPRIETÀ IMMOBILIARI e PATRIMONIO di "${personName}"${city ? ` (${city})` : ''}. 
-IMPORTANTE: includi SOLO dati che trovi ESPLICITAMENTE nel testo. NON inventare.
+REGOLA FONDAMENTALE: rispondi SOLO con dati che trovi LETTERALMENTE nel testo fornito. Se un campo non è esplicitamente menzionato nel testo, usa null. NON STIMARE, NON INVENTARE, NON DEDURRE valori, indirizzi o importi. Se non c'è un indirizzo preciso, scrivi null. Se non c'è un valore esplicito, scrivi null.
 JSON:
-{"proprieta_immobiliari":"immobili di proprietà noti (indirizzo, tipo, anno acquisto se disponibile)","zona_residenza":"quartiere/zona dove vive","tipo_abitazione":"proprietà / affitto / altro se menzionato","valore_stimato_immobili":"valore stimato degli immobili se disponibile","mutuo":"informazioni su mutui se disponibili","altri_beni":"auto di lusso, barche, altri beni di valore menzionati"}`)
+{"proprieta_immobiliari":"SOLO immobili ESPLICITAMENTE citati nel testo con indirizzo preciso, altrimenti null","zona_residenza":"SOLO se esplicitamente menzionata nel testo, altrimenti null","tipo_abitazione":"SOLO se esplicitamente menzionato, altrimenti null","valore_stimato_immobili":"SOLO se un valore è ESPLICITAMENTE citato nel testo, altrimenti null","mutuo":"SOLO se esplicitamente menzionato, altrimenti null","altri_beni":"SOLO beni esplicitamente citati nel testo, altrimenti null"}`)
+      // Post-validate: detect GPT fabrication in real estate data
+      // If property address contains the person's surname, it's almost certainly invented
+      const nameParts4 = personName.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3)
       for (const [k, v] of Object.entries(ext4)) {
-        if (!isJunk(v) && !result[k]) result[k] = v
+        if (!isJunk(v) && !result[k]) {
+          const vStr = typeof v === 'string' ? v.toLowerCase() : ''
+          // Check for fabrication signals: person's surname in address, round values like "325.000"
+          if (k === 'proprieta_immobiliari' && vStr) {
+            const hasSurname = nameParts4.some((w: string) => vStr.includes(w))
+            if (hasSurname) {
+              console.log(`[PERSON-LOOKUP] FABRICATION DETECTED in proprieta_immobiliari: "${v}" contains person surname — DISCARDING`)
+              continue
+            }
+          }
+          if (k === 'valore_stimato_immobili' && vStr) {
+            // If we're discarding the property, also discard the value
+            const propVal = ext4.proprieta_immobiliari ? String(ext4.proprieta_immobiliari).toLowerCase() : ''
+            const propFabricated = nameParts4.some((w: string) => propVal.includes(w))
+            if (propFabricated) {
+              console.log(`[PERSON-LOOKUP] Discarding valore_stimato_immobili because property was fabricated`)
+              continue
+            }
+          }
+          if (k === 'mutuo' && vStr) {
+            const propVal = ext4.proprieta_immobiliari ? String(ext4.proprieta_immobiliari).toLowerCase() : ''
+            const propFabricated = nameParts4.some((w: string) => propVal.includes(w))
+            if (propFabricated) {
+              console.log(`[PERSON-LOOKUP] Discarding mutuo because property was fabricated`)
+              continue
+            }
+          }
+          if (k === 'tipo_abitazione' && vStr) {
+            const propVal = ext4.proprieta_immobiliari ? String(ext4.proprieta_immobiliari).toLowerCase() : ''
+            const propFabricated = nameParts4.some((w: string) => propVal.includes(w))
+            if (propFabricated) {
+              console.log(`[PERSON-LOOKUP] Discarding tipo_abitazione because property was fabricated`)
+              continue
+            }
+          }
+          result[k] = v
+        }
       }
       console.log(`[PERSON-LOOKUP] Search 4 immobili done`)
     }
@@ -764,6 +721,50 @@ JSON:
         if (!isJunk(v) && !result[k]) result[k] = v
       }
       console.log(`[PERSON-LOOKUP] Search 8 network done`)
+    }
+  }
+
+  // ── Final validation: LinkedIn must belong to the RIGHT person at the RIGHT company ──
+  // Do a targeted Tavily search: site:linkedin.com/in + person name + company name
+  // If the verification search doesn't find the same URL, it's likely an omonimo
+  if (result.linkedin && company) {
+    const compWordsLi = company.toLowerCase().replace(/[^a-zà-ú\s]/gi, '').split(/\s+/).filter((w: string) => w.length > 3 && !/^(srl|srls|spa|sas|snc|societa|società)$/i.test(w))
+    const compSearchTerm = compWordsLi.join(' ')
+    if (compSearchTerm) {
+      console.log(`[PERSON-LOOKUP] LinkedIn verification: searching site:linkedin.com/in "${personName}" "${compSearchTerm}"`)
+      const qLiVerify = `site:linkedin.com/in "${personName}" ${compSearchTerm}`
+      const textLiVerify = await tavilySearch(qLiVerify, true, personName)
+      if (textLiVerify.length > 50) {
+        // Check if the verified results mention the company
+        const verifyLow = textLiVerify.toLowerCase()
+        const verifyMentionsCompany = compWordsLi.some((w: string) => verifyLow.includes(w))
+        const liUrlMatch = textLiVerify.match(/linkedin\.com\/in\/[\w-]+/i)
+        if (verifyMentionsCompany) {
+          // Company confirmed in LinkedIn verification results — LinkedIn is for the RIGHT person
+          if (liUrlMatch) {
+            const verifiedUrl = `https://www.${liUrlMatch[0]}`
+            if (verifiedUrl !== result.linkedin) {
+              console.log(`[PERSON-LOOKUP] LinkedIn verification found BETTER URL: "${verifiedUrl}" (was "${result.linkedin}")`)
+              result.linkedin = verifiedUrl
+            } else {
+              console.log(`[PERSON-LOOKUP] LinkedIn VERIFIED: "${result.linkedin}" confirmed for "${company}"`)
+            }
+          } else {
+            console.log(`[PERSON-LOOKUP] LinkedIn VERIFIED by company match but URL not extractable — keeping "${result.linkedin}"`)
+          }
+        } else {
+          console.log(`[PERSON-LOOKUP] LinkedIn verification: company "${company}" NOT found in results — DISCARDING "${result.linkedin}" (likely omonimo)`)
+          result.linkedin_scartato = result.linkedin
+          result.linkedin_scartato_motivo = `Non verificato per ${company} — probabilmente omonimo`
+          delete result.linkedin
+        }
+      } else {
+        // No Tavily results for person+company LinkedIn — the real person may not have LinkedIn
+        console.log(`[PERSON-LOOKUP] LinkedIn verification: no results for "${personName}" + "${company}" on LinkedIn — DISCARDING "${result.linkedin}" (likely omonimo)`)
+        result.linkedin_scartato = result.linkedin
+        result.linkedin_scartato_motivo = `Nessun profilo LinkedIn trovato per ${personName} a ${company}`
+        delete result.linkedin
+      }
     }
   }
 

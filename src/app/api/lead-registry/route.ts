@@ -427,7 +427,7 @@ export async function POST(req: NextRequest) {
   // ─── Step 2: Extract P.IVA from company website ───────────────
   // SKIP if website is a third-party platform (miodottore.it, paginegialle.it, etc.)
   // — the P.IVA on those pages belongs to the PLATFORM, not the business
-  const PLATFORM_DOMAINS = ['miodottore.it','doctolib.it','paginegialle.it','paginebianche.it','tuttocitta.it','yelp.com','yelp.it','tripadvisor.it','tripadvisor.com','booking.com','airbnb.it','airbnb.com','subito.it','immobiliare.it','idealista.it','linkedin.com','facebook.com','instagram.com','youtube.com','twitter.com','tiktok.com','trustpilot.com','google.com','europages.it','kompass.com','hotfrog.it','cylex.it','virgilio.it','wix.com','wordpress.com','jimdo.com','weebly.com','shopify.com','etsy.com','amazon.it','amazon.com','ebay.it','ebay.com','topdoctors.it','dottori.it','medicitalia.it','pazienti.it','guidadottori.it','thefork.it','justeat.it','deliveroo.it','glovo.com','matrimonio.com']
+  const PLATFORM_DOMAINS = ['miodottore.it','doctolib.it','paginegialle.it','paginebianche.it','tuttocitta.it','yelp.com','yelp.it','tripadvisor.it','tripadvisor.com','booking.com','airbnb.it','airbnb.com','subito.it','immobiliare.it','idealista.it','linkedin.com','facebook.com','instagram.com','youtube.com','twitter.com','tiktok.com','trustpilot.com','google.com','europages.it','kompass.com','hotfrog.it','cylex.it','virgilio.it','wix.com','wordpress.com','jimdo.com','weebly.com','shopify.com','etsy.com','amazon.it','amazon.com','ebay.it','ebay.com','topdoctors.it','dottori.it','medicitalia.it','pazienti.it','guidadottori.it','thefork.it','justeat.it','deliveroo.it','glovo.com','matrimonio.com','1240.it','12auto.it','1254.it','pronto.it','infoimprese.it','dnb.com','infocamere.it','registroimprese.it','companyreports.it','ufficiocamerale.it','cercaziende.it','guida-monaci.it','misterimprese.it','trovaaziende.it']
   const isThirdPartyPlatform = (() => {
     if (!website) return false
     try {
@@ -436,26 +436,103 @@ export async function POST(req: NextRequest) {
     } catch { return false }
   })()
 
+  // If website is a platform or missing, try to find the REAL company website via Google
+  let realWebsite = website
+  if ((!website || isThirdPartyPlatform) && business_name) {
+    console.log(`[LEAD-REGISTRY] Website "${website || 'missing'}" is ${isThirdPartyPlatform ? 'a platform' : 'empty'} — searching for real website...`)
+    try {
+      const cleanName = business_name.replace(/['"]/g, '').trim()
+      const googleQuery = encodeURIComponent(`"${cleanName}" ${city} sito ufficiale`)
+      const googleHtml = await fetchHtmlSafe(`https://www.google.com/search?q=${googleQuery}&num=5&hl=it`, 6000)
+      if (googleHtml.length > 200) {
+        const urlMatches = googleHtml.match(/href="(https?:\/\/[^"]+)"/g) || []
+        for (const u of urlMatches) {
+          const url = u.replace(/^href="/, '').replace(/"$/, '')
+          try {
+            const h = new URL(url).hostname.replace(/^www\./, '')
+            if (!PLATFORM_DOMAINS.some(p => h === p || h.endsWith(`.${p}`)) && !h.includes('google') && !h.includes('gstatic') && !h.includes('googleapis')) {
+              realWebsite = url
+              console.log(`[LEAD-REGISTRY] Found real website: ${realWebsite}`)
+              break
+            }
+          } catch { /* skip invalid URL */ }
+        }
+      }
+    } catch { /* Google search failed */ }
+  }
+
   let websitePiva: string | null = null
   let websiteOwnerName: string | null = null
   let websiteFullRagioneSociale: string | null = null
   let websiteCF: string | null = null
   let websiteSedeLegale: string | null = null
   let websiteEmail: string | null = null
+  let websitePhone: string | null = null
+  let websiteFax: string | null = null
+  let websiteLinkedin: string | null = null
+  let websiteLinkedinTitolare: string | null = null
+  let websiteInstagram: string | null = null
+  let websiteFacebook: string | null = null
+  let websiteTwitter: string | null = null
+  let websiteYoutube: string | null = null
   // If backend already found a P.IVA, use it as fallback
   if (backendData?.partita_iva) {
     websitePiva = String(backendData.partita_iva).replace(/^IT\s*/, '').trim()
   }
-  if (website && !isThirdPartyPlatform) {
-    const baseUrl = website.startsWith('http') ? website : `https://${website}`
+  // Recalculate isThirdPartyPlatform with realWebsite
+  const useWebsite = realWebsite && !(() => {
+    try {
+      const h = new URL(realWebsite!.startsWith('http') ? realWebsite! : `https://${realWebsite}`).hostname.replace(/^www\./, '')
+      return PLATFORM_DOMAINS.some(p => h === p || h.endsWith(`.${p}`))
+    } catch { return true }
+  })()
+  if (useWebsite && realWebsite) {
+    const baseUrl = realWebsite.startsWith('http') ? realWebsite : `https://${realWebsite}`
     const origin = (() => { try { return new URL(baseUrl).origin } catch { return baseUrl } })()
     const mainHtml = await fetchHtmlSafe(baseUrl, 6000)
     const sitePiva = extractPivaFromHtml(mainHtml)
     if (sitePiva) websitePiva = sitePiva
 
-    // Always scrape privacy + contatti pages for PIVA + owner name
-    const pages = ['/privacy-policy', '/privacy', '/contatti', '/contacts', '/chi-siamo']
-    const fetches = await Promise.allSettled(pages.slice(0, 4).map(p => fetchHtmlSafe(`${origin}${p}`, 4000)))
+    // Extract phone/email from homepage too
+    if (mainHtml.length > 200) {
+      const mainText = mainHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+      // Phone from homepage
+      const hrefTelM = mainHtml.match(/href="tel:([+\d\s.\-]+)"/i)
+      if (hrefTelM?.[1]) {
+        const cleaned = hrefTelM[1].replace(/[\s.\-]/g, '').replace(/^\+?39/, '+39 ')
+        if (cleaned.replace(/\D/g, '').length >= 8) websitePhone = cleaned.trim()
+      }
+      if (!websitePhone) {
+        const telM = mainText.match(/(?:TELEFONO|TEL|Tel\.?)[\/FAX\s:.\-]*(\+?39?\s*0\d[\d\s.\-]{6,12})/i)
+        if (telM?.[1]) {
+          const cleaned = telM[1].replace(/[\s.\-]/g, '').replace(/^\+?39/, '+39 ')
+          if (cleaned.replace(/\D/g, '').length >= 8) websitePhone = cleaned.trim()
+        }
+      }
+      // Email from homepage
+      const mailtoM = mainHtml.match(/href="mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"/i)
+      if (mailtoM?.[1] && !mailtoM[1].toLowerCase().includes('noreply')) {
+        websiteEmail = mailtoM[1].toLowerCase()
+      }
+      // Social media from homepage HTML (links in header/footer)
+      const liCoMatch = mainHtml.match(/href=["'](https?:\/\/(?:www\.)?linkedin\.com\/company\/[a-zA-Z0-9._-]+\/?)/i)
+      if (liCoMatch?.[1]) websiteLinkedin = liCoMatch[1]
+      const liInMatch = mainHtml.match(/href=["'](https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9._-]+\/?)/i)
+      if (liInMatch?.[1] && !websiteLinkedinTitolare) websiteLinkedinTitolare = liInMatch[1]
+      if (!websiteLinkedin && liInMatch?.[1]) websiteLinkedin = liInMatch[1]
+      const igMatch = mainHtml.match(/href=["'](https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9._]+\/?)/i)
+      if (igMatch?.[1]) websiteInstagram = igMatch[1]
+      const fbMatch = mainHtml.match(/href=["'](https?:\/\/(?:www\.)?facebook\.com\/[a-zA-Z0-9._-]+\/?)/i)
+      if (fbMatch?.[1]) websiteFacebook = fbMatch[1]
+      const twMatch = mainHtml.match(/href=["'](https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[a-zA-Z0-9._-]+\/?)/i)
+      if (twMatch?.[1]) websiteTwitter = twMatch[1]
+      const ytMatch = mainHtml.match(/href=["'](https?:\/\/(?:www\.)?youtube\.com\/(?:channel|c|@|user)\/[a-zA-Z0-9._-]+\/?)/i)
+      if (ytMatch?.[1]) websiteYoutube = ytMatch[1]
+    }
+
+    // Always scrape privacy + contatti + chi-siamo pages for PIVA + owner name
+    const pages = ['/privacy-policy', '/privacy', '/contatti', '/contacts', '/chi-siamo', '/about', '/about-us', '/team']
+    const fetches = await Promise.allSettled(pages.map(p => fetchHtmlSafe(`${origin}${p}`, 4000)))
     for (const r of fetches) {
       if (r.status === 'fulfilled' && r.value && r.value.length > 500) {
         const pageHtml = r.value
@@ -466,23 +543,22 @@ export async function POST(req: NextRequest) {
           const found = extractPivaFromHtml(pageHtml)
           if (found) websitePiva = found
         }
+        // Helpers for name validation (shared by privacy-policy and chi-siamo extraction)
+        const toTitleCase = (s: string) => s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+        const NAME_JUNK = /seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|titolare|responsabile|interessato|garante|disposizione|finalita|modalita|comunicazione|profilazione|legittimo|necessario|obbligatorio|conservazione|opposizione|reclamo|diritto|revoca|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cooperativa|impresa|societa|azienda|servizi|costruzioni/i
+        const COMPANY_SUFFIXES = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|s\.?s\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh|inc|corp|group|holding|consorzio|coop|cooperativa|onlus|ets|associazione)\b/i
+        const isValidName = (n: string) => {
+          if (!n || n.length < 5 || n.length > 50) return false
+          if (NAME_JUNK.test(n)) return false
+          if (COMPANY_SUFFIXES.test(n)) return false
+          const words = n.trim().split(/\s+/).filter(w => w.length > 1)
+          if (words.length < 2 || words.length > 5) return false
+          if (!words.every(w => /^[A-ZÀ-Ú]/.test(w))) return false
+          if (!/^[A-Za-zÀ-ú\s'.-]+$/.test(n)) return false
+          return true
+        }
         // Extract owner name from "Titolare del Trattamento" section
         if (!websiteOwnerName) {
-          // Helper: convert ALL CAPS to Title Case
-          const toTitleCase = (s: string) => s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-          // Blocklist: common Italian legal/privacy text words that are NOT person names
-          const NAME_JUNK = /seguito|specificato|previsto|indicato|presente|documento|informativa|trattamento|personali|consenso|normativa|regolamento|titolare|responsabile|interessato|garante|disposizione|finalita|modalita|comunicazione|profilazione|legittimo|necessario|obbligatorio|conservazione|opposizione|reclamo|diritto|revoca|cancellazione|rettifica|limitazione|accesso|pulizia|pulizie|cooperativa|impresa|societa|azienda|servizi|costruzioni/i
-          const COMPANY_SUFFIXES = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|s\.?s\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh|inc|corp|group|holding|consorzio|coop|cooperativa|onlus|ets|associazione)\b/i
-          const isValidName = (n: string) => {
-            if (!n || n.length < 5 || n.length > 50) return false
-            if (NAME_JUNK.test(n)) return false
-            if (COMPANY_SUFFIXES.test(n)) return false
-            const words = n.trim().split(/\s+/).filter(w => w.length > 1)
-            if (words.length < 2 || words.length > 5) return false
-            if (!words.every(w => /^[A-ZÀ-Ú]/.test(w))) return false
-            if (!/^[A-Za-zÀ-ú\s'.-]+$/.test(n)) return false
-            return true
-          }
           const ownerPatterns = [
             /titolare\s+del\s+trattamento[\s\S]{0,400}?(?:da|è)[:\s]+([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:DI\s+)?[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+?)(?:\s+con\s+sede|\s*,\s*\d|\s*-\s*(?:P\.?\s*I|C\.?\s*F)|\s*\.\s*P\.?\s*I)/i,
             /(?:resa\s+da|gestita\s+da|titolare[:\s]+)\s*([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.,]+?(?:\s+DI\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ\s'.]+)?)(?:\s+con\s+sede|\s*,\s*\d|\s*-\s*(?:P\.?\s*I|C\.?\s*F))/i,
@@ -551,6 +627,68 @@ export async function POST(req: NextRequest) {
         if (!websiteOwnerName) {
           const rappM = pageHtml.match(/(?:rappresentante\s+legale|legale\s+rappresentante)\s+([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+){1,3})/i)
           if (rappM?.[1]) websiteOwnerName = rappM[1].trim()
+        }
+        // Extract owner from "Chi siamo" / "About" pages — patterns like:
+        // "Marco Alessi - Socio e legale rappresentante"
+        // "fondato da Marco Alessi"
+        // "il proprietario Marco Alessi"
+        if (!websiteOwnerName) {
+          const chiSiamoPatterns = [
+            /([A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+){1,3})\s*[-–—]\s*(?:socio|legale\s+rappresentante|rappresentante\s+legale|proprietario|fondatore|titolare|amministratore|CEO|direttore)/i,
+            /(?:socio\s+e\s+legale\s+rappresentante|rappresentante\s+legale|proprietario|fondatore|titolare|CEO|direttore\s+generale)\s+(?:di\s+.+?\s+)?(?:è|:)?\s*([A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+){1,3})/i,
+            /(?:fondat[oa]\s+da|creat[oa]\s+da|guidat[oa]\s+da|dirett[oa]\s+da)\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+){1,3})/i,
+            /(?:il\s+(?:proprietario|fondatore|titolare)|la\s+(?:proprietaria|fondatrice|titolare))\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+){1,3})/i,
+            /(?:proprietario|fondatore|titolare)\s+(?:dell['a]\s+.+?\s+)?(?:è|:)\s*([A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+){1,3})/i,
+            /(?:dirett[oa]\s+dall['a]?\s*(?:Ing\.?|Dott\.?(?:ssa)?|Avv\.?|Arch\.?|Geom\.?|Rag\.?|Prof\.?)?\s*)([A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ]+){1,3})/i,
+          ]
+          for (const pat of chiSiamoPatterns) {
+            const m = pageText.match(pat)
+            if (m?.[1]) {
+              const name = m[1].trim()
+              if (isValidName(name)) {
+                websiteOwnerName = name
+                console.log(`[LEAD-REGISTRY] Found owner "${name}" from website chi-siamo/about page`)
+                break
+              }
+            }
+          }
+        }
+        // Extract phone numbers from website (contatti pages especially)
+        if (!websitePhone) {
+          const phonePatterns = [
+            /(?:TELEFONO|TEL|PHONE|Tel\.?|Telefono)[\/FAX\s:.\-]*(\+?39?\s*\d[\d\s.\-\/]{7,15})/i,
+            /(?:tel|phone|telefono)[:\s]+(\+?39?\s*0\d[\d\s.\-]{6,12})/i,
+            /href="tel:([+\d\s.\-]+)"/i,
+          ]
+          for (const pat of phonePatterns) {
+            const m = pageText.match(pat)
+            if (m?.[1]) {
+              const cleaned = m[1].replace(/[\s.\-\/]/g, '').replace(/^\+?39/, '+39 ')
+              if (cleaned.replace(/\D/g, '').length >= 8) { websitePhone = cleaned.trim(); break }
+            }
+          }
+        }
+        // Extract fax
+        if (!websiteFax) {
+          const faxM = pageText.match(/(?:FAX|Fax)[:\s.\-]+(\+?39?\s*\d[\d\s.\-]{7,15})/i)
+          if (faxM?.[1]) {
+            const cleaned = faxM[1].replace(/[\s.\-]/g, '').replace(/^\+?39/, '+39 ')
+            if (cleaned.replace(/\D/g, '').length >= 8) websiteFax = cleaned.trim()
+          }
+        }
+        // Extract general email from contact pages (not just privacy)
+        if (!websiteEmail) {
+          const emailPatterns = [
+            /href="mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"/i,
+            /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/,
+          ]
+          for (const pat of emailPatterns) {
+            const m = pageHtml.match(pat)
+            if (m?.[1] && !m[1].toLowerCase().includes('noreply') && !m[1].toLowerCase().includes('example') && !m[1].toLowerCase().includes('sentry') && !m[1].toLowerCase().includes('wix') && !m[1].toLowerCase().includes('wordpress')) {
+              websiteEmail = m[1].toLowerCase()
+              break
+            }
+          }
         }
       }
     }
@@ -651,9 +789,22 @@ export async function POST(req: NextRequest) {
   profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
 
   // Titolare / Referente (from privacy policy "Titolare del Trattamento")
+  // IMPORTANT: Skip if websiteOwnerName matches the company name (privacy pages often list company as "titolare del trattamento")
   if (websiteOwnerName) {
-    profile.titolare = websiteOwnerName
-    profile.titolare_fonte = 'privacy_policy_sito'
+    const ownerLower = websiteOwnerName.toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+    const companyLower = (profile.ragione_sociale || business_name || '').toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+    const companyWords = companyLower.split(/\s+/).filter((w: string) => w.length > 2)
+    const ownerWords = ownerLower.split(/\s+/).filter((w: string) => w.length > 2)
+    // Check if the owner name is actually the company name (e.g., "Alessi Lino" vs "ALESSI LINO S.R.L.")
+    const isCompanyName = companyLower.includes(ownerLower) || ownerLower.includes(companyLower) ||
+      (ownerWords.length > 0 && ownerWords.every((w: string) => companyLower.includes(w))) ||
+      (companyWords.length > 0 && companyWords.filter((w: string) => ownerLower.includes(w)).length >= Math.min(2, companyWords.length))
+    if (isCompanyName) {
+      console.log(`[LEAD-REGISTRY] Skipping websiteOwnerName "${websiteOwnerName}" — matches company name "${profile.ragione_sociale || business_name}"`)
+    } else {
+      profile.titolare = websiteOwnerName
+      profile.titolare_fonte = 'privacy_policy_sito'
+    }
   }
 
   // Codice Fiscale titolare (from privacy policy — critical for insurance quotes)
@@ -874,18 +1025,150 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
 
     // ── Search 1: Visura / camerale (titolare, soci, ATECO, capitale) ──
     if (!profile.titolare || !profile.codice_ateco) {
-      const q1 = `"${companyId}" ${pivaStr} visura camerale amministratore titolare soci codice ATECO capitale sociale`
+      const q1 = `"${companyId}" ${pivaStr} visura camerale rappresentante legale amministratore delegato titolare soci ATECO`
       const text1 = await tavilySearch(q1)
       if (text1.length > 50) {
-        const ext1 = await gptExtract(text1, `Estrai i dati della visura camerale per "${companyId}". JSON:
-{"titolare":"nome e cognome del titolare/amministratore unico/legale rappresentante","titolare_ruolo":"ruolo","codice_ateco":"codice numerico ATECO","descrizione_ateco":"descrizione attività","forma_giuridica":"tipo società","capitale_sociale":"importo","sede_legale":"indirizzo completo con CAP e città","data_costituzione":"anno o data","pec":"indirizzo PEC","partita_iva":"numero P.IVA","codice_fiscale":"CF azienda","persone":[{"nome":"Nome Cognome","ruolo":"Amministratore/Socio/ecc","cf":"codice fiscale se disponibile","quota":"% se socio"}]}`)
+        const ext1 = await gptExtract(text1, `Estrai i dati della visura camerale per "${companyId}". IMPORTANTE: il "titolare" deve essere il RAPPRESENTANTE LEGALE o AMMINISTRATORE DELEGATO (chi gestisce e firma per l'azienda), NON un semplice socio. JSON:
+{"titolare":"nome e cognome del RAPPRESENTANTE LEGALE o AMMINISTRATORE DELEGATO (NON un semplice socio)","titolare_ruolo":"ruolo esatto (es: Rappresentante Legale, Amministratore Delegato, Titolare)","codice_ateco":"codice numerico ATECO","descrizione_ateco":"descrizione attività","forma_giuridica":"tipo società","capitale_sociale":"importo","sede_legale":"indirizzo completo con CAP e città","data_costituzione":"anno o data","pec":"indirizzo PEC","partita_iva":"numero P.IVA","codice_fiscale":"CF azienda","persone":[{"nome":"Nome Cognome","ruolo":"Rappresentante Legale / Amministratore Delegato / Amministratore Unico / Socio / Titolare (specifica il ruolo ESATTO)","cf":"codice fiscale se disponibile","quota":"% se socio"}]}`)
         // Validate titolare is a person name, not company
         if (ext1.titolare) {
           const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh)\b/i
           if (compSuffix.test(ext1.titolare) || ext1.titolare === 'Non divulgato') delete ext1.titolare
+          // Also check if titolare matches company name (e.g., "Alessi Lino" for "ALESSI LINO S.R.L.")
+          if (ext1.titolare) {
+            const tLow = ext1.titolare.toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+            const cLow = (profile.ragione_sociale || business_name || '').toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+            const tWords = tLow.split(/\s+/).filter((w: string) => w.length > 2)
+            if (tWords.length > 0 && tWords.every((w: string) => cLow.includes(w))) {
+              console.log(`[LEAD-REGISTRY] Search 1: Skipping titolare "${ext1.titolare}" — matches company name`)
+              delete ext1.titolare
+            }
+          }
         }
         mergeTavily(ext1)
         if (ext1.titolare && profile.titolare === ext1.titolare) profile.titolare_fonte = 'tavily'
+        tavilyUsed = true
+
+        // ── Smart titolare selection: prefer person with most authoritative role ──
+        if (Array.isArray(profile.persone) && profile.persone.length >= 1) {
+          const ROLE_PRIORITY: [RegExp, number][] = [
+            [/rappresentante\s*legale/i, 100],
+            [/amministratore\s*delegato/i, 90],
+            [/presidente/i, 85],
+            [/direttore\s*(?:generale|tecnico)/i, 80],
+            [/amministratore\s*unico/i, 75],
+            [/titolare/i, 70],
+            [/fondatore/i, 65],
+            [/proprietario/i, 60],
+            [/amministratore/i, 50],
+            [/socio/i, 20],
+          ]
+          const roleScore = (r: string) => {
+            if (!r) return 0
+            let best = 0
+            for (const [rx, s] of ROLE_PRIORITY) { if (rx.test(r)) best = Math.max(best, s) }
+            return best
+          }
+          let bestPerson: any = null
+          let bestScore = 0
+          const compLow = (profile.ragione_sociale || business_name || '').toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+          for (const p of profile.persone) {
+            if (!p?.nome || isJunkValue(p.nome)) continue
+            const pLow = String(p.nome).toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+            const pWords = pLow.split(/\s+/).filter((w: string) => w.length > 2)
+            if (pWords.length > 0 && pWords.every((w: string) => compLow.includes(w))) continue // skip company-name matches
+            const sc = roleScore(p.ruolo || '')
+            if (sc > bestScore) { bestScore = sc; bestPerson = p }
+          }
+          if (bestPerson && bestScore >= 50) {
+            const currentTit = String(profile.titolare || '').toLowerCase()
+            const bestName = String(bestPerson.nome).toLowerCase()
+            if (currentTit !== bestName) {
+              console.log(`[LEAD-REGISTRY] Smart titolare: "${bestPerson.nome}" (score=${bestScore}, role="${bestPerson.ruolo}") OVERRIDES "${profile.titolare}"`)
+              profile.titolare = bestPerson.nome
+              profile.ruolo_titolare = bestPerson.ruolo || profile.ruolo_titolare
+              profile.titolare_fonte = 'tavily_persone_role_priority'
+            }
+          }
+        }
+      }
+    }
+
+    // ── Search 1a2: Cross-verify titolare — cerca specificamente il Rappresentante Legale ──
+    // Anche se abbiamo trovato un titolare, verifichiamo se è il rappresentante legale (più autorevole)
+    if (profile.titolare && tavilyKey) {
+      const currentRole = String(profile.ruolo_titolare || '').toLowerCase()
+      const isAlreadyRL = /rappresentante\s*legale/i.test(currentRole)
+      if (!isAlreadyRL) {
+        const q1a2 = `"${companyId}" ${pivaStr} "rappresentante legale" OR "legale rappresentante" nome cognome`
+        const text1a2 = await tavilySearch(q1a2)
+        if (text1a2.length > 50) {
+          const ext1a2 = await gptExtract(text1a2, `Chi è il RAPPRESENTANTE LEGALE di "${companyId}"? Il rappresentante legale è chi firma e rappresenta legalmente l'azienda. Se ci sono più persone, scegli quella con la carica più importante (Rappresentante Legale > Amministratore Delegato > Presidente). IMPORTANTE: elenca TUTTE le persone trovate. JSON:
+{"rappresentante_legale":"nome e cognome del rappresentante legale","ruolo":"ruolo esatto","persone":[{"nome":"Nome Cognome","ruolo":"ruolo esatto (Rappresentante Legale / Amministratore Delegato / Socio / etc.)"}]}`)
+          const rlName = ext1a2.rappresentante_legale
+          if (rlName && !isJunkValue(rlName)) {
+            const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc)\b/i
+            const cLow = (profile.ragione_sociale || business_name || '').toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+            const rLow = rlName.toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
+            const rWords = rLow.split(/\s+/).filter((w: string) => w.length > 2)
+            const isCompName = rWords.length > 0 && rWords.every((w: string) => cLow.includes(w))
+            if (!compSuffix.test(rlName) && !isCompName && rLow !== String(profile.titolare).toLowerCase()) {
+              console.log(`[LEAD-REGISTRY] Search 1a2: Found Rappresentante Legale "${rlName}" — OVERRIDES current titolare "${profile.titolare}"`)
+              profile.titolare = rlName
+              profile.ruolo_titolare = ext1a2.ruolo || 'Rappresentante Legale'
+              profile.titolare_fonte = 'tavily_rl_verification'
+            }
+          }
+          // Merge any new persone into the list
+          if (Array.isArray(ext1a2.persone) && ext1a2.persone.length > 0) {
+            if (!profile.persone) profile.persone = []
+            for (const p of ext1a2.persone) {
+              if (!p?.nome || isJunkValue(p.nome)) continue
+              const existing = (profile.persone as any[]).find((e: any) => e?.nome && String(e.nome).toLowerCase() === String(p.nome).toLowerCase())
+              if (!existing) (profile.persone as any[]).push(p)
+            }
+          }
+        }
+        tavilyUsed = true
+      }
+    }
+
+    // ── Search 1b: Titolare fallback — ricerca mirata se Search 1 non ha trovato ──
+    if (!profile.titolare) {
+      const q1b = `"${companyId}" ${pivaStr} titolare rappresentante legale amministratore linkedin.com ufficiocamerale.it`
+      const text1b = await tavilySearch(q1b)
+      if (text1b.length > 50) {
+        const ext1b = await gptExtract(text1b, `Cerca il TITOLARE / RAPPRESENTANTE LEGALE / AMMINISTRATORE UNICO dell'azienda "${companyId}"${pivaStr ? ` (P.IVA: ${pivaStr})` : ''}.
+Il titolare è chi GESTISCE e RAPPRESENTA legalmente l'azienda. Cerca su LinkedIn, ufficiocamerale.it, registroimprese.it.
+JSON:
+{"titolare":"nome e cognome","titolare_ruolo":"Titolare / Rappresentante Legale / Amministratore Unico","linkedin_titolare":"URL LinkedIn se trovato","persone":[{"nome":"Nome Cognome","ruolo":"ruolo"}]}`)
+        const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh)\b/i
+        if (ext1b.titolare && !isJunkValue(ext1b.titolare) && !compSuffix.test(ext1b.titolare)) {
+          profile.titolare = ext1b.titolare
+          profile.titolare_fonte = 'tavily'
+          if (ext1b.titolare_ruolo) profile.ruolo_titolare = ext1b.titolare_ruolo
+          if (ext1b.linkedin_titolare && !isJunkValue(ext1b.linkedin_titolare)) profile.linkedin_titolare = ext1b.linkedin_titolare
+        }
+        if (Array.isArray(ext1b.persone) && ext1b.persone.length > 0 && !profile.persone) {
+          const clean = ext1b.persone.filter((p: any) => p?.nome && !isJunkValue(p.nome))
+          if (clean.length > 0) profile.persone = clean
+        }
+        tavilyUsed = true
+      }
+    }
+
+    // ── Search 1c: Titolare last resort — cerca chi è il fondatore/proprietario ──
+    if (!profile.titolare) {
+      const q1c = `"${companyId}" chi è il titolare fondatore proprietario`
+      const text1c = await tavilySearch(q1c)
+      if (text1c.length > 50) {
+        const ext1c = await gptExtract(text1c, `Chi è il titolare/fondatore/proprietario di "${companyId}"? JSON: {"titolare":"nome e cognome","titolare_ruolo":"ruolo"}`)
+        const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh)\b/i
+        if (ext1c.titolare && !isJunkValue(ext1c.titolare) && !compSuffix.test(ext1c.titolare)) {
+          profile.titolare = ext1c.titolare
+          profile.titolare_fonte = 'tavily'
+          if (ext1c.titolare_ruolo) profile.ruolo_titolare = ext1c.titolare_ruolo
+        }
         tavilyUsed = true
       }
     }
@@ -913,6 +1196,118 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
         const ext3 = await gptExtract(text3, `Estrai TUTTE le informazioni utili per un broker assicurativo su "${companyId}". JSON:
 {"certificazioni":["ISO 9001","SOA","ecc"],"ha_flotta_veicoli":true/false,"numero_veicoli":"numero se noto","ha_immobili_proprieta":true/false,"immobili_descrizione":"descrizione","partecipa_appalti_pubblici":true/false,"appalti_info":"dettagli","sinistri_noti":"eventuali sinistri noti","attivita_estero":true/false,"rischi_specifici":["rischio 1","rischio 2"],"note_broker":"altre info utili per assicuratore"}`)
         mergeTavily(ext3)
+        tavilyUsed = true
+      }
+    }
+
+    // ── Search 3b: Social media + contatti azienda (LinkedIn, Instagram, Facebook, telefono) ──
+    if (!profile.linkedin || !profile.telefono) {
+      const q3b = `"${companyId}" ${city} linkedin.com instagram.com facebook.com telefono contatti`
+      const text3b = await tavilySearch(q3b)
+      if (text3b.length > 50) {
+        const ext3b = await gptExtract(text3b, `Cerca i profili social e i contatti dell'azienda "${companyId}" (NON del titolare, dell'AZIENDA).
+ATTENZIONE: Restituisci SOLO URL e dati TROVATI ESPLICITAMENTE nel testo. NON inventare URL.
+JSON:
+{"linkedin":"URL pagina LinkedIn AZIENDALE (company page, NON profilo personale)","instagram":"URL profilo Instagram aziendale","facebook":"URL pagina Facebook aziendale","twitter":"URL account Twitter/X aziendale","youtube":"URL canale YouTube","telefono":"numero di telefono fisso o cellulare dell'azienda","email":"email di contatto aziendale","sito_web":"sito web ufficiale se trovato"}`)
+        if (ext3b.linkedin && typeof ext3b.linkedin === 'string' && ext3b.linkedin.includes('linkedin.com/') && !isJunkValue(ext3b.linkedin) && !profile.linkedin) {
+          profile.linkedin = ext3b.linkedin
+        }
+        if (ext3b.instagram && typeof ext3b.instagram === 'string' && ext3b.instagram.includes('instagram.com') && !isJunkValue(ext3b.instagram) && !profile.instagram) {
+          profile.instagram = ext3b.instagram
+        }
+        if (ext3b.facebook && typeof ext3b.facebook === 'string' && ext3b.facebook.includes('facebook.com') && !isJunkValue(ext3b.facebook) && !profile.facebook) {
+          profile.facebook = ext3b.facebook
+        }
+        if (ext3b.twitter && typeof ext3b.twitter === 'string' && !isJunkValue(ext3b.twitter) && !profile.twitter) {
+          profile.twitter = ext3b.twitter
+        }
+        if (ext3b.youtube && typeof ext3b.youtube === 'string' && ext3b.youtube.includes('youtube.com') && !isJunkValue(ext3b.youtube) && !profile.youtube) {
+          profile.youtube = ext3b.youtube
+        }
+        if (ext3b.telefono && !isJunkValue(ext3b.telefono) && !profile.telefono) {
+          profile.telefono = ext3b.telefono
+          profile.telefono_fonte = 'tavily'
+        }
+        if (ext3b.email && !isJunkValue(ext3b.email) && !profile.email && !profile.email_privacy) {
+          profile.email = ext3b.email
+        }
+        tavilyUsed = true
+      }
+    }
+
+    // If titolare was found but not in persone array, add them (same logic as company-lookup)
+    if (profile.titolare && Array.isArray(profile.persone)) {
+      const titName = String(profile.titolare).toLowerCase()
+      const alreadyInList = profile.persone.some((p: any) => p?.nome && String(p.nome).toLowerCase() === titName)
+      if (!alreadyInList) {
+        (profile.persone as any[]).unshift({ nome: profile.titolare, ruolo: profile.ruolo_titolare || 'Titolare / Rappresentante Legale' })
+      }
+    } else if (profile.titolare && !profile.persone) {
+      profile.persone = [{ nome: profile.titolare, ruolo: profile.ruolo_titolare || 'Titolare / Rappresentante Legale' }]
+    }
+
+    // ── Search 4: Titolare profile enrichment (LinkedIn, background professionale) ──
+    console.log(`[LEAD-REGISTRY] Search 4 check: titolare="${profile.titolare}" tavilyKey=${!!tavilyKey} openaiKey=${!!openaiKey}`)
+    if (profile.titolare && tavilyKey && openaiKey) {
+      const titName = String(profile.titolare)
+      const compId = profile.ragione_sociale || business_name || ''
+      const q4 = `"${titName}" "${compId}" linkedin profilo professionale curriculum`
+      console.log(`[LEAD-REGISTRY] Search 4: query="${q4}"`)
+      const text4 = await tavilySearch(q4)
+      console.log(`[LEAD-REGISTRY] Search 4: text4 length=${text4.length}`)
+      if (text4.length > 50) {
+        const ext4 = await gptExtract(text4, `Cerca il profilo professionale di "${titName}" che lavora presso "${compId}".
+ATTENZIONE: Restituisci SOLO dati trovati ESPLICITAMENTE nel testo. NON inventare URL LinkedIn.
+JSON:
+{"linkedin":"URL LinkedIn TROVATO nel testo o null","ruolo":"ruolo attuale preciso","seniority":"junior/mid/senior/executive/c-level (stima basata su ruolo e esperienza)","bio":"breve descrizione professionale se trovata","esperienze_precedenti":[{"azienda":"nome","ruolo":"ruolo","periodo":"periodo"}],"formazione":"università/titolo di studio se trovato","competenze":["competenza1","competenza2"],"instagram":"URL Instagram personale se trovato","facebook":"URL Facebook personale se trovato"}`)
+        if (ext4.linkedin && typeof ext4.linkedin === 'string' && ext4.linkedin.includes('linkedin.com/') && !isJunkValue(ext4.linkedin)) {
+          profile.linkedin_titolare = ext4.linkedin
+        }
+        if (ext4.ruolo && !isJunkValue(ext4.ruolo)) profile.ruolo_titolare = ext4.ruolo
+        if (ext4.bio && !isJunkValue(ext4.bio) && typeof ext4.bio === 'string' && ext4.bio.length > 10) profile.bio_titolare = ext4.bio
+        if (Array.isArray(ext4.esperienze_precedenti) && ext4.esperienze_precedenti.length > 0) {
+          const clean = ext4.esperienze_precedenti.filter((e: any) => e?.azienda && !isJunkValue(e.azienda))
+          if (clean.length > 0) profile.esperienze_titolare = clean
+        }
+        if (ext4.formazione && !isJunkValue(ext4.formazione)) profile.formazione_titolare = ext4.formazione
+        if (Array.isArray(ext4.competenze) && ext4.competenze.length > 0) profile.competenze_titolare = ext4.competenze
+        if (ext4.seniority && !isJunkValue(ext4.seniority)) profile.seniority_titolare = ext4.seniority
+        if (ext4.instagram && typeof ext4.instagram === 'string' && ext4.instagram.includes('instagram.com') && !isJunkValue(ext4.instagram)) {
+          profile.instagram_titolare = ext4.instagram
+        }
+        if (ext4.facebook && typeof ext4.facebook === 'string' && ext4.facebook.includes('facebook.com') && !isJunkValue(ext4.facebook)) {
+          profile.facebook_titolare = ext4.facebook
+        }
+        console.log(`[LEAD-REGISTRY] Search 4 results: linkedin=${profile.linkedin_titolare || 'none'} bio=${!!profile.bio_titolare} formazione=${!!profile.formazione_titolare} esperienze=${!!profile.esperienze_titolare} seniority=${profile.seniority_titolare || 'none'}`)
+        tavilyUsed = true
+      }
+
+      // ── Search 4b: LinkedIn-specific search if not found yet ──
+      if (!profile.linkedin_titolare || !profile.bio_titolare) {
+        const q4b = `site:linkedin.com/in "${titName}" "${compId}"`
+        console.log(`[LEAD-REGISTRY] Search 4b: LinkedIn-specific query="${q4b}"`)
+        const text4b = await tavilySearch(q4b)
+        console.log(`[LEAD-REGISTRY] Search 4b: text4b length=${text4b.length}`)
+        if (text4b.length > 50) {
+          const ext4b = await gptExtract(text4b, `Trova il profilo LinkedIn di "${titName}" che lavora presso "${compId}".
+ATTENZIONE: Restituisci SOLO l'URL LinkedIn ESATTO trovato nel testo. NON inventare URL.
+JSON:
+{"linkedin":"URL LinkedIn completo (https://www.linkedin.com/in/...)","bio":"headline o descrizione professionale dal profilo","ruolo":"titolo lavorativo attuale","esperienze_precedenti":[{"azienda":"nome","ruolo":"ruolo","periodo":"periodo"}],"formazione":"università/titolo di studio","competenze":["competenza1","competenza2"]}`)
+          if (ext4b.linkedin && typeof ext4b.linkedin === 'string' && ext4b.linkedin.includes('linkedin.com/in/') && !isJunkValue(ext4b.linkedin) && !profile.linkedin_titolare) {
+            profile.linkedin_titolare = ext4b.linkedin
+          }
+          if (ext4b.bio && !isJunkValue(ext4b.bio) && typeof ext4b.bio === 'string' && ext4b.bio.length > 10 && !profile.bio_titolare) {
+            profile.bio_titolare = ext4b.bio
+          }
+          if (ext4b.ruolo && !isJunkValue(ext4b.ruolo) && !profile.ruolo_titolare) profile.ruolo_titolare = ext4b.ruolo
+          if (Array.isArray(ext4b.esperienze_precedenti) && ext4b.esperienze_precedenti.length > 0 && !profile.esperienze_titolare) {
+            const clean = ext4b.esperienze_precedenti.filter((e: any) => e?.azienda && !isJunkValue(e.azienda))
+            if (clean.length > 0) profile.esperienze_titolare = clean
+          }
+          if (ext4b.formazione && !isJunkValue(ext4b.formazione) && !profile.formazione_titolare) profile.formazione_titolare = ext4b.formazione
+          if (Array.isArray(ext4b.competenze) && ext4b.competenze.length > 0 && !profile.competenze_titolare) profile.competenze_titolare = ext4b.competenze
+          console.log(`[LEAD-REGISTRY] Search 4b results: linkedin=${profile.linkedin_titolare || 'none'} bio=${!!profile.bio_titolare}`)
+        }
         tavilyUsed = true
       }
     }
@@ -985,6 +1380,34 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     atecoInsurance: atecoIns || null,
     gapAnalysis: profile.gap_analysis || null,
   })
+
+  // Save real website to profile (validated, not a platform)
+  if (useWebsite && realWebsite) {
+    profile.sito = realWebsite
+  } else if (website && !isThirdPartyPlatform) {
+    profile.sito = website
+  }
+
+  // Save phone/fax from website scraping
+  if (websitePhone) {
+    profile.telefono = websitePhone
+    profile.telefono_fonte = 'sito_web'
+  }
+  if (websiteFax) {
+    profile.fax = websiteFax
+  }
+  // Email from website (general contact email, not just privacy)
+  if (websiteEmail) {
+    if (!profile.email_privacy) profile.email_privacy = websiteEmail
+    if (!profile.email) profile.email = websiteEmail
+  }
+  // Social media from website scraping
+  if (websiteLinkedin && !profile.linkedin) profile.linkedin = websiteLinkedin
+  if (websiteLinkedinTitolare && !profile.linkedin_titolare) profile.linkedin_titolare = websiteLinkedinTitolare
+  if (websiteInstagram && !profile.instagram) profile.instagram = websiteInstagram
+  if (websiteFacebook && !profile.facebook) profile.facebook = websiteFacebook
+  if (websiteTwitter && !profile.twitter) profile.twitter = websiteTwitter
+  if (websiteYoutube && !profile.youtube) profile.youtube = websiteYoutube
 
   // Rimuovi campi null/vuoti/zero inutili
   const ZERO_FILTER_KEYS = ['fatturato', 'dipendenti', 'costo_personale', 'capitale_sociale', 'utile_netto', 'totale_attivo']

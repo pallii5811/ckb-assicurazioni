@@ -4,6 +4,8 @@ import { getAtecoInsurance } from '@/lib/ateco-insurance'
 import { classifyCompanySize, estimateAnnualPremium, analyzeInsuranceGaps } from '@/lib/insurance-analysis'
 import { buildInsuranceNeedsProfile } from '@/lib/insurance-needs-engine'
 
+export const maxDuration = 300
+
 // ── OpenAPI.it endpoints (FREE tier) ────────────────────────
 async function searchByPiva(piva: string, token: string) {
   const clean = piva.replace(/^IT/i, '').replace(/\s/g, '').trim()
@@ -700,8 +702,168 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ─── Step 2b: Call lead-registry for IDENTICAL data as dettaglio lead ───
+  const companyNameForLR = (result.ragione_sociale || query) as string
+  let leadRegistryDone = false
+  if (companyNameForLR) {
+    console.log(`[COMPANY-LOOKUP] Step 2b: Calling lead-registry for "${companyNameForLR}" (same pipeline as dettaglio lead)`)
+    try {
+      const origin = req.headers.get('host') ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}` : 'http://localhost:3000'
+      const leadObj = {
+        nome: companyNameForLR,
+        azienda: companyNameForLR,
+        citta: (result.citta || '') as string,
+        sito: (result.sito || '') as string,
+        indirizzo: (result.indirizzo || '') as string,
+        categoria: (result.categoria || '') as string,
+      }
+      const lrRes = await fetch(`${origin}/api/lead-registry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead: leadObj }),
+        signal: AbortSignal.timeout(120000),
+      })
+      if (lrRes.ok) {
+        const lrData = await lrRes.json()
+        if (lrData && lrData.found) {
+          console.log(`[COMPANY-LOOKUP] lead-registry returned: "${lrData.ragione_sociale}" P.IVA=${lrData.partita_iva} fatturato=${lrData.fatturato} dip=${lrData.dipendenti} titolare=${lrData.titolare} linkedin_tit=${lrData.linkedin_titolare || 'none'} bio_tit=${!!lrData.bio_titolare} seniority_tit=${lrData.seniority_titolare || 'none'} formazione_tit=${!!lrData.formazione_titolare} esperienze_tit=${!!lrData.esperienze_titolare}`)
+          // Merge lead-registry data INTO result — lead-registry OVERRIDES for consistency with dettaglio lead
+          const lrFields = ['ragione_sociale','partita_iva','codice_ateco','descrizione_ateco','forma_giuridica',
+            'stato_attivita','sede_legale','pec','fatturato','fatturato_anno','dipendenti','utile_netto',
+            'capitale_sociale','costo_personale','data_costituzione','codice_rea','codice_fiscale',
+            'titolare','titolare_fonte','codice_fiscale_titolare','titolare_data_nascita','titolare_eta','titolare_sesso',
+            'ruolo_titolare','linkedin_titolare','bio_titolare','esperienze_titolare','formazione_titolare','competenze_titolare','seniority_titolare','instagram_titolare','facebook_titolare',
+            'email_privacy','piva_verificata','classificazione_eu','gap_analysis','stima_premio',
+            'obblighi_assicurativi','bisogni_assicurativi_verificati','rischio_territoriale',
+            'sito','telefono','telefono_fonte','fax','email',
+            'linkedin','instagram','facebook','twitter','youtube',
+            'certificazioni','ha_flotta_veicoli','numero_veicoli','ha_immobili_proprieta',
+            'partecipa_appalti_pubblici','rischi_specifici','note_broker','ai_fonti']
+          for (const f of lrFields) {
+            if (lrData[f] !== undefined && lrData[f] !== null && lrData[f] !== '') {
+              result[f] = lrData[f]
+            }
+          }
+          // Persone / soci from lead-registry
+          if (Array.isArray(lrData.persone) && lrData.persone.length > 0) {
+            result.persone = lrData.persone
+          }
+          // Contact data: only fill missing (Maps data is often more accurate for phone/email)
+          if (lrData.email && !result.email) result.email = lrData.email
+          if (lrData.telefono && !result.telefono) result.telefono = lrData.telefono
+          if (lrData.cellulare && !result.cellulare) result.cellulare = lrData.cellulare
+          if (lrData.sito && !result.sito) result.sito = lrData.sito
+          // Insurance data from lead-registry
+          if (lrData.ai_enriched) result.ai_enriched = true
+          fonti.push('lead-registry (dettaglio lead)')
+          leadRegistryDone = true
+
+          // ── Person-lookup enrichment: ALWAYS call for titolare to get full profile (identical to Cerca Referente) ──
+          const titName = result.titolare ? String(result.titolare) : ''
+          const compName = (result.ragione_sociale || query) as string
+          if (titName) {
+            console.log(`[COMPANY-LOOKUP] Calling person-lookup for titolare "${titName}" @ "${compName}" to get full profile`)
+            try {
+              const plQuery = `${titName} ${compName}`
+              const plRes = await fetch(`${origin}/api/person-lookup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: plQuery }),
+                signal: AbortSignal.timeout(300000),
+              })
+              if (plRes.ok) {
+                const plData = await plRes.json()
+                if (plData && (plData.nome_completo || plData.nome || plData.azienda)) {
+                  // Helper: check if value is real (not junk/placeholder)
+                  const nj = (v: any) => {
+                    if (!v) return false
+                    const s = String(v).trim().toLowerCase()
+                    if (!s || s === 'null' || s === 'undefined' || s === 'non disponibile' || s === 'non specificato' || s === 'none') return false
+                    if (/^n\/?a/i.test(s) || /\bn\/?a\b/i.test(s)) return false
+                    return true
+                  }
+
+                  // ── CRITICAL: Validate person-lookup found the RIGHT person ──
+                  // "Marco Alessi" is a common name — person-lookup may find an omonimo
+                  // Check if the returned data references our company (Alessi Lino, etc.)
+                  const compClean = compName.toLowerCase().replace(/[^a-zà-ú\s]/gi, '').trim()
+                  const compWords = compClean.split(/\s+/).filter((w: string) => w.length > 3 && !/^(srl|srls|spa|sas|snc|srl|societa|società)$/i.test(w))
+                  const plCheckText = [
+                    plData.esperienze_precedenti,
+                    plData.descrizione,
+                    plData.note,
+                    plData.azienda,
+                    plData.colleghi_noti,
+                  ].filter(Boolean).map((v: any) => typeof v === 'string' ? v : JSON.stringify(v)).join(' ').toLowerCase()
+                  const matchesCompany = compWords.length > 0 && compWords.some((w: string) => plCheckText.includes(w))
+
+                  console.log(`[COMPANY-LOOKUP] person-lookup validation: compWords=[${compWords}] matchesCompany=${matchesCompany} linkedin=${plData.linkedin || 'none'} pec=${plData.pec || 'none'} esperienze=${!!plData.esperienze_precedenti}`)
+
+                  if (matchesCompany) {
+                    // ✅ VERIFIED: person-lookup found the RIGHT person — use ALL data
+                    console.log(`[COMPANY-LOOKUP] person-lookup VERIFIED — data references "${compName}", overriding all fields`)
+                    if (plData.linkedin) result.linkedin_titolare = plData.linkedin
+                    if (nj(plData.descrizione)) result.bio_titolare = plData.descrizione
+                    if (nj(plData.bio) && !nj(result.bio_titolare)) result.bio_titolare = plData.bio
+                    if (nj(plData.ruolo)) result.ruolo_titolare = plData.ruolo
+                    if (nj(plData.seniority)) result.seniority_titolare = plData.seniority
+                    if (nj(plData.formazione)) result.formazione_titolare = plData.formazione
+                    if (nj(plData.esperienze_precedenti)) result.esperienze_titolare = plData.esperienze_precedenti
+                    if (nj(plData.competenze)) {
+                      const c = plData.competenze
+                      result.competenze_titolare = typeof c === 'string' ? c.split(',').map((s: string) => s.trim()).filter(Boolean) : c
+                    }
+                    if (nj(plData.anni_esperienza)) result.anni_esperienza_titolare = plData.anni_esperienza
+                    if (nj(plData.tipo_lavoro)) result.tipo_lavoro_titolare = plData.tipo_lavoro
+                    if (nj(plData.dimensione_azienda)) result.dimensione_azienda_titolare = plData.dimensione_azienda
+                    if (nj(plData.instagram)) result.instagram_titolare = plData.instagram
+                    if (nj(plData.facebook)) result.facebook_titolare = plData.facebook
+                    if (nj(plData.twitter_x)) result.twitter_titolare = plData.twitter_x
+                    if (nj(plData.settore)) result.settore_titolare = plData.settore
+                    if (nj(plData.citta)) result.citta_titolare = plData.citta
+                    if (nj(plData.colleghi_noti)) result.colleghi_titolare = plData.colleghi_noti
+                    if (nj(plData.legami_familiari)) result.legami_familiari_titolare = plData.legami_familiari
+                    if (nj(plData.stato_civile)) result.stato_civile_titolare = plData.stato_civile
+                    if (nj(plData.figli)) result.figli_titolare = plData.figli
+                    if (nj(plData.note)) result.note_titolare = plData.note
+                    if (nj(plData.interessi_social)) result.interessi_titolare = plData.interessi_social
+                    fonti.push('person-lookup (titolare verified)')
+                  } else {
+                    // ⚠️ NOT VERIFIED — person-lookup may have found an omonimo
+                    // Only accept identity-neutral fields (PEC, PIVA, CF from camerale data)
+                    console.log(`[COMPANY-LOOKUP] person-lookup NOT VERIFIED — data doesn't reference "${compName}", accepting only camerale fields`)
+                  }
+
+                  // Camerale/identity fields: always accept (PEC, PIVA, CF come from official registries, not from LinkedIn)
+                  // PEC titolare: only set if DIFFERENT from company PEC (don't use company PEC as personal PEC)
+                  if (nj(plData.pec) && plData.pec !== result.pec) result.pec_titolare = plData.pec
+                  if (nj(plData.partita_iva) && !result.piva_titolare) result.piva_titolare = plData.partita_iva
+                  if (nj(plData.indirizzo) && !result.indirizzo_titolare) result.indirizzo_titolare = plData.indirizzo
+                  if (nj(plData.codice_fiscale) && !result.cf_titolare) result.cf_titolare = plData.codice_fiscale
+                  // Contacts: fill if missing
+                  if (nj(plData.email) && !result.email) result.email = plData.email
+                  if (nj(plData.telefono) && !result.telefono) result.telefono = plData.telefono
+                  if (nj(plData.cellulare) && !result.cellulare) result.cellulare = plData.cellulare
+                }
+              }
+            } catch (e) {
+              console.log(`[COMPANY-LOOKUP] person-lookup call failed:`, e)
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[COMPANY-LOOKUP] lead-registry call failed:`, e)
+    }
+  }
+
   // ─── Step 3: Scrape company website (like category scraper does) ───
-  if (result.sito) {
+  // SKIP if lead-registry already provided data (avoid redundant work)
+  if (leadRegistryDone) {
+    console.log(`[COMPANY-LOOKUP] Skipping Steps 3-5b (lead-registry already provided data)`)
+  }
+  // ─── Step 3 (original): Scrape company website ─── (skipped if lead-registry done)
+  if (!leadRegistryDone && result.sito) {
     const siteBase = String(result.sito).startsWith('http') ? String(result.sito) : `https://${result.sito}`
     const siteDomain = siteBase.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     console.log(`[COMPANY-LOOKUP] Step 3: Scraping website ${siteBase}`)
@@ -828,7 +990,7 @@ export async function POST(req: NextRequest) {
   // ─── Step 3b: CompanyReports.it — dati REALI (fatturato, dipendenti, ATECO, PEC, sede) ───
   // Same source used by lead-registry in "Dettaglio Lead" — guaranteed accurate
   const pivaForCR = (result.partita_iva || '') as string
-  if (pivaForCR && pivaForCR.length === 11) {
+  if (!leadRegistryDone && pivaForCR && pivaForCR.length === 11) {
     console.log(`[COMPANY-LOOKUP] Step 3b: Scraping CompanyReports.it for P.IVA ${pivaForCR}`)
     const crData = await scrapeCompanyReports(pivaForCR)
     if (crData) {
@@ -851,10 +1013,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Step 4: Tavily deep enrichment (ricerche mirate) — SOLO per dati ancora mancanti ───
+  // SKIP if lead-registry already provided data
   const tavilyKey = process.env.TAVILY_API_KEY
   const openaiKey = process.env.OPENAI_API_KEY
+  if (leadRegistryDone) {
+    console.log(`[COMPANY-LOOKUP] Skipping Tavily enrichment (lead-registry already provided data)`)
+  }
   // If we have P.IVA but no name, search for the company name first
-  if (!result.ragione_sociale && isPiva && tavilyKey) {
+  if (!leadRegistryDone && !result.ragione_sociale && isPiva && tavilyKey) {
     const pivaQ = `"${cleanQuery}" partita IVA azienda site:ufficiocamerale.it OR site:registroimprese.it`
     try {
       const pivaRes = await fetch('https://api.tavily.com/search', {
@@ -891,12 +1057,12 @@ export async function POST(req: NextRequest) {
     } catch { /* */ }
   }
   // Use query as fallback company name if not found yet
-  if (!result.ragione_sociale && !isPiva && tavilyKey) {
+  if (!leadRegistryDone && !result.ragione_sociale && !isPiva && tavilyKey) {
     result.ragione_sociale = query
     console.log(`[COMPANY-LOOKUP] No company found yet, using query as name for Tavily`)
   }
   console.log(`[COMPANY-LOOKUP] Before Tavily — ragione_sociale: "${result.ragione_sociale}", telefono: "${result.telefono || 'N/A'}", email: "${result.email || 'N/A'}"`)
-  if (result.ragione_sociale && tavilyKey && openaiKey) {
+  if (!leadRegistryDone && result.ragione_sociale && tavilyKey && openaiKey) {
     const companyName = result.ragione_sociale as string
     const city = (result.citta || '') as string
     const piva = (result.partita_iva || '') as string
@@ -1371,7 +1537,7 @@ JSON:
   // Also helps: name searches where Maps didn't find the company or returned incomplete data
   const companyNameNow = (result.ragione_sociale || '') as string
   const needsContacts = !result.telefono || !result.email || !result.sito
-  if (companyNameNow && needsContacts) {
+  if (!leadRegistryDone && companyNameNow && needsContacts) {
     console.log(`[COMPANY-LOOKUP] ── ROUND 2: re-doing Maps + website scraping with name "${companyNameNow}" ──`)
 
     // Round 2a: Google Maps with the REAL company name
@@ -1501,14 +1667,14 @@ JSON:
   }
 
   // ─── Step 5b: Extract P.IVA from website (fallback) ───
-  if (result.sito && !result.partita_iva) {
+  if (!leadRegistryDone && result.sito && !result.partita_iva) {
     const pivaFromSite = await extractPivaFromSite(result.sito as string)
     if (pivaFromSite) result.partita_iva = pivaFromSite
   }
 
   // ─── Step 6: OpenAPI.it — ULTIMO, solo se mancano ancora dati critici ───
   const stillMissing = !result.partita_iva || !result.forma_giuridica || !result.pec || !result.sede_legale || !result.codice_ateco
-  if (token && stillMissing) {
+  if (!leadRegistryDone && token && stillMissing) {
     if (result.partita_iva) {
       const registryData = await searchByPiva(result.partita_iva as string, token)
       if (registryData?.ragione_sociale) {

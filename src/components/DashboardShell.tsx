@@ -2687,6 +2687,146 @@ export default function DashboardShell() {
                 </div>
               </div>
 
+              {/* Profilo Titolare dettagliato */}
+              {companySearchResult.titolare && (companySearchResult.bio_titolare || companySearchResult.linkedin_titolare || companySearchResult.esperienze_titolare || companySearchResult.formazione_titolare || companySearchResult.competenze_titolare || companySearchResult.seniority_titolare) && (
+                <div className="bg-white rounded-2xl border border-indigo-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                      {String(companySearchResult.titolare).split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                    <div>
+                      <span>{companySearchResult.titolare}</span>
+                      <p className="text-[10px] font-normal text-slate-500">{companySearchResult.ruolo_titolare || 'Titolare / Amministratore'}{companySearchResult.seniority_titolare ? ` · ${companySearchResult.seniority_titolare}` : ''}</p>
+                    </div>
+                  </h4>
+                  {companySearchResult.bio_titolare && (
+                    <p className="text-xs text-slate-600 mb-4 leading-relaxed">{companySearchResult.bio_titolare}</p>
+                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {companySearchResult.linkedin_titolare && (
+                      <div className="bg-indigo-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">LinkedIn</p>
+                        <a href={companySearchResult.linkedin_titolare} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline flex items-center gap-1.5">
+                          <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                          Profilo LinkedIn
+                        </a>
+                      </div>
+                    )}
+                    {companySearchResult.instagram_titolare && (
+                      <div className="bg-indigo-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Instagram</p>
+                        <a href={companySearchResult.instagram_titolare} target="_blank" rel="noreferrer" className="text-sm font-bold text-pink-600 hover:underline">Profilo Instagram</a>
+                      </div>
+                    )}
+                    {companySearchResult.facebook_titolare && (
+                      <div className="bg-indigo-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Facebook</p>
+                        <a href={companySearchResult.facebook_titolare} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:underline">Profilo Facebook</a>
+                      </div>
+                    )}
+                    {companySearchResult.seniority_titolare && (
+                      <div className="bg-indigo-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Seniority</p>
+                        <p className="text-sm font-bold text-slate-800 capitalize">{companySearchResult.seniority_titolare}</p>
+                      </div>
+                    )}
+                    {companySearchResult.anni_esperienza_titolare && (
+                      <div className="bg-indigo-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Anni Esperienza</p>
+                        <p className="text-sm font-bold text-slate-800">{companySearchResult.anni_esperienza_titolare}</p>
+                      </div>
+                    )}
+                    {companySearchResult.tipo_lavoro_titolare && (
+                      <div className="bg-indigo-50 rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Tipo Lavoro</p>
+                        <p className="text-sm font-bold text-slate-800 capitalize">{companySearchResult.tipo_lavoro_titolare}</p>
+                      </div>
+                    )}
+                  </div>
+                  {companySearchResult.formazione_titolare && (
+                    <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Formazione</p>
+                      <p className="text-xs text-slate-700">{safeStr(companySearchResult.formazione_titolare)}</p>
+                    </div>
+                  )}
+                  {companySearchResult.esperienze_titolare && (
+                    <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Esperienze Precedenti</p>
+                      {typeof companySearchResult.esperienze_titolare === 'string' ? (
+                        <p className="text-xs text-slate-700">{companySearchResult.esperienze_titolare}</p>
+                      ) : Array.isArray(companySearchResult.esperienze_titolare) ? (
+                        <div className="space-y-1">
+                          {companySearchResult.esperienze_titolare.map((e: any, i: number) => (
+                            <p key={i} className="text-xs text-slate-700">{e.ruolo && e.ruolo !== e.azienda ? `${e.ruolo} @ ` : ''}{e.azienda}{e.periodo ? ` (${e.periodo})` : ''}</p>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                  {companySearchResult.competenze_titolare && (
+                    <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Competenze</p>
+                      {typeof companySearchResult.competenze_titolare === 'string' ? (
+                        <p className="text-xs text-slate-700">{companySearchResult.competenze_titolare}</p>
+                      ) : Array.isArray(companySearchResult.competenze_titolare) && companySearchResult.competenze_titolare.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {companySearchResult.competenze_titolare.map((c: string, i: number) => (
+                            <span key={i} className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded font-bold">{c}</span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                  {/* Additional person-lookup fields */}
+                  {(companySearchResult.pec_titolare || companySearchResult.indirizzo_titolare || companySearchResult.settore_titolare || companySearchResult.dimensione_azienda_titolare || companySearchResult.cf_titolare) && (
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {companySearchResult.pec_titolare && (
+                        <div className="bg-indigo-50 rounded-lg p-3">
+                          <p className="text-[10px] font-bold text-indigo-400 uppercase">PEC Titolare</p>
+                          <p className="text-xs font-bold text-slate-700 break-all">{safeStr(companySearchResult.pec_titolare)}</p>
+                        </div>
+                      )}
+                      {companySearchResult.settore_titolare && (
+                        <div className="bg-indigo-50 rounded-lg p-3">
+                          <p className="text-[10px] font-bold text-indigo-400 uppercase">Settore</p>
+                          <p className="text-xs font-bold text-slate-700">{safeStr(companySearchResult.settore_titolare)}</p>
+                        </div>
+                      )}
+                      {companySearchResult.dimensione_azienda_titolare && (
+                        <div className="bg-indigo-50 rounded-lg p-3">
+                          <p className="text-[10px] font-bold text-indigo-400 uppercase">Dimensione Azienda</p>
+                          <p className="text-xs font-bold text-slate-700 capitalize">{safeStr(companySearchResult.dimensione_azienda_titolare)}</p>
+                        </div>
+                      )}
+                      {companySearchResult.cf_titolare && (
+                        <div className="bg-indigo-50 rounded-lg p-3">
+                          <p className="text-[10px] font-bold text-indigo-400 uppercase">Codice Fiscale</p>
+                          <p className="text-xs font-bold text-slate-700 font-mono">{safeStr(companySearchResult.cf_titolare)}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {companySearchResult.indirizzo_titolare && (
+                    <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Indirizzo Titolare</p>
+                      <p className="text-xs text-slate-700">{safeStr(companySearchResult.indirizzo_titolare)}</p>
+                    </div>
+                  )}
+                  {companySearchResult.colleghi_titolare && (
+                    <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Colleghi / Collaboratori Noti</p>
+                      <p className="text-xs text-slate-700">{safeStr(companySearchResult.colleghi_titolare)}</p>
+                    </div>
+                  )}
+                  {companySearchResult.note_titolare && (
+                    <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Note</p>
+                      <p className="text-xs text-slate-700">{safeStr(companySearchResult.note_titolare)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Soci / Titolari / Persone chiave */}
               {companySearchResult.persone?.length > 0 && (
                 <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-sm">
