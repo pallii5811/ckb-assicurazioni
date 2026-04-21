@@ -857,6 +857,114 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ─── Step 2c: Find website + P.IVA + financial data if still missing after lead-registry ───
+  // Strategy 1: derive website from email domain (fast)
+  if (!result.sito && result.email) {
+    let emailDomain = String(result.email).split('@')[1]
+    if (emailDomain) {
+      // Strip PEC subdomains: ipec.aon.it → aon.it, pec.company.it → company.it
+      const pecSubPrefixes = /^(?:ipec|pec|legalmail|pecmail|postacert|certmail)\./i
+      if (pecSubPrefixes.test(emailDomain)) {
+        emailDomain = emailDomain.replace(pecSubPrefixes, '')
+      }
+      const isGeneric = /^(gmail|yahoo|hotmail|outlook|libero|virgilio|tiscali|alice|aruba|live|icloud|protonmail|tin)\./i.test(emailDomain)
+      const isPec = /^(pec|legalmail|pecimprese|pecmail|postacert)\./i.test(emailDomain) || emailDomain === 'pec.it'
+      if (!isGeneric && !isPec) {
+        result.sito = `https://${emailDomain}`
+        console.log(`[COMPANY-LOOKUP] Step 2c: Derived website from email: ${result.sito}`)
+      }
+    }
+  }
+  // Strategy 2: Tavily search for company website (if still no site)
+  if (!result.sito && process.env.TAVILY_API_KEY) {
+    const compNameForSite = (result.ragione_sociale || query) as string
+    console.log(`[COMPANY-LOOKUP] Step 2c: No website found — Tavily search for "${compNameForSite}" sito`)
+    try {
+      const siteRes = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: `"${compNameForSite}" sito ufficiale`, search_depth: 'basic', max_results: 3 }),
+        signal: AbortSignal.timeout(8000),
+      })
+      if (siteRes.ok) {
+        const siteData = await siteRes.json()
+        const results = siteData.results || []
+        for (const r of results) {
+          if (r.url) {
+            try {
+              const h = new URL(r.url).hostname.replace(/^www\./, '')
+              if (!/google|facebook|instagram|linkedin|twitter|paginegialle|yelp|tripadvisor|wikipedia|youtube|atoka|reportaziende|companyreports|ufficiocamerale|registroimprese|dnb|kompass|infocamere|cerved|fattureitalia|tuttitalia|infoimprese/.test(h)) {
+                result.sito = r.url.split('/').slice(0, 3).join('/')
+                console.log(`[COMPANY-LOOKUP] Step 2c: Tavily found website: ${result.sito}`)
+                break
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+    } catch { /* Tavily failed */ }
+  }
+  if (leadRegistryDone && result.sito && (!result.partita_iva || !result.pec || !result.fatturato)) {
+    const missingFields = [!result.partita_iva && 'P.IVA', !result.pec && 'PEC', !result.fatturato && 'fatturato'].filter(Boolean).join(', ')
+    console.log(`[COMPANY-LOOKUP] Step 2c: Missing ${missingFields} — quick-scraping website ${result.sito}`)
+    try {
+      const siteUrl = String(result.sito).startsWith('http') ? String(result.sito) : `https://${result.sito}`
+      const pageRes = await fetch(siteUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(8000),
+        redirect: 'follow',
+      })
+      if (pageRes.ok) {
+        const html = await pageRes.text()
+        // Extract P.IVA
+        if (!result.partita_iva) {
+          const pivaM = html.match(/(?:P\.?\s*IVA|partita\s*iva|VAT|C\.?F\.?)[:\s/|–-]*(?:IT\s*)?(\d{11})/i)
+          if (pivaM?.[1]) {
+            result.partita_iva = pivaM[1]
+            console.log(`[COMPANY-LOOKUP] Step 2c: Extracted P.IVA from website: ${pivaM[1]}`)
+          }
+        }
+        // Extract PEC
+        if (!result.pec) {
+          const pecM = html.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*(?:pec|legalmail|pecimprese|pecmail)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})/gi)
+          if (pecM?.[0]) {
+            result.pec = pecM[0].toLowerCase()
+            console.log(`[COMPANY-LOOKUP] Step 2c: Extracted PEC from website: ${result.pec}`)
+          }
+        }
+        // Extract sede legale if missing
+        if (!result.sede_legale) {
+          const sedeM = html.match(/(?:Via|Viale|Corso|Piazza|Piazzale|Largo|Strada)\s+[A-Z][^,<]{3,40},\s*\d{1,5}(?:\s*,\s*\d{5})?\s*,?\s*[A-Z][a-z]+/i)
+          if (sedeM?.[0]) {
+            result.sede_legale = sedeM[0].trim()
+            console.log(`[COMPANY-LOOKUP] Step 2c: Extracted sede from website: ${result.sede_legale}`)
+          }
+        }
+      }
+    } catch { /* website scrape failed */ }
+
+    // If P.IVA was discovered, call CompanyReports.it for financial data
+    const discoveredPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+    if (discoveredPiva.length === 11 && (!result.fatturato || !result.dipendenti)) {
+      console.log(`[COMPANY-LOOKUP] Step 2c: Calling CompanyReports.it for P.IVA ${discoveredPiva}`)
+      const crData = await scrapeCompanyReports(discoveredPiva)
+      if (crData) {
+        if (crData.fatturato && !result.fatturato) result.fatturato = crData.fatturato
+        if (crData.fatturato_anno && !result.fatturato_anno) result.fatturato_anno = crData.fatturato_anno
+        if (crData.dipendenti && !result.dipendenti) result.dipendenti = crData.dipendenti
+        if (crData.utile_netto && !result.utile_netto) result.utile_netto = crData.utile_netto
+        if (crData.capitale_sociale && !result.capitale_sociale) result.capitale_sociale = crData.capitale_sociale
+        if (crData.sede_legale && !result.sede_legale) result.sede_legale = crData.sede_legale
+        if (crData.pec && !result.pec) result.pec = crData.pec
+        if (crData.codice_ateco && !result.codice_ateco) result.codice_ateco = crData.codice_ateco
+        if (crData.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crData.descrizione_ateco
+        if (crData.forma_giuridica && !result.forma_giuridica) result.forma_giuridica = crData.forma_giuridica
+        fonti.push('CompanyReports.it (post-discovery)')
+        console.log(`[COMPANY-LOOKUP] Step 2c: CompanyReports filled: fatturato=${crData.fatturato || 'none'} dip=${crData.dipendenti || 'none'} sede=${crData.sede_legale || 'none'}`)
+      }
+    }
+  }
+
   // ─── Step 3: Scrape company website (like category scraper does) ───
   // SKIP if lead-registry already provided data (avoid redundant work)
   if (leadRegistryDone) {
@@ -1694,7 +1802,29 @@ JSON:
   if (result.ragione_sociale) {
     result.fonti = [...new Set(fonti)]
 
-    // ── Final phone cleanup: phone must NOT equal P.IVA ──
+    // ── Final phone cleanup ──
+    // Helper: check if phone is a valid Italian number
+    const isItalianPhone = (ph: string): boolean => {
+      const digits = ph.replace(/\D/g, '')
+      // With +39 prefix: 39 + 9-10 digits
+      if (digits.startsWith('39') && digits.length >= 11 && digits.length <= 13) {
+        const core = digits.slice(2)
+        return core.startsWith('0') || core.startsWith('3') // landline (0xx) or mobile (3xx)
+      }
+      // Without prefix: starts with 0 (landline) or 3 (mobile), 9-11 digits
+      if ((digits.startsWith('0') || digits.startsWith('3')) && digits.length >= 6 && digits.length <= 11) return true
+      return false
+    }
+    // Remove non-Italian phones (e.g. US numbers like 603-308-9485)
+    if (result.telefono && !isItalianPhone(String(result.telefono))) {
+      console.log(`[COMPANY-LOOKUP] REMOVED phone "${result.telefono}" — not Italian format`)
+      delete result.telefono
+    }
+    if (result.cellulare && !isItalianPhone(String(result.cellulare))) {
+      console.log(`[COMPANY-LOOKUP] REMOVED cellulare "${result.cellulare}" — not Italian format`)
+      delete result.cellulare
+    }
+    // Phone must NOT equal P.IVA
     if (result.telefono && result.partita_iva) {
       const phoneDigits = String(result.telefono).replace(/\D/g, '')
       const pivaDigits = String(result.partita_iva).replace(/\D/g, '')

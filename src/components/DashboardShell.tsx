@@ -2715,13 +2715,13 @@ export default function DashboardShell() {
                     {companySearchResult.instagram_titolare && (
                       <div className="bg-indigo-50 rounded-lg p-3">
                         <p className="text-[10px] font-bold text-indigo-400 uppercase">Instagram</p>
-                        <a href={companySearchResult.instagram_titolare} target="_blank" rel="noreferrer" className="text-sm font-bold text-pink-600 hover:underline">Profilo Instagram</a>
+                        <a href={String(companySearchResult.instagram_titolare).startsWith('http') ? companySearchResult.instagram_titolare : `https://instagram.com/${String(companySearchResult.instagram_titolare).replace(/^@/, '')}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-pink-600 hover:underline">Profilo Instagram</a>
                       </div>
                     )}
                     {companySearchResult.facebook_titolare && (
                       <div className="bg-indigo-50 rounded-lg p-3">
                         <p className="text-[10px] font-bold text-indigo-400 uppercase">Facebook</p>
-                        <a href={companySearchResult.facebook_titolare} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:underline">Profilo Facebook</a>
+                        <a href={String(companySearchResult.facebook_titolare).startsWith('http') ? companySearchResult.facebook_titolare : `https://facebook.com/${String(companySearchResult.facebook_titolare)}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:underline">Profilo Facebook</a>
                       </div>
                     )}
                     {companySearchResult.seniority_titolare && (
