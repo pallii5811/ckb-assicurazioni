@@ -345,6 +345,32 @@ async function scrapeCompanyReports(piva: string): Promise<Record<string, string
     for (const block of jsonLdBlocks) {
       try {
         const d = JSON.parse(block.replace(/<\/?script[^>]*>/gi, '').trim()) as any
+        // Parse Dataset JSON-LD (variableMeasured) — has exact bilancio values
+        if (d['@type'] === 'Dataset' && Array.isArray(d.variableMeasured)) {
+          for (const vm of d.variableMeasured) {
+            const vmName = String(vm.name || '').toLowerCase()
+            const vmVal = vm.value?.value || vm.value
+            if (vmName.includes('fatturato') && vmVal && !result.fatturato) {
+              result.fatturato = String(vmVal)
+              const yearM = vmName.match(/(\d{4})/)
+              if (yearM) result.fatturato_anno = yearM[1]
+            }
+            if (vmName.includes('utile') && vmVal && !result.utile_netto) {
+              result.utile_netto = String(vmVal)
+            }
+          }
+        }
+        // Parse LocalBusiness JSON-LD
+        if (d['@type'] === 'LocalBusiness') {
+          if (d.isicV4 && !result.codice_ateco) result.codice_ateco = String(d.isicV4)
+          if (d.knowsAbout && !result.descrizione_ateco) result.descrizione_ateco = String(d.knowsAbout)
+          if (d.foundingDate && !result.data_costituzione) result.data_costituzione = String(d.foundingDate)
+          if (d.taxID && !result.codice_fiscale) result.codice_fiscale = String(d.taxID)
+          if (d.address?.streetAddress && !result.sede_legale) {
+            const addr = d.address
+            result.sede_legale = [addr.streetAddress, addr.addressLocality?.replace(/, Italy$/i, '')].filter(Boolean).join(', ')
+          }
+        }
         const items = d.mainEntity || []
         for (const item of items) {
           const q = (item.name || '').toLowerCase()
@@ -352,7 +378,7 @@ async function scrapeCompanyReports(piva: string): Promise<Record<string, string
           if (q.includes('fatturato') && !result.fatturato) {
             const m = a.match(/pari a\s+€?\s*([\d.,]+)/i) || a.match(/€\s*([\d.,]+)/)
             if (m) result.fatturato = m[1].replace(/,+$/, '').trim()
-            const y = a.match(/\((\d{4})\)/)
+            const y = a.match(/(\d{4})/)
             if (y) result.fatturato_anno = y[1]
           }
           if (q.includes('dipendenti')) {
@@ -393,6 +419,8 @@ async function scrapeCompanyReports(piva: string): Promise<Record<string, string
     }
     const titleM = html.match(/<title>([^(<]+)/i)
     if (titleM) result.ragione_sociale = titleM[1].replace(/\s*Fatturato.*$/i, '').trim()
+    // Normalize ATECO to full XX.XX.XX format
+    if (result.codice_ateco) result.codice_ateco = normalizeAteco(result.codice_ateco) || result.codice_ateco
     return Object.keys(result).length > 0 ? result : null
   } catch { return null }
 }
@@ -727,7 +755,37 @@ export async function POST(req: NextRequest) {
         const lrData = await lrRes.json()
         if (lrData && lrData.found) {
           console.log(`[COMPANY-LOOKUP] lead-registry returned: "${lrData.ragione_sociale}" P.IVA=${lrData.partita_iva} fatturato=${lrData.fatturato} dip=${lrData.dipendenti} titolare=${lrData.titolare} linkedin_tit=${lrData.linkedin_titolare || 'none'} bio_tit=${!!lrData.bio_titolare} seniority_tit=${lrData.seniority_titolare || 'none'} formazione_tit=${!!lrData.formazione_titolare} esperienze_tit=${!!lrData.esperienze_titolare}`)
-          // Merge lead-registry data INTO result — lead-registry OVERRIDES for consistency with dettaglio lead
+
+          // ── CROSS-VALIDATION: verify lead-registry matched the SAME company ──
+          const existingPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+          const lrPiva = lrData.partita_iva ? String(lrData.partita_iva).replace(/\D/g, '') : ''
+          let lrCompanyMismatch = false
+          if (existingPiva.length === 11 && lrPiva.length === 11 && existingPiva !== lrPiva) {
+            console.log(`[COMPANY-LOOKUP] ⚠️ P.IVA MISMATCH: we have ${existingPiva} but lead-registry returned ${lrPiva} — SKIPPING company data merge, keeping only titolare/insurance fields`)
+            lrCompanyMismatch = true
+          }
+          // Also check ragione_sociale similarity when both exist
+          if (!lrCompanyMismatch && result.ragione_sociale && lrData.ragione_sociale) {
+            const existingName = String(result.ragione_sociale).toUpperCase().replace(/[^A-Z0-9]/g, '')
+            const lrName = String(lrData.ragione_sociale).toUpperCase().replace(/[^A-Z0-9]/g, '')
+            // If names share no significant words, it's likely a different company
+            const existingWords = String(result.ragione_sociale).toUpperCase().split(/\s+/).filter((w: string) => w.length >= 3 && !['SRL','SPA','SAS','SNC','SRLS','SOCIETA','SOCIETÀ'].includes(w))
+            const lrWords = String(lrData.ragione_sociale).toUpperCase().split(/\s+/).filter((w: string) => w.length >= 3 && !['SRL','SPA','SAS','SNC','SRLS','SOCIETA','SOCIETÀ'].includes(w))
+            const hasCommonWord = existingWords.some((w: string) => lrWords.some((lw: string) => lw.includes(w) || w.includes(lw)))
+            if (existingWords.length > 0 && lrWords.length > 0 && !hasCommonWord) {
+              console.log(`[COMPANY-LOOKUP] ⚠️ NAME MISMATCH: we have "${result.ragione_sociale}" but lead-registry returned "${lrData.ragione_sociale}" — SKIPPING company data merge`)
+              lrCompanyMismatch = true
+            }
+          }
+
+          // Fields that are ONLY about the company (skip if mismatch)
+          const companyOnlyFields = ['ragione_sociale','partita_iva','codice_ateco','descrizione_ateco','forma_giuridica',
+            'stato_attivita','sede_legale','pec','fatturato','fatturato_anno','dipendenti','utile_netto',
+            'capitale_sociale','costo_personale','data_costituzione','codice_rea','codice_fiscale',
+            'sito','telefono','telefono_fonte','fax','email',
+            'linkedin','instagram','facebook','twitter','youtube',
+            'certificazioni','ha_flotta_veicoli','numero_veicoli','ha_immobili_proprieta','partecipa_appalti_pubblici']
+          // Fields about the titolare / insurance (safe to merge even if company mismatch — titolare was found via company name search)
           const lrFields = ['ragione_sociale','partita_iva','codice_ateco','descrizione_ateco','forma_giuridica',
             'stato_attivita','sede_legale','pec','fatturato','fatturato_anno','dipendenti','utile_netto',
             'capitale_sociale','costo_personale','data_costituzione','codice_rea','codice_fiscale',
@@ -741,18 +799,22 @@ export async function POST(req: NextRequest) {
             'partecipa_appalti_pubblici','rischi_specifici','note_broker','ai_fonti']
           for (const f of lrFields) {
             if (lrData[f] !== undefined && lrData[f] !== null && lrData[f] !== '') {
+              // If company mismatch, only merge non-company fields (titolare, insurance)
+              if (lrCompanyMismatch && companyOnlyFields.includes(f)) continue
               result[f] = lrData[f]
             }
           }
-          // Persone / soci from lead-registry
-          if (Array.isArray(lrData.persone) && lrData.persone.length > 0) {
+          // Persone / soci from lead-registry (skip if different company)
+          if (!lrCompanyMismatch && Array.isArray(lrData.persone) && lrData.persone.length > 0) {
             result.persone = lrData.persone
           }
-          // Contact data: only fill missing (Maps data is often more accurate for phone/email)
-          if (lrData.email && !result.email) result.email = lrData.email
-          if (lrData.telefono && !result.telefono) result.telefono = lrData.telefono
-          if (lrData.cellulare && !result.cellulare) result.cellulare = lrData.cellulare
-          if (lrData.sito && !result.sito) result.sito = lrData.sito
+          // Contact data: only fill missing AND only if same company (Maps data is often more accurate for phone/email)
+          if (!lrCompanyMismatch) {
+            if (lrData.email && !result.email) result.email = lrData.email
+            if (lrData.telefono && !result.telefono) result.telefono = lrData.telefono
+            if (lrData.cellulare && !result.cellulare) result.cellulare = lrData.cellulare
+            if (lrData.sito && !result.sito) result.sito = lrData.sito
+          }
           // Insurance data from lead-registry
           if (lrData.ai_enriched) result.ai_enriched = true
           fonti.push('lead-registry (dettaglio lead)')
@@ -904,8 +966,8 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* Tavily failed */ }
   }
-  if (leadRegistryDone && result.sito && (!result.partita_iva || !result.pec || !result.fatturato)) {
-    const missingFields = [!result.partita_iva && 'P.IVA', !result.pec && 'PEC', !result.fatturato && 'fatturato'].filter(Boolean).join(', ')
+  if (leadRegistryDone && result.sito && (!result.partita_iva || !result.pec)) {
+    const missingFields = [!result.partita_iva && 'P.IVA', !result.pec && 'PEC'].filter(Boolean).join(', ')
     console.log(`[COMPANY-LOOKUP] Step 2c: Missing ${missingFields} — quick-scraping website ${result.sito}`)
     try {
       const siteUrl = String(result.sito).startsWith('http') ? String(result.sito) : `https://${result.sito}`
@@ -945,23 +1007,41 @@ export async function POST(req: NextRequest) {
 
     // If P.IVA was discovered, call CompanyReports.it for financial data
     const discoveredPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
-    if (discoveredPiva.length === 11 && (!result.fatturato || !result.dipendenti)) {
-      console.log(`[COMPANY-LOOKUP] Step 2c: Calling CompanyReports.it for P.IVA ${discoveredPiva}`)
+    if (discoveredPiva.length === 11) {
+      console.log(`[COMPANY-LOOKUP] Step 2c: Calling CompanyReports.it for P.IVA ${discoveredPiva} (authoritative bilancio data)`)      
       const crData = await scrapeCompanyReports(discoveredPiva)
       if (crData) {
-        if (crData.fatturato && !result.fatturato) result.fatturato = crData.fatturato
-        if (crData.fatturato_anno && !result.fatturato_anno) result.fatturato_anno = crData.fatturato_anno
-        if (crData.dipendenti && !result.dipendenti) result.dipendenti = crData.dipendenti
-        if (crData.utile_netto && !result.utile_netto) result.utile_netto = crData.utile_netto
+        // CompanyReports uses official Camera di Commercio bilanci → OVERRIDE financial data
+        if (crData.fatturato) { result.fatturato = crData.fatturato; console.log(`[COMPANY-LOOKUP] Step 2c: CompanyReports fatturato OVERRIDE: ${crData.fatturato}`) }
+        if (crData.fatturato_anno) result.fatturato_anno = crData.fatturato_anno
+        if (crData.dipendenti) result.dipendenti = crData.dipendenti
+        if (crData.utile_netto) result.utile_netto = crData.utile_netto
         if (crData.capitale_sociale && !result.capitale_sociale) result.capitale_sociale = crData.capitale_sociale
         if (crData.sede_legale && !result.sede_legale) result.sede_legale = crData.sede_legale
         if (crData.pec && !result.pec) result.pec = crData.pec
         if (crData.codice_ateco && !result.codice_ateco) result.codice_ateco = crData.codice_ateco
         if (crData.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crData.descrizione_ateco
         if (crData.forma_giuridica && !result.forma_giuridica) result.forma_giuridica = crData.forma_giuridica
-        fonti.push('CompanyReports.it (post-discovery)')
-        console.log(`[COMPANY-LOOKUP] Step 2c: CompanyReports filled: fatturato=${crData.fatturato || 'none'} dip=${crData.dipendenti || 'none'} sede=${crData.sede_legale || 'none'}`)
+        fonti.push('CompanyReports.it (bilancio ufficiale)')
+        console.log(`[COMPANY-LOOKUP] Step 2c: CompanyReports filled: fatturato=${crData.fatturato || 'none'} dip=${crData.dipendenti || 'none'} utile=${crData.utile_netto || 'none'}`)
       }
+    }
+  }
+  // ── Step 2d: ALWAYS verify financial data via CompanyReports.it when P.IVA is known ──
+  // Even if Step 2c didn't run (e.g. no website scraping needed), financial data from lead-registry may be wrong
+  const knownPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+  if (leadRegistryDone && knownPiva.length === 11 && !fonti.some(f => f.includes('CompanyReports'))) {
+    console.log(`[COMPANY-LOOKUP] Step 2d: Verifying financial data via CompanyReports.it for P.IVA ${knownPiva}`)  
+    const crVerify = await scrapeCompanyReports(knownPiva)
+    if (crVerify) {
+      if (crVerify.fatturato) { result.fatturato = crVerify.fatturato; console.log(`[COMPANY-LOOKUP] Step 2d: CompanyReports fatturato OVERRIDE: ${crVerify.fatturato}`) }
+      if (crVerify.fatturato_anno) result.fatturato_anno = crVerify.fatturato_anno
+      if (crVerify.dipendenti) result.dipendenti = crVerify.dipendenti
+      if (crVerify.utile_netto) result.utile_netto = crVerify.utile_netto
+      if (crVerify.capitale_sociale && !result.capitale_sociale) result.capitale_sociale = crVerify.capitale_sociale
+      if (crVerify.codice_ateco && !result.codice_ateco) result.codice_ateco = crVerify.codice_ateco
+      if (crVerify.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crVerify.descrizione_ateco
+      fonti.push('CompanyReports.it (bilancio ufficiale)')
     }
   }
 
@@ -1842,6 +1922,21 @@ JSON:
       }
     }
 
+    // ── Final cross-field consistency check ──
+    // For SRL/SPA: codice_fiscale should equal P.IVA. If they differ, one is from a wrong company — discard codice_fiscale
+    if (result.codice_fiscale && result.partita_iva) {
+      const cfClean = String(result.codice_fiscale).replace(/\D/g, '')
+      const pivaClean = String(result.partita_iva).replace(/\D/g, '')
+      if (cfClean.length === 11 && pivaClean.length === 11 && cfClean !== pivaClean) {
+        const forma = String(result.forma_giuridica || result.ragione_sociale || '').toUpperCase()
+        // For companies (SRL, SPA, SAS, SRLS, SNC) codice_fiscale = P.IVA
+        if (/SRL|SPA|SAS|SNC|SRLS|SOCIETA|COOPERATIVA/.test(forma)) {
+          console.log(`[COMPANY-LOOKUP] ⚠️ CF/PIVA MISMATCH for company: CF=${cfClean} PIVA=${pivaClean} — removing codice_fiscale (likely from wrong company)`)
+          delete result.codice_fiscale
+        }
+      }
+    }
+
     const parseFat = (f: any): number | null => {
       if (!f) return null
       const n = Number(String(f).replace(/[^\d]/g, ''))
@@ -1857,6 +1952,9 @@ JSON:
     const dipNum = parseDip(result.dipendenti)
     const category = (result.categoria || result.descrizione_ateco || '') as string
     const website = (result.sito || result.sito_web || '') as string
+
+    // Final ATECO normalization (catches all sources: lead-registry, Tavily, CompanyReports, etc.)
+    if (result.codice_ateco) result.codice_ateco = normalizeAteco(result.codice_ateco) || result.codice_ateco
 
     // ATECO → obblighi assicurativi del settore
     const atecoIns = getAtecoInsurance((result.codice_ateco as string) || null, category || null)
