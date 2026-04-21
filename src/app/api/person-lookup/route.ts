@@ -154,10 +154,73 @@ async function handlePersonLookup(req: NextRequest) {
     result.azienda = queryCompanyHint
   }
 
-  // ── Search 1b: Contatti + dati camerali via Tavily ──
   const personName = result.nome_completo || searchName
   const company = result.azienda || queryCompanyHint || ''
   const city = result.citta || ''
+
+  // ── Search 1e (PRIORITY for liberi professionisti): lead-registry con nome persona come "business" ──
+  // Per architetti, consulenti, avvocati, ecc. il loro nome È la loro attività su Maps.
+  // Usa lo stesso /api/lead-registry di "Dettaglio Lead" (che funziona e scrapa Maps + sito web).
+  // DEVE stare prima di Search 1b per evitare di inquinare il telefono con numeri aziendali.
+  if (personName) {
+    // Extract profession hint from ruolo (architetta → architetto, avvocata → avvocato, etc.)
+    const ruoloStr = String(result.ruolo || '').toLowerCase()
+    const professionHints: string[] = []
+    const profMap: Array<[RegExp, string]> = [
+      [/architett/, 'architetto'], [/avvocat/, 'avvocato'], [/consulent/, 'consulente'],
+      [/ingegner/, 'ingegnere'], [/commercialista/, 'commercialista'], [/notai/, 'notaio'],
+      [/medic|dottor/, 'medico'], [/dentist/, 'dentista'], [/geometr/, 'geometra'],
+      [/psicolog/, 'psicologo'], [/fisioterap/, 'fisioterapista'], [/veterinar/, 'veterinario'],
+    ]
+    for (const [re, prof] of profMap) if (re.test(ruoloStr) || re.test(searchName.toLowerCase())) { professionHints.push(prof); break }
+
+    // Try queries: with profession first (most specific), then plain name
+    const queries: string[] = []
+    for (const p of professionHints) queries.push(`${p} ${personName}`)
+    queries.push(personName)
+
+    const origin = req.headers.get('host') ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}` : 'http://localhost:3000'
+    for (const businessName of queries) {
+      if (result.telefono_fonte === 'Google Maps (personale)') break // already found
+      console.log(`[PERSON-LOOKUP] Search 1e (PRIORITY): lead-registry for person "${businessName}" @ "${city}"`)
+      try {
+        const regRes = await fetch(`${origin}/api/lead-registry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lead: { nome: businessName, azienda: businessName, citta: city, sito: '', indirizzo: '', categoria: professionHints[0] || '' } }),
+          signal: AbortSignal.timeout(60000),
+        })
+        if (regRes.ok) {
+          const regData = await regRes.json()
+          if (regData && regData.found) {
+            // Validate it matches the person (business name must contain person's words)
+            const regName = String(regData.ragione_sociale || '').toLowerCase()
+            const nameParts = personName.toLowerCase().split(/\s+/).filter((p: string) => p.length >= 3)
+            const isPersonMatch = nameParts.every((p: string) => regName.includes(p))
+            if (isPersonMatch) {
+              // ONLY write person-specific contact fields to avoid polluting dati_azienda lookup
+              if (regData.telefono) {
+                result.telefono = regData.telefono
+                result.telefono_fonte = 'Google Maps (personale)'
+                console.log(`[PERSON-LOOKUP] Search 1e: PERSONAL phone from lead-registry: ${result.telefono} (query: "${businessName}")`)
+              }
+              if (regData.email) {
+                result.email = regData.email
+                result.email_fonte = 'Google Maps (personale)'
+              }
+              // NOTE: intentionally NOT setting sito_web/indirizzo/partita_iva/pec here
+              // those belong to the COMPANY and must come from the dati_azienda pipeline below
+              if (!result.fonti.includes('Google Maps (personale)')) result.fonti.push('Google Maps (personale)')
+            } else {
+              console.log(`[PERSON-LOOKUP] Search 1e: lead-registry returned "${regName}" — does not match person "${personName}", skipping`)
+            }
+          }
+        }
+      } catch { /* person search failed, try next query */ }
+    }
+  }
+
+  // ── Search 1b: Contatti + dati camerali via Tavily (solo se Maps personale non ha trovato) ──
   {
     const q1b = `"${personName}" ${company} ${city} telefono cellulare email contatti`
     const text1b = await tavilySearch(q1b)
@@ -201,7 +264,7 @@ JSON:
     }
   }
 
-  // ── Search 1c: Contatti aziendali (Maps + Tavily) ──
+  // ── Search 1c: Contatti aziendali (Maps + Tavily) — FALLBACK se Maps personale non ha trovato nulla ──
   if ((!result.telefono || !result.email) && company) {
     console.log(`[PERSON-LOOKUP] Missing contacts, searching company "${company}" via Maps...`)
     const backendUrl = process.env.SCRAPING_BACKEND_URL || 'http://46.225.189.40:8001'
@@ -291,45 +354,6 @@ JSON:
       } catch { /* */ }
     }
     console.log(`[PERSON-LOOKUP] After OpenAPI.it — P.IVA: "${result.partita_iva || 'N/A'}", PEC: "${result.pec || 'N/A'}"`)
-  }
-
-  // ── Search 1e: Maps con nome persona (per trovare contatti della SUA attività) ──
-  if ((!result.telefono || !result.email) && personName) {
-    const backendUrl = process.env.SCRAPING_BACKEND_URL || 'http://46.225.189.40:8001'
-    const mapsQuery = personName + (city ? ' ' + city : '')
-    try {
-      const mapsRes = await fetch(`${backendUrl}/search-maps`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: mapsQuery, location: city || '', max_results: 3 }),
-        signal: AbortSignal.timeout(12000),
-      })
-      if (mapsRes.ok) {
-        const mapsData = await mapsRes.json()
-        const leads = mapsData.results || mapsData.leads || []
-        // Find one that matches person name
-        const nameParts = personName.toLowerCase().split(/\s+/)
-        const match = leads.find((l: any) => {
-          const n = ((l.nome || l.title || l.name || '') + ' ' + (l.business_name || '')).toLowerCase()
-          return nameParts.every((p: string) => p.length >= 2 && n.includes(p))
-        }) || (leads.length === 1 ? leads[0] : null)
-        if (match) {
-          if (!result.telefono && (match.telefono || match.phone)) {
-            result.telefono = match.telefono || match.phone
-            console.log(`[PERSON-LOOKUP] Maps found phone for person: ${result.telefono}`)
-          }
-          if (!result.email && match.email) {
-            result.email = match.email
-          }
-          if (!result.sito_web && (match.sito || match.website)) {
-            result.sito_web = match.sito || match.website
-          }
-          if (!result.indirizzo && match.indirizzo) {
-            result.indirizzo = match.indirizzo
-          }
-        }
-      }
-    } catch { /* Maps person search failed */ }
   }
 
   // ── Search 1f: Scrape company website for contacts + data (same as company-lookup) ──

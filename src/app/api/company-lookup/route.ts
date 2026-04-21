@@ -535,15 +535,26 @@ function mergeResults(base: Record<string, unknown>, extra: Record<string, unkno
   return merged
 }
 
-// ── Helper: normalize ATECO code to full format ──────────
+// ── Helper: normalize ATECO code to full format (XX.XX.XX) ──────────
 function normalizeAteco(code: unknown): string | null {
   if (!code) return null
   let s = String(code).trim()
   if (!s || s === 'null') return null
   // Remove any non-digit/dot chars
   s = s.replace(/[^\d.]/g, '')
+  // If the raw string is way too long (>10 chars), it's garbage — take only the first valid portion
+  // Valid ATECO: max "XX.XX.XX" = 8 chars
+  if (s.length > 10) {
+    // Try to extract a valid ATECO pattern from the beginning
+    const m = s.match(/^(\d{1,2})\.?(\d{1,2})?\.?(\d{1,2})?/)
+    if (m) {
+      s = [m[1], m[2] || '00', m[3] || '00'].join('.')
+    } else {
+      return null
+    }
+  }
   // Pad to standard format: XX.XX.XX
-  const parts = s.split('.')
+  const parts = s.split('.').filter(p => p.length > 0)
   if (parts.length === 1 && parts[0].length >= 2) {
     // e.g. "4120" -> "41.20.00"
     const d = parts[0]
@@ -551,21 +562,22 @@ function normalizeAteco(code: unknown): string | null {
     if (d.length === 3) return `${d.slice(0,2)}.${d.slice(2)}0.00`
     if (d.length === 4) return `${d.slice(0,2)}.${d.slice(2)}.00`
     if (d.length >= 6) return `${d.slice(0,2)}.${d.slice(2,4)}.${d.slice(4,6)}`
-    return s
+    return `${d}.00.00`
   }
   if (parts.length === 2) {
     // e.g. "41.2" -> "41.20.00" or "41.20" -> "41.20.00"
-    const p1 = parts[0].padStart(2, '0')
-    const p2 = parts[1].length === 1 ? parts[1] + '0' : parts[1]
+    const p1 = parts[0].padStart(2, '0').slice(0, 2)
+    const p2 = (parts[1].length === 1 ? parts[1] + '0' : parts[1]).slice(0, 2)
     return `${p1}.${p2}.00`
   }
-  if (parts.length === 3) {
-    const p1 = parts[0].padStart(2, '0')
-    const p2 = parts[1].length === 1 ? parts[1] + '0' : parts[1]
-    const p3 = parts[2].length === 1 ? parts[2] + '0' : parts[2]
-    return `${p1}.${p2}.${p3}`
-  }
-  return s
+  // 3+ parts: take first 3 only
+  const p1 = (parts[0] || '00').padStart(2, '0').slice(0, 2)
+  const p2 = (parts[1] || '00').length === 1 ? parts[1] + '0' : (parts[1] || '00').slice(0, 2)
+  const p3 = (parts[2] || '00').length === 1 ? parts[2] + '0' : (parts[2] || '00').slice(0, 2)
+  const result = `${p1}.${p2}.${p3}`
+  // Final sanity: must be XX.XX.XX format (8 chars)
+  if (result.length !== 8) return null
+  return result
 }
 
 // ── Helper: check if returned name matches query ──────────
@@ -902,10 +914,11 @@ export async function POST(req: NextRequest) {
                   if (nj(plData.partita_iva) && !result.piva_titolare) result.piva_titolare = plData.partita_iva
                   if (nj(plData.indirizzo) && !result.indirizzo_titolare) result.indirizzo_titolare = plData.indirizzo
                   if (nj(plData.codice_fiscale) && !result.cf_titolare) result.cf_titolare = plData.codice_fiscale
-                  // Contacts: fill if missing
-                  if (nj(plData.email) && !result.email) result.email = plData.email
-                  if (nj(plData.telefono) && !result.telefono) result.telefono = plData.telefono
-                  if (nj(plData.cellulare) && !result.cellulare) result.cellulare = plData.cellulare
+                  // CRITICAL FIX: titolare's personal contacts go to *_titolare fields NEVER overwrite company contacts
+                  // (if person-lookup found an omonimo, their email/phone must NOT pollute the company)
+                  if (nj(plData.email)) result.email_titolare = plData.email
+                  if (nj(plData.telefono)) result.telefono_titolare = plData.telefono
+                  if (nj(plData.cellulare)) result.cellulare_titolare = plData.cellulare
                 }
               }
             } catch (e) {
@@ -1019,8 +1032,8 @@ export async function POST(req: NextRequest) {
         if (crData.capitale_sociale && !result.capitale_sociale) result.capitale_sociale = crData.capitale_sociale
         if (crData.sede_legale && !result.sede_legale) result.sede_legale = crData.sede_legale
         if (crData.pec && !result.pec) result.pec = crData.pec
-        if (crData.codice_ateco && !result.codice_ateco) result.codice_ateco = crData.codice_ateco
-        if (crData.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crData.descrizione_ateco
+        if (crData.codice_ateco) result.codice_ateco = crData.codice_ateco
+        if (crData.descrizione_ateco) result.descrizione_ateco = crData.descrizione_ateco
         if (crData.forma_giuridica && !result.forma_giuridica) result.forma_giuridica = crData.forma_giuridica
         fonti.push('CompanyReports.it (bilancio ufficiale)')
         console.log(`[COMPANY-LOOKUP] Step 2c: CompanyReports filled: fatturato=${crData.fatturato || 'none'} dip=${crData.dipendenti || 'none'} utile=${crData.utile_netto || 'none'}`)
@@ -1039,8 +1052,8 @@ export async function POST(req: NextRequest) {
       if (crVerify.dipendenti) result.dipendenti = crVerify.dipendenti
       if (crVerify.utile_netto) result.utile_netto = crVerify.utile_netto
       if (crVerify.capitale_sociale && !result.capitale_sociale) result.capitale_sociale = crVerify.capitale_sociale
-      if (crVerify.codice_ateco && !result.codice_ateco) result.codice_ateco = crVerify.codice_ateco
-      if (crVerify.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crVerify.descrizione_ateco
+      if (crVerify.codice_ateco) result.codice_ateco = crVerify.codice_ateco
+      if (crVerify.descrizione_ateco) result.descrizione_ateco = crVerify.descrizione_ateco
       fonti.push('CompanyReports.it (bilancio ufficiale)')
     }
   }
@@ -1639,12 +1652,15 @@ JSON:
       if (text2d1.length > 50) {
         const ext2d1 = await gptExtract(text2d1, `Cerca il TITOLARE o RAPPRESENTANTE LEGALE o AMMINISTRATORE UNICO dell'azienda "${companyName}" (P.IVA: ${piva || 'N/D'}).
 ATTENZIONE CRITICA:
-- Il rappresentante legale / titolare è chi GESTISCE e RAPPRESENTA legalmente l'azienda.
+- Il rappresentante legale / titolare è chi GESTISCE e RAPPRESENTA legalmente l'azienda davanti alle autorità (visura camerale).
 - NON è necessariamente un socio. I soci possono essere persone diverse dal titolare.
-- Cerca su LinkedIn, ufficiocamerale.it, registroimprese.it, il sito dell'azienda.
-- Se trovi il profilo LinkedIn della persona, includi l'URL.
+- ❌ NON confondere con ruoli manageriali come "Chief Legal Officer", "Chief Executive Officer", "CFO", "CMO", "COO", "Marketing Director", "HR Manager", "Responsabile X" — questi sono MANAGER/dipendenti, NON il rappresentante legale camerale.
+- ❌ NON restituire persone solo perché lavorano nell'azienda secondo LinkedIn — servono prove dirette dalla visura camerale o ufficiocamerale.it.
+- ✅ Cerca termini ESATTI: "rappresentante legale", "amministratore unico", "amministratore delegato", "titolare", "presidente del CdA".
+- ✅ Fonti affidabili: ufficiocamerale.it, registroimprese.it, visure camerali, siti di trasparenza aziendale.
+- Se non trovi prove certe dalla visura camerale, restituisci null — meglio vuoto che sbagliato.
 JSON:
-{"titolare":"nome e cognome del rappresentante legale/titolare","ruolo_titolare":"Titolare / Rappresentante Legale / Amministratore Unico / Amministratore Delegato","linkedin_titolare":"URL LinkedIn del titolare se trovato"}`)
+{"titolare":"nome e cognome del rappresentante legale/titolare SOLO se confermato da visura camerale","ruolo_titolare":"Titolare / Rappresentante Legale / Amministratore Unico / Amministratore Delegato / Presidente del CdA","linkedin_titolare":"URL LinkedIn del titolare se trovato"}`)
         if (ext2d1.titolare && !isJunkValue(ext2d1.titolare)) {
           result.titolare = ext2d1.titolare
           if (ext2d1.ruolo_titolare) result.ruolo_titolare = ext2d1.ruolo_titolare
@@ -1934,6 +1950,16 @@ JSON:
           console.log(`[COMPANY-LOOKUP] ⚠️ CF/PIVA MISMATCH for company: CF=${cfClean} PIVA=${pivaClean} — removing codice_fiscale (likely from wrong company)`)
           delete result.codice_fiscale
         }
+      }
+    }
+
+    // ── Sanity: fatturato that looks like a year (2000-2030) is not valid ──
+    if (result.fatturato) {
+      const fatClean = String(result.fatturato).replace(/[^\d]/g, '')
+      const fatNum0 = parseInt(fatClean, 10)
+      if (fatNum0 >= 2000 && fatNum0 <= 2030) {
+        console.log(`[COMPANY-LOOKUP] ⚠️ fatturato "${result.fatturato}" looks like a YEAR — removing`)
+        delete result.fatturato
       }
     }
 

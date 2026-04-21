@@ -1006,9 +1006,29 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
       }
       return false
     }
+    // Sanity bounds for Tavily/GPT hallucinations — realistic for ~99% of Italian companies
+    // Only ~20 IT companies exceed 10B € fatturato; top employers ~150k (Poste Italiane)
+    // Edge cases (Stellantis, ENI) won't use Tavily fallback anyway — they're in Registro Imprese
+    const MAX_REALISTIC_FATTURATO = 10_000_000_000 // 10B €
+    const MAX_REALISTIC_UTILE = 2_000_000_000 // 2B €
+    const MAX_REALISTIC_DIPENDENTI = 200_000
+    const isHallucinatedNumber = (key: string, val: any): boolean => {
+      if (val == null) return false
+      const n = Number(String(val).replace(/[^\d]/g, ''))
+      if (isNaN(n) || n === 0) return false
+      if ((key === 'fatturato' || key === 'totale_attivo' || key === 'capitale_sociale' || key === 'costo_personale') && n > MAX_REALISTIC_FATTURATO) return true
+      if (key === 'utile_netto' && n > MAX_REALISTIC_UTILE) return true
+      if (key === 'dipendenti' && n > MAX_REALISTIC_DIPENDENTI) return true
+      return false
+    }
+
     function mergeTavily(extracted: Record<string, any>) {
       for (const [k, v] of Object.entries(extracted)) {
         if (isJunkValue(v)) continue
+        if (isHallucinatedNumber(k, v)) {
+          console.log(`[LEAD-REGISTRY] REJECTED hallucinated ${k}="${v}" (unrealistic for IT company)`)
+          continue
+        }
         if (k === 'persone' || k === 'soci' || k === 'amministratori') {
           if (Array.isArray(v) && v.length > 0) {
             // Filter out junk person entries
