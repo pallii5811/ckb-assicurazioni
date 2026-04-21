@@ -228,6 +228,10 @@ async function handlePersonLookup(req: NextRequest) {
                   result.partita_iva = String(regData.partita_iva).replace(/\D/g, '')
                 }
                 if (regData.pec && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regData.pec)) result.pec = regData.pec
+                // Store Search 1e lead-registry response as AUTHORITATIVE dati_azienda
+                // (prevents a later lookup from matching a different company with same short name)
+                result.dati_azienda = regData
+                result._skipSecondLeadRegistry = true
               }
               if (!result.fonti.includes('Google Maps (personale)')) result.fonti.push('Google Maps (personale)')
             } else {
@@ -510,7 +514,7 @@ JSON:
 
   // Build dati_azienda using lead-registry (SAME identical pipeline as dettaglio lead)
   const companyName = result.azienda || company
-  if (companyName) {
+  if (companyName && !result._skipSecondLeadRegistry) {
     console.log(`[PERSON-LOOKUP] Calling lead-registry for "${companyName}" (same pipeline as dettaglio lead)...`)
     try {
       const origin = req.headers.get('host') ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}` : 'http://localhost:3000'
@@ -841,5 +845,6 @@ JSON:
     return NextResponse.json({ error: `Nessuna informazione trovata per "${query}". Prova con nome e cognome completi.` })
   }
 
+  delete result._skipSecondLeadRegistry
   return NextResponse.json(result)
 }
