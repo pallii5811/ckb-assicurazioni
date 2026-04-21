@@ -1484,17 +1484,6 @@ export default function DashboardShell() {
           Cerca Azienda / P.IVA
         </button>
         <button
-          onClick={() => setSearchMode('dipendente')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-            searchMode === 'dipendente'
-              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <UserSearch className="w-4 h-4" />
-          Cerca Persona
-        </button>
-        <button
           onClick={() => setSearchMode('ambiente')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
             searchMode === 'ambiente'
@@ -1518,7 +1507,7 @@ export default function DashboardShell() {
               Cerca <strong>titolari di aziende</strong>, <strong>liberi professionisti</strong> o <strong>imprenditori</strong>. Restituisce contatti completi, dati aziendali, profilo assicurativo e trigger finanziari.
             </p>
             <p className="text-[10px] text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-              ⚠️ Questa ricerca è pensata per titolari e liberi professionisti. Per cercare dipendenti o collaboratori, usa la tab &quot;Cerca Persona&quot;.
+              ⚠️ Questa ricerca è pensata per titolari e liberi professionisti.
             </p>
           </div>
           <div className="flex gap-2">
@@ -2209,8 +2198,8 @@ export default function DashboardShell() {
         </div>
       )}
 
-      {/* ── Cerca Persona (Dipendente) ── */}
-      {searchMode === 'dipendente' && (
+      {/* ── Cerca Persona (Dipendente) — RIMOSSA ── */}
+      {false && searchMode === 'dipendente' && (
         <div className="mb-6 space-y-4 bg-slate-50 border border-slate-200 rounded-2xl p-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
