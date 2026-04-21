@@ -228,6 +228,12 @@ async function handlePersonLookup(req: NextRequest) {
                   result.partita_iva = String(regData.partita_iva).replace(/\D/g, '')
                 }
                 if (regData.pec && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regData.pec)) result.pec = regData.pec
+                // Copy socials from lead-registry (scraped from website) to top-level
+                if (regData.linkedin && !result.linkedin) result.linkedin = regData.linkedin
+                if (regData.instagram && !result.instagram) result.instagram = regData.instagram
+                if (regData.facebook && !result.facebook) result.facebook = regData.facebook
+                if (regData.youtube && !result.youtube) result.youtube = regData.youtube
+                if (regData.twitter && !result.twitter) result.twitter = regData.twitter
                 // Store Search 1e lead-registry response as AUTHORITATIVE dati_azienda
                 // (prevents a later lookup from matching a different company with same short name)
                 result.dati_azienda = regData
@@ -426,13 +432,38 @@ JSON:
           || emails.find(e => !/pec\.|legalmail\./.test(e.toLowerCase()))
         if (regularEmail) result.email = regularEmail
       }
-      // Social
-      const igMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9._]+\/?)/i)
-      if (igMatch && !result.instagram) result.instagram = igMatch[1]
-      const liMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?linkedin\.com\/(?:company|in)\/[a-zA-Z0-9._-]+\/?)/i)
-      if (liMatch && !result.linkedin) result.linkedin = liMatch[1]
-      const fbMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?facebook\.com\/[a-zA-Z0-9._-]+\/?)/i)
-      if (fbMatch && !result.facebook) result.facebook = fbMatch[1]
+      // Social — broad URL search (not just href) with sharer filter
+      const isSharer1f = (u: string) => /\/(sharer|share|intent|dialog)[/?.]|[?&]u=|[?&]url=/i.test(u)
+      if (!result.instagram) {
+        const ig = [...allHtml.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)\/?/gi)]
+          .map(m => ({ url: m[0], handle: m[1] }))
+          .find(x => !isSharer1f(x.url) && !/^(p|reel|tv|stories|explore|accounts)$/i.test(x.handle))
+        if (ig) result.instagram = ig.url.replace(/\/$/, '')
+      }
+      if (!result.linkedin) {
+        const li = [...allHtml.matchAll(/https?:\/\/(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com\/(company|in|school)\/([a-zA-Z0-9._\-%]+)\/?/gi)]
+          .map(m => m[0])
+          .find(u => !isSharer1f(u))
+        if (li) result.linkedin = li.replace(/\/$/, '')
+      }
+      if (!result.facebook) {
+        const fb = [...allHtml.matchAll(/https?:\/\/(?:www\.|m\.|it-it\.)?facebook\.com\/([a-zA-Z0-9._\-]+)\/?/gi)]
+          .map(m => ({ url: m[0], handle: m[1] }))
+          .find(x => !isSharer1f(x.url) && !/^(sharer|share|dialog|tr|plugins|events|pages)$/i.test(x.handle))
+        if (fb) result.facebook = fb.url.replace(/\/$/, '')
+      }
+      if (!result.youtube) {
+        const yt = [...allHtml.matchAll(/https?:\/\/(?:www\.)?youtube\.com\/(?:channel\/[a-zA-Z0-9_\-]+|c\/[a-zA-Z0-9._\-]+|user\/[a-zA-Z0-9._\-]+|@[a-zA-Z0-9._\-]+)\/?/gi)]
+          .map(m => m[0])
+          .find(u => !isSharer1f(u))
+        if (yt) result.youtube = yt.replace(/\/$/, '')
+      }
+      if (!result.twitter) {
+        const tw = [...allHtml.matchAll(/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/([a-zA-Z0-9_]{1,15})\/?/gi)]
+          .map(m => ({ url: m[0], handle: m[1] }))
+          .find(x => !isSharer1f(x.url) && !/^(share|intent|i|home|search)$/i.test(x.handle))
+        if (tw) result.twitter = tw.url.replace(/\/$/, '')
+      }
       result.fonti.push('Sito Web Aziendale')
     }
   }
@@ -591,6 +622,32 @@ ATTENZIONE CRITICA: "${personName}" è un nome che potrebbe avere OMONIMI. Inclu
         if (!isJunk(v) && !result[k]) result[k] = v
       }
       console.log(`[PERSON-LOOKUP] Search 2b social done`)
+    }
+    // Direct URL scan fallback: if GPT missed LinkedIn/IG/FB URLs that ARE in the text
+    const nameParts2b = personName.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3)
+    if (!result.linkedin) {
+      const liMatches = [...text2b.matchAll(/https?:\/\/(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9._\-%]+)\/?/gi)]
+      const liHit = liMatches.find(m => { const slug = m[1].toLowerCase(); return nameParts2b.some((p: string) => slug.includes(p)) })
+      if (liHit) { result.linkedin = liHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: LinkedIn via URL regex: ${result.linkedin}`) }
+    }
+    if (!result.instagram) {
+      const igMatches = [...text2b.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)\/?/gi)]
+      const igHit = igMatches.find(m => !/^(p|reel|tv|stories|explore|accounts)$/i.test(m[1]))
+      if (igHit) { result.instagram = igHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: Instagram via URL regex: ${result.instagram}`) }
+    }
+    if (!result.facebook) {
+      const fbMatches = [...text2b.matchAll(/https?:\/\/(?:www\.|m\.)?facebook\.com\/([a-zA-Z0-9._\-]+)\/?/gi)]
+      const fbHit = fbMatches.find(m => !/^(sharer|share|dialog|tr|plugins|events|pages)$/i.test(m[1]))
+      if (fbHit) { result.facebook = fbHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: Facebook via URL regex: ${result.facebook}`) }
+    }
+    // Dedicated LinkedIn search if still missing — most effective for nominal LinkedIn lookup
+    if (!result.linkedin) {
+      const text2bLi = await tavilySearch(`"${personName}" ${city} site:linkedin.com/in`)
+      if (text2bLi.length > 50) {
+        const liMatches = [...text2bLi.matchAll(/https?:\/\/(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9._\-%]+)\/?/gi)]
+        const liHit = liMatches.find(m => { const slug = m[1].toLowerCase(); return nameParts2b.some((p: string) => slug.includes(p)) })
+        if (liHit) { result.linkedin = liHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: LinkedIn dedicated search: ${result.linkedin}`) }
+      }
     }
   }
 
