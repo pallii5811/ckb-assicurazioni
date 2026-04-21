@@ -1126,14 +1126,14 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Categorize: mobile (3xx) vs landline (0xx)
+      // Categorize: mobile (3xx) vs landline (0xx) vs numero verde (800/803/840/892/899)
       for (const ph of rawPhones) {
         const d = ph.replace(/\D/g, '')
-        const core = d.startsWith('39') ? d.slice(2) : d
+        const core = d.startsWith('39') ? d.slice(2) : (d.startsWith('0039') ? d.slice(4) : d)
         if (core.startsWith('3') && !result.cellulare) {
           result.cellulare = ph
           console.log(`[COMPANY-LOOKUP] Extracted cellulare from website: ${ph}`)
-        } else if (core.startsWith('0') && !result.telefono) {
+        } else if ((core.startsWith('0') || /^(800|803|840|892|899)/.test(core)) && !result.telefono) {
           result.telefono = ph
           console.log(`[COMPANY-LOOKUP] Extracted telefono from website: ${ph}`)
         }
@@ -1163,26 +1163,38 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Extract social media URLs from href attributes
-      const igMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9._]+\/?)/i)
-      if (igMatch && !result.instagram) {
-        result.instagram = igMatch[1]
-        console.log(`[COMPANY-LOOKUP] Extracted Instagram from website: ${igMatch[1]}`)
+      // Extract social media URLs — broad search over ANY URL in HTML (href, data-*, meta, JSON-LD, etc.)
+      // Excludes sharer/intent URLs (share buttons point to generic sharer.php with the page URL)
+      const isSharer = (u: string) => /\/(sharer|share|intent|dialog)[/?.]|[?&]u=|[?&]url=/i.test(u)
+      if (!result.instagram) {
+        const ig = [...allHtml.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)\/?/gi)]
+          .map(m => ({ url: m[0], handle: m[1] }))
+          .find(x => !isSharer(x.url) && !/^(p|reel|tv|stories|explore|accounts)$/i.test(x.handle))
+        if (ig) { result.instagram = ig.url.replace(/\/$/, ''); console.log(`[COMPANY-LOOKUP] Extracted Instagram: ${result.instagram}`) }
       }
-      const liMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?linkedin\.com\/(?:company|in)\/[a-zA-Z0-9._-]+\/?)/i)
-      if (liMatch && !result.linkedin) {
-        result.linkedin = liMatch[1]
-        console.log(`[COMPANY-LOOKUP] Extracted LinkedIn from website: ${liMatch[1]}`)
+      if (!result.linkedin) {
+        const li = [...allHtml.matchAll(/https?:\/\/(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com\/(company|in|school)\/([a-zA-Z0-9._\-%]+)\/?/gi)]
+          .map(m => m[0])
+          .find(u => !isSharer(u))
+        if (li) { result.linkedin = li.replace(/\/$/, ''); console.log(`[COMPANY-LOOKUP] Extracted LinkedIn: ${result.linkedin}`) }
       }
-      const fbMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?facebook\.com\/[a-zA-Z0-9._-]+\/?)/i)
-      if (fbMatch && !result.facebook) {
-        result.facebook = fbMatch[1]
-        console.log(`[COMPANY-LOOKUP] Extracted Facebook from website: ${fbMatch[1]}`)
+      if (!result.facebook) {
+        const fb = [...allHtml.matchAll(/https?:\/\/(?:www\.|m\.|it-it\.)?facebook\.com\/([a-zA-Z0-9._\-]+)\/?/gi)]
+          .map(m => ({ url: m[0], handle: m[1] }))
+          .find(x => !isSharer(x.url) && !/^(sharer|share|dialog|tr|plugins|events)$/i.test(x.handle))
+        if (fb) { result.facebook = fb.url.replace(/\/$/, ''); console.log(`[COMPANY-LOOKUP] Extracted Facebook: ${result.facebook}`) }
       }
-      const ytMatch = allHtml.match(/href=["'](https?:\/\/(?:www\.)?youtube\.com\/(?:channel|c|user|@)[a-zA-Z0-9._-]+\/?)/i)
-      if (ytMatch && !result.youtube) {
-        result.youtube = ytMatch[1]
-        console.log(`[COMPANY-LOOKUP] Extracted YouTube from website: ${ytMatch[1]}`)
+      if (!result.youtube) {
+        const yt = [...allHtml.matchAll(/https?:\/\/(?:www\.)?youtube\.com\/(?:channel\/[a-zA-Z0-9_\-]+|c\/[a-zA-Z0-9._\-]+|user\/[a-zA-Z0-9._\-]+|@[a-zA-Z0-9._\-]+)\/?/gi)]
+          .map(m => m[0])
+          .find(u => !isSharer(u))
+        if (yt) { result.youtube = yt.replace(/\/$/, ''); console.log(`[COMPANY-LOOKUP] Extracted YouTube: ${result.youtube}`) }
+      }
+      if (!result.twitter) {
+        const tw = [...allHtml.matchAll(/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/([a-zA-Z0-9_]{1,15})\/?/gi)]
+          .map(m => ({ url: m[0], handle: m[1] }))
+          .find(x => !isSharer(x.url) && !/^(share|intent|i|home|search)$/i.test(x.handle))
+        if (tw) { result.twitter = tw.url.replace(/\/$/, ''); console.log(`[COMPANY-LOOKUP] Extracted Twitter/X: ${result.twitter}`) }
       }
 
       fonti.push('Sito Web Aziendale')
@@ -1865,9 +1877,9 @@ JSON:
         }
         for (const ph of rawPhones) {
           const d = ph.replace(/\D/g, '')
-          const core = d.startsWith('39') ? d.slice(2) : d
+          const core = d.startsWith('39') ? d.slice(2) : (d.startsWith('0039') ? d.slice(4) : d)
           if (core.startsWith('3') && !result.cellulare) { result.cellulare = ph; console.log(`[COMPANY-LOOKUP] R2: cellulare from website: ${ph}`) }
-          else if (core.startsWith('0') && !result.telefono) { result.telefono = ph; console.log(`[COMPANY-LOOKUP] R2: telefono from website: ${ph}`) }
+          else if ((core.startsWith('0') || /^(800|803|840|892|899)/.test(core)) && !result.telefono) { result.telefono = ph; console.log(`[COMPANY-LOOKUP] R2: telefono from website: ${ph}`) }
         }
         // Emails
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
