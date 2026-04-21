@@ -3,6 +3,7 @@ import { getTerritorialRisk } from '@/lib/territorial-risk'
 import { getAtecoInsurance } from '@/lib/ateco-insurance'
 import { classifyCompanySize, estimateAnnualPremium, analyzeInsuranceGaps } from '@/lib/insurance-analysis'
 import { buildInsuranceNeedsProfile } from '@/lib/insurance-needs-engine'
+import { geminiExtractCompanyData, isGeminiEnabled } from '@/lib/gemini-search'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://46.225.189.40:8001'
 const OPENAPI_IT_TOKEN = process.env.OPENAPI_IT_TOKEN || ''
@@ -1042,6 +1043,43 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     }
 
     let tavilyUsed = false
+
+    // ── Step PRE-Tavily: Gemini 2.5 Flash Lite con Google Search grounding ──
+    // Fonte primaria per dati camerali accurati. Se fallisce, Tavily fa da fallback COMPLETO (comportamento precedente intatto).
+    if (isGeminiEnabled()) {
+      console.log(`[LEAD-REGISTRY] Step Gemini: grounded extraction for "${companyId}"`)
+      try {
+        const geminiData = await geminiExtractCompanyData({
+          companyName: companyId,
+          partitaIva: pivaStr || undefined,
+          city: city || undefined,
+        })
+        if (geminiData && typeof geminiData === 'object') {
+          const geminiFields = ['fatturato', 'utile_netto', 'totale_attivo', 'dipendenti',
+            'codice_ateco', 'descrizione_ateco', 'sede_legale', 'pec', 'capitale_sociale',
+            'data_costituzione', 'forma_giuridica', 'titolare', 'ruolo_titolare',
+            'partita_iva', 'codice_fiscale', 'ragione_sociale', 'fatturato_anno',
+            'telefono', 'email'] as const
+          let filled = 0
+          for (const k of geminiFields) {
+            const v = (geminiData as any)[k]
+            if (v == null || v === '') continue
+            if (isHallucinatedNumber(k, v)) continue
+            if (!profile[k]) { profile[k] = v; filled++ }
+          }
+          // sito_web separato (diverso mapping)
+          if ((geminiData as any).sito_web && !profile.sito_web) {
+            profile.sito_web = (geminiData as any).sito_web
+            filled++
+          }
+          if (filled > 0) {
+            console.log(`[LEAD-REGISTRY] Step Gemini: filled ${filled} fields`)
+          }
+        }
+      } catch (e: any) {
+        console.log(`[LEAD-REGISTRY] Step Gemini failed: ${e?.message || e}`)
+      }
+    }
 
     // ── Search 1: Visura / camerale (titolare, soci, ATECO, capitale) ──
     if (!profile.titolare || !profile.codice_ateco) {

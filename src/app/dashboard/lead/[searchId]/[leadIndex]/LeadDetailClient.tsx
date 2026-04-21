@@ -1669,13 +1669,13 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   {registry.ha_immobili_proprieta && (
                     <div>
                       <p className="text-[10px] text-cyan-700 font-bold uppercase">Immobili di Proprietà</p>
-                      <p className="text-xs text-slate-800">{registry.immobili_descrizione || 'Rilevati'}</p>
+                      <p className="text-xs text-slate-800">{safeStr(registry.immobili_descrizione) || 'Rilevati'}</p>
                     </div>
                   )}
                   {registry.partecipa_appalti_pubblici && (
                     <div>
                       <p className="text-[10px] text-cyan-700 font-bold uppercase">Appalti Pubblici</p>
-                      <p className="text-xs text-slate-800">{registry.appalti_info || 'Partecipa a bandi/appalti'}</p>
+                      <p className="text-xs text-slate-800">{safeStr(registry.appalti_info) || 'Partecipa a bandi/appalti'}</p>
                     </div>
                   )}
                   {registry.rischi_specifici?.length > 0 && (

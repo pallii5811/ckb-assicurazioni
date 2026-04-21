@@ -2865,13 +2865,13 @@ export default function DashboardShell() {
                     {companySearchResult.ha_immobili_proprieta && (
                       <div className="bg-cyan-50 rounded-lg p-3">
                         <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Immobili</p>
-                        <p className="text-sm text-slate-800">{companySearchResult.immobili_descrizione || 'Proprietà immobiliari rilevate'}</p>
+                        <p className="text-sm text-slate-800">{safeStr(companySearchResult.immobili_descrizione) || 'Proprietà immobiliari rilevate'}</p>
                       </div>
                     )}
                     {companySearchResult.partecipa_appalti_pubblici && (
                       <div className="bg-cyan-50 rounded-lg p-3">
                         <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Appalti Pubblici</p>
-                        <p className="text-sm text-slate-800">{companySearchResult.appalti_info || 'Partecipa a bandi/appalti'}</p>
+                        <p className="text-sm text-slate-800">{safeStr(companySearchResult.appalti_info) || 'Partecipa a bandi/appalti'}</p>
                       </div>
                     )}
                     {companySearchResult.rischi_specifici?.length > 0 && (

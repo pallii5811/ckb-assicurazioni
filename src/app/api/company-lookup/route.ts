@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/utils/supabase/server'
 import { getAtecoInsurance } from '@/lib/ateco-insurance'
 import { classifyCompanySize, estimateAnnualPremium, analyzeInsuranceGaps } from '@/lib/insurance-analysis'
 import { buildInsuranceNeedsProfile } from '@/lib/insurance-needs-engine'
+import { geminiExtractCompanyData, isGeminiEnabled } from '@/lib/gemini-search'
 
 export const maxDuration = 300
 
@@ -1460,6 +1461,50 @@ export async function POST(req: NextRequest) {
     }
 
     let tavilyUsed = false
+
+    // ── Step PRE-Tavily: Gemini 2.5 Flash Lite con Google Search grounding ──
+    // Fonte primaria per dati camerali accurati (fatturato, dipendenti, titolare, ATECO, sede, PEC).
+    // Molto più accurato di Tavily+GPT per aziende piccole. Se fallisce, Tavily fa da fallback.
+    if (isGeminiEnabled()) {
+      console.log(`[COMPANY-LOOKUP] Step Gemini: grounded extraction for "${companyName}"`)
+      try {
+        const geminiData = await geminiExtractCompanyData({
+          companyName,
+          partitaIva: piva || (result.partita_iva as string) || undefined,
+          city: city || (result.citta as string) || undefined,
+        })
+        if (geminiData && typeof geminiData === 'object') {
+          // Map Gemini fields to result (Gemini is HIGH confidence — overrides Tavily-sourced data later)
+          // Only skip if result already has data from trusted sources (backend/OpenAPI/CompanyReports).
+          const geminiTrustedFields = ['fatturato', 'utile_netto', 'totale_attivo', 'dipendenti',
+            'codice_ateco', 'descrizione_ateco', 'sede_legale', 'pec', 'capitale_sociale',
+            'data_costituzione', 'forma_giuridica', 'titolare', 'ruolo_titolare',
+            'partita_iva', 'codice_fiscale', 'ragione_sociale', 'fatturato_anno',
+            'telefono', 'email', 'sito_web'] as const
+          let geminiFilled = 0
+          for (const k of geminiTrustedFields) {
+            const v = (geminiData as any)[k]
+            if (v == null || v === '') continue
+            // Map sito_web → sito (internal field name)
+            const targetKey = k === 'sito_web' ? 'sito' : k
+            if (!result[targetKey]) {
+              result[targetKey] = v
+              geminiFilled++
+            }
+          }
+          if (geminiFilled > 0) {
+            fonti.push('Gemini 2.5 Flash Lite (Google Search grounding)')
+            console.log(`[COMPANY-LOOKUP] Step Gemini: filled ${geminiFilled} fields`)
+          } else {
+            console.log('[COMPANY-LOOKUP] Step Gemini: no new data')
+          }
+        } else {
+          console.log('[COMPANY-LOOKUP] Step Gemini: no data returned')
+        }
+      } catch (e: any) {
+        console.log(`[COMPANY-LOOKUP] Step Gemini failed: ${e?.message || e}`)
+      }
+    }
 
     // ── Search 1: Visura / dati camerali ──
     const hasBasicCameraleData = result.partita_iva && result.codice_ateco && result.forma_giuridica

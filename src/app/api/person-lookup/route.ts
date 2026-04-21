@@ -172,7 +172,8 @@ async function handlePersonLookup(req: NextRequest) {
       [/medic|dottor/, 'medico'], [/dentist/, 'dentista'], [/geometr/, 'geometra'],
       [/psicolog/, 'psicologo'], [/fisioterap/, 'fisioterapista'], [/veterinar/, 'veterinario'],
     ]
-    for (const [re, prof] of profMap) if (re.test(ruoloStr) || re.test(searchName.toLowerCase())) { professionHints.push(prof); break }
+    const queryLow = String(query || '').toLowerCase()
+    for (const [re, prof] of profMap) if (re.test(ruoloStr) || re.test(searchName.toLowerCase()) || re.test(queryLow)) { professionHints.push(prof); break }
 
     // Try queries: with profession first (most specific), then plain name
     const queries: string[] = []
@@ -208,8 +209,26 @@ async function handlePersonLookup(req: NextRequest) {
                 result.email = regData.email
                 result.email_fonte = 'Google Maps (personale)'
               }
-              // NOTE: intentionally NOT setting sito_web/indirizzo/partita_iva/pec here
-              // those belong to the COMPANY and must come from the dati_azienda pipeline below
+              // For liberi professionisti (architetto/avvocato/consulente/...), the Maps business
+              // IS the current Italian activity. Override any stale company found on LinkedIn
+              // (e.g. "Luciano Giorgi Studio LGB" on Maps must override "TecnimontHQC Sdn Bhd" from old LinkedIn role).
+              if (professionHints.length > 0) {
+                if (regData.ragione_sociale) {
+                  const oldAzienda = result.azienda
+                  result.azienda = regData.ragione_sociale
+                  if (oldAzienda && oldAzienda !== regData.ragione_sociale) {
+                    result.azienda_alternativa = oldAzienda
+                    console.log(`[PERSON-LOOKUP] Search 1e: OVERRIDE azienda (libero professionista) "${oldAzienda}" → "${regData.ragione_sociale}"`)
+                  }
+                }
+                if (regData.sito) result.sito_web = regData.sito
+                if (regData.indirizzo && !/https?:\/\//i.test(regData.indirizzo)) result.indirizzo = regData.indirizzo
+                if (regData.citta && !result.citta) result.citta = regData.citta
+                if (regData.partita_iva && String(regData.partita_iva).replace(/\D/g, '').length === 11) {
+                  result.partita_iva = String(regData.partita_iva).replace(/\D/g, '')
+                }
+                if (regData.pec && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regData.pec)) result.pec = regData.pec
+              }
               if (!result.fonti.includes('Google Maps (personale)')) result.fonti.push('Google Maps (personale)')
             } else {
               console.log(`[PERSON-LOOKUP] Search 1e: lead-registry returned "${regName}" — does not match person "${personName}", skipping`)
@@ -259,7 +278,7 @@ JSON:
       // Validate PEC: must be valid email format
       if (!isJunk(ext1b2.pec) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ext1b2.pec) && !result.pec) result.pec = ext1b2.pec
       if (!isJunk(ext1b2.codice_fiscale) && !result.codice_fiscale) result.codice_fiscale = ext1b2.codice_fiscale
-      if (!isJunk(ext1b2.indirizzo) && !result.indirizzo) result.indirizzo = ext1b2.indirizzo
+      if (!isJunk(ext1b2.indirizzo) && !result.indirizzo && !/https?:\/\//i.test(String(ext1b2.indirizzo)) && !/ufficiocamerale|registroimprese|reportaziende/i.test(String(ext1b2.indirizzo))) result.indirizzo = ext1b2.indirizzo
       console.log(`[PERSON-LOOKUP] Search 1b2 camerale done — piva: "${cleanPiva}" (valid: ${cleanPiva.length === 11}), pec: "${ext1b2.pec}"`);
     }
   }
