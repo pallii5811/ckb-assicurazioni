@@ -59,7 +59,8 @@ async function handlePersonLookup(req: NextRequest) {
   } catch { /* use full query as person name */ }
 
   // Helper: Tavily search — onlyBestMatch picks the single most relevant result
-  async function tavilySearch(q: string, onlyBestMatch = false, matchName?: string): Promise<string> {
+  // Reverted to 'advanced' always — 'basic' was producing lower-quality results
+  async function tavilySearch(q: string, onlyBestMatch = false, matchName?: string, _deep = false): Promise<string> {
     try {
       const res = await fetch('https://api.tavily.com/search', {
         method: 'POST',
@@ -115,7 +116,17 @@ async function handlePersonLookup(req: NextRequest) {
 
   const result: Record<string, any> = { nome_cercato: query, fonti: [] }
 
-  const isJunk = (v: any) => !v || v === 'null' || v === 'non disponibile' || v === 'non specificato' || v === 'N/A' || v === 'n/a' || v === 'non noto' || v === 'sconosciuto'
+  const isJunk = (v: any) => {
+    if (!v) return true
+    if (typeof v !== 'string') return false
+    const s = v.trim().toLowerCase()
+    if (!s) return true
+    if (['null','undefined','non disponibile','non specificato','n/a','n.d.','nd','non noto','sconosciuto','none','nessuno'].includes(s)) return true
+    // Reject GPT-echoed prompt placeholders (e.g. "Profilo Instagram", "URL profilo Facebook", "Canale YouTube")
+    if (/^(profilo|url|canale|pagina|account|username|handle|link|nome|numero|indirizzo|email|cellulare|telefono|sito|bio|descrizione)\s+(instagram|facebook|linkedin|twitter|youtube|tiktok|pinterest|x|social|personale|aziendale|utente|azienda|web|\w+)?\s*$/i.test(v.trim())) return true
+    if (/^(instagram|facebook|linkedin|twitter|youtube|tiktok|pinterest)\s+(profilo|pagina|account|username|url|canale|handle|personale)?\s*$/i.test(v.trim())) return true
+    return false
+  }
 
   // ── Search 1: Info base persona (ruolo, azienda, contatti) ──
   const searchName = queryPersonName
@@ -188,7 +199,7 @@ async function handlePersonLookup(req: NextRequest) {
         const regRes = await fetch(`${origin}/api/lead-registry`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lead: { nome: businessName, azienda: businessName, citta: city, sito: '', indirizzo: '', categoria: professionHints[0] || '' } }),
+          body: JSON.stringify({ lead: { nome: businessName, azienda: businessName, citta: city, sito: '', indirizzo: '', categoria: professionHints[0] || '' }, _skipPersonEnrichment: true }),
           signal: AbortSignal.timeout(60000),
         })
         if (regRes.ok) {
@@ -234,10 +245,33 @@ async function handlePersonLookup(req: NextRequest) {
                 if (regData.facebook && !result.facebook) result.facebook = regData.facebook
                 if (regData.youtube && !result.youtube) result.youtube = regData.youtube
                 if (regData.twitter && !result.twitter) result.twitter = regData.twitter
+                // SANITY CHECK: for libero professionista, strip absurd company-scale fields
+                // If lead-registry (OpenAPI/CompanyReports) matched a large company with similar name,
+                // the fatturato/dipendenti/utile are of that big company — NOT our liber prof.
+                // Heuristic: liberi professionisti rarely have > €3M fatturato or > 20 dipendenti.
+                const sanitized: Record<string, any> = { ...regData }
+                const fattNum = Number(String(regData.fatturato || '').replace(/[^\d.]/g, '')) || 0
+                const dipNum = Number(String(regData.dipendenti || '').replace(/[^\d.]/g, '')) || 0
+                // Threshold: €3M fatturato OR 20 dipendenti → almost certainly wrong match
+                const looksCorporate = fattNum > 3_000_000 || dipNum > 20
+                if (looksCorporate) {
+                  console.log(`[PERSON-LOOKUP] Search 1e: SANITIZING dati_azienda — fatturato=${fattNum} dip=${dipNum} are corporate-scale, stripping (libero prof)`)
+                  for (const k of ['fatturato','fatturato_anno','dipendenti','utile_netto','totale_attivo','capitale_sociale','costo_personale','classe_fatturato','dimensione_eu','ateco','descrizione_ateco','codice_ateco','codice_rea','data_costituzione','forma_giuridica','fatturato_trend','stima_premio','bilancio_anno','cariche_societarie']) {
+                    delete sanitized[k]
+                  }
+                  // Force forma_giuridica to libero professionista
+                  sanitized.forma_giuridica = 'Libero Professionista'
+                }
                 // Store Search 1e lead-registry response as AUTHORITATIVE dati_azienda
                 // (prevents a later lookup from matching a different company with same short name)
-                result.dati_azienda = regData
+                result.dati_azienda = sanitized
                 result._skipSecondLeadRegistry = true
+                // Also strip the same fields from top-level result if they were polluted
+                if (looksCorporate) {
+                  for (const k of ['fatturato','dipendenti','utile_netto','capitale_sociale','costo_personale']) {
+                    delete result[k]
+                  }
+                }
               }
               if (!result.fonti.includes('Google Maps (personale)')) result.fonti.push('Google Maps (personale)')
             } else {
@@ -269,7 +303,7 @@ async function handlePersonLookup(req: NextRequest) {
     const reverseName = personName.split(' ').reverse().join(' ')
     // Cerca specificamente su siti camerali
     const q1b2 = `${reverseName} partita IVA PEC ufficiocamerale.it`
-    const text1b2 = await tavilySearch(q1b2, true, personName)
+    const text1b2 = await tavilySearch(q1b2, true, personName, true)
     if (text1b2.length > 50) {
       const ext1b2 = await gptExtract(text1b2, `Dai dati camerali, estrai SOLO le informazioni della ditta individuale intestata a "${personName}" (in formato camerale: "${reverseName}"). 
 ATTENZIONE: 
@@ -559,7 +593,7 @@ JSON:
       const regRes = await fetch(`${origin}/api/lead-registry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lead: leadObj }),
+        body: JSON.stringify({ lead: leadObj, _skipPersonEnrichment: true }),
         signal: AbortSignal.timeout(120000),
       })
       if (regRes.ok) {

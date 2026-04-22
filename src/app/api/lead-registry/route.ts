@@ -389,6 +389,9 @@ async function fetchOpenApiIt(piva: string): Promise<Record<string, any> | null>
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { lead } = body
+  // Anti-loop flag: callers that will separately run person-lookup (company-lookup, person-lookup itself)
+  // pass _skipPersonEnrichment=true so we don't double-call and don't recurse.
+  const skipPersonEnrichment: boolean = !!body?._skipPersonEnrichment
 
   const business_name = lead?.nome || lead?.azienda || lead?.business_name || ''
   const city = lead?.citta || lead?.city || ''
@@ -447,15 +450,25 @@ export async function POST(req: NextRequest) {
       const googleHtml = await fetchHtmlSafe(`https://www.google.com/search?q=${googleQuery}&num=5&hl=it`, 6000)
       if (googleHtml.length > 200) {
         const urlMatches = googleHtml.match(/href="(https?:\/\/[^"]+)"/g) || []
+        // STRONG filter: hostname must contain at least one company-name word (≥4 chars)
+        const compWords = cleanName.toLowerCase()
+          .replace(/[^a-z0-9\s]/gi, ' ')
+          .split(/\s+/)
+          .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|group|italia|italy)$/i.test(w))
         for (const u of urlMatches) {
           const url = u.replace(/^href="/, '').replace(/"$/, '')
           try {
-            const h = new URL(url).hostname.replace(/^www\./, '')
-            if (!PLATFORM_DOMAINS.some(p => h === p || h.endsWith(`.${p}`)) && !h.includes('google') && !h.includes('gstatic') && !h.includes('googleapis')) {
-              realWebsite = url
-              console.log(`[LEAD-REGISTRY] Found real website: ${realWebsite}`)
-              break
+            const h = new URL(url).hostname.replace(/^www\./, '').toLowerCase()
+            if (PLATFORM_DOMAINS.some(p => h === p || h.endsWith(`.${p}`))) continue
+            if (h.includes('google') || h.includes('gstatic') || h.includes('googleapis')) continue
+            // Require hostname to contain at least one company-name word
+            if (compWords.length > 0 && !compWords.some((w: string) => h.includes(w))) {
+              console.log(`[LEAD-REGISTRY] REJECT "${h}" — does not contain any of [${compWords.join(',')}]`)
+              continue
             }
+            realWebsite = url
+            console.log(`[LEAD-REGISTRY] Found real website: ${realWebsite}`)
+            break
           } catch { /* skip invalid URL */ }
         }
       }
@@ -1466,6 +1479,89 @@ JSON:
   if (websiteFacebook && !profile.facebook) profile.facebook = websiteFacebook
   if (websiteTwitter && !profile.twitter) profile.twitter = websiteTwitter
   if (websiteYoutube && !profile.youtube) profile.youtube = websiteYoutube
+
+  // ─── Person-lookup enrichment for titolare (SAME pipeline as Cerca Referente) ───
+  // Brings: trigger_finanziari, segnali_comportamentali, stima_capacita, social titolare,
+  // legami_familiari, proprieta_immobiliari, ambiti_protection, priorita_commerciale, ecc.
+  // Skipped when called from company-lookup / person-lookup (they handle enrichment separately).
+  if (!skipPersonEnrichment && profile.titolare && typeof profile.titolare === 'string') {
+    const titName = profile.titolare.trim()
+    const compName = profile.ragione_sociale || business_name || ''
+    if (titName.length >= 3) {
+      console.log(`[LEAD-REGISTRY] Calling person-lookup for titolare "${titName}" @ "${compName}" to enrich profile`)
+      try {
+        const origin = req.headers.get('host') ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}` : 'http://localhost:3000'
+        const plRes = await fetch(`${origin}/api/person-lookup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: `${titName} ${compName}` }),
+          signal: AbortSignal.timeout(240000),
+        })
+        if (plRes.ok) {
+          const plData = await plRes.json()
+          if (plData && (plData.nome_completo || plData.nome || plData.azienda)) {
+            const nj = (v: any) => {
+              if (!v) return false
+              const s = String(v).trim().toLowerCase()
+              if (!s || s === 'null' || s === 'undefined' || s === 'non disponibile' || s === 'non specificato' || s === 'none') return false
+              if (/^n\/?a/i.test(s) || /\bn\/?a\b/i.test(s)) return false
+              return true
+            }
+            // Anti-omonimo: verify person-lookup data references our company
+            const compClean = String(compName).toLowerCase().replace(/[^a-zà-ú\s]/gi, '').trim()
+            const compWords = compClean.split(/\s+/).filter((w: string) => w.length > 3 && !/^(srl|srls|spa|sas|snc|societa|società)$/i.test(w))
+            const plCheckText = [plData.esperienze_precedenti, plData.descrizione, plData.note, plData.azienda, plData.colleghi_noti]
+              .filter(Boolean).map((v: any) => typeof v === 'string' ? v : JSON.stringify(v)).join(' ').toLowerCase()
+            const matchesCompany = compWords.length === 0 || compWords.some((w: string) => plCheckText.includes(w))
+
+            if (matchesCompany) {
+              // Profile fields (titolare)
+              if (nj(plData.linkedin) && !profile.linkedin_titolare) profile.linkedin_titolare = plData.linkedin
+              if (nj(plData.descrizione) && !profile.bio_titolare) profile.bio_titolare = plData.descrizione
+              if (nj(plData.ruolo) && !profile.ruolo_titolare) profile.ruolo_titolare = plData.ruolo
+              if (nj(plData.seniority) && !profile.seniority_titolare) profile.seniority_titolare = plData.seniority
+              if (nj(plData.formazione) && !profile.formazione_titolare) profile.formazione_titolare = plData.formazione
+              if (nj(plData.esperienze_precedenti) && !profile.esperienze_titolare) profile.esperienze_titolare = plData.esperienze_precedenti
+              if (nj(plData.competenze) && !profile.competenze_titolare) {
+                const c = plData.competenze
+                profile.competenze_titolare = typeof c === 'string' ? c.split(',').map((s: string) => s.trim()).filter(Boolean) : c
+              }
+              if (nj(plData.anni_esperienza) && !profile.anni_esperienza_titolare) profile.anni_esperienza_titolare = plData.anni_esperienza
+              if (nj(plData.tipo_lavoro) && !profile.tipo_lavoro_titolare) profile.tipo_lavoro_titolare = plData.tipo_lavoro
+              if (nj(plData.instagram) && !profile.instagram_titolare) profile.instagram_titolare = plData.instagram
+              if (nj(plData.facebook) && !profile.facebook_titolare) profile.facebook_titolare = plData.facebook
+              if (nj(plData.twitter_x) && !profile.twitter_titolare) profile.twitter_titolare = plData.twitter_x
+              if (nj(plData.legami_familiari) && !profile.legami_familiari_titolare) profile.legami_familiari_titolare = plData.legami_familiari
+              if (nj(plData.stato_civile) && !profile.stato_civile_titolare) profile.stato_civile_titolare = plData.stato_civile
+              if (nj(plData.figli) && !profile.figli_titolare) profile.figli_titolare = plData.figli
+              if (nj(plData.colleghi_noti) && !profile.colleghi_titolare) profile.colleghi_titolare = plData.colleghi_noti
+              if (nj(plData.interessi_social) && !profile.interessi_titolare) profile.interessi_titolare = plData.interessi_social
+              // Personal contacts (NEVER overwrite company contacts)
+              if (nj(plData.email) && !profile.email_titolare) profile.email_titolare = plData.email
+              if (nj(plData.telefono) && !profile.telefono_titolare) profile.telefono_titolare = plData.telefono
+              if (nj(plData.cellulare) && !profile.cellulare_titolare) profile.cellulare_titolare = plData.cellulare
+              if (nj(plData.pec) && plData.pec !== profile.pec && !profile.pec_titolare) profile.pec_titolare = plData.pec
+              // Insurance / behavioral
+              if (nj(plData.trigger_finanziari) && !profile.trigger_finanziari) profile.trigger_finanziari = plData.trigger_finanziari
+              if (nj(plData.segnali_comportamentali) && !profile.segnali_comportamentali) profile.segnali_comportamentali = plData.segnali_comportamentali
+              if (nj(plData.stima_capacita_risparmio) && !profile.stima_capacita_risparmio) profile.stima_capacita_risparmio = plData.stima_capacita_risparmio
+              if (nj(plData.ambiti_protection) && !profile.ambiti_protection) profile.ambiti_protection = plData.ambiti_protection
+              if (nj(plData.priorita_commerciale) && !profile.priorita_commerciale) profile.priorita_commerciale = plData.priorita_commerciale
+              if (nj(plData.polizze_consigliate) && !profile.polizze_consigliate) profile.polizze_consigliate = plData.polizze_consigliate
+              if (nj(plData.rischi_professionali) && !profile.rischi_professionali) profile.rischi_professionali = plData.rischi_professionali
+              if (nj(plData.proprieta_immobiliari) && !profile.proprieta_immobiliari_titolare) profile.proprieta_immobiliari_titolare = plData.proprieta_immobiliari
+              if (nj(plData.zona_residenza) && !profile.zona_residenza_titolare) profile.zona_residenza_titolare = plData.zona_residenza
+              console.log(`[LEAD-REGISTRY] Person-lookup enrichment VERIFIED — merged titolare fields`)
+            } else {
+              console.log(`[LEAD-REGISTRY] Person-lookup enrichment NOT VERIFIED — skipping (possible omonimo)`)
+            }
+          }
+        }
+      } catch (e: any) {
+        console.log(`[LEAD-REGISTRY] Person-lookup enrichment failed: ${e?.message || e}`)
+      }
+    }
+  }
 
   // Rimuovi campi null/vuoti/zero inutili
   const ZERO_FILTER_KEYS = ['fatturato', 'dipendenti', 'costo_personale', 'capitale_sociale', 'utile_netto', 'totale_attivo']

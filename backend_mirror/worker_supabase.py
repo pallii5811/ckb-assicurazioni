@@ -2257,5 +2257,170 @@ async def scrape_registry(data: dict):
         return {"found": False, "error": str(e)}
 
 
+@app.post("/search-maps-single")
+async def search_maps_single(data: dict):
+    """Scrape Google Maps for ONE single business by name.
+    Input: {"business_name": str, "city": str (optional), "max_results": int (optional, default 1)}
+    Output: {"found": bool, "results": [{"name","website","phone","address","city","category","rating","reviews_count"}]}
+
+    Used by Cerca Azienda Singola to get the CANONICAL website from Maps
+    (same source of truth as Ricerca Categoria+Città).
+    Non-breaking: never raises, returns {"found": False, "error": ...} on failure.
+    """
+    business_name = (data.get("business_name") or data.get("query") or "").strip()
+    city = (data.get("city") or data.get("location") or "").strip()
+    max_results = int(data.get("max_results") or 1)
+    if not business_name:
+        return {"found": False, "results": [], "error": "business_name required"}
+
+    q = f"{business_name} {city}".strip()
+    url = f"https://www.google.com/maps/search/{quote(q)}?hl=it&gl=it&entry=ttu"
+
+    def _clean_phone(v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        s = " ".join(str(v).split())
+        s = re.sub(r"^telefono\s*:?\s*", "", s, flags=re.IGNORECASE)
+        return s.strip() or None
+
+    results: List[Dict[str, Any]] = []
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
+            )
+            context = await browser.new_context(
+                locale="it-IT",
+                timezone_id="Europe/Rome",
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1400, "height": 900},
+            )
+            page = await context.new_page()
+            page.set_default_timeout(20000)
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(2000)
+
+                # Accept cookies if prompted
+                for sel in [
+                    'button[aria-label*="Accetta"]',
+                    'button:has-text("Accetta tutto")',
+                    'button:has-text("Accetta")',
+                ]:
+                    try:
+                        el = await page.query_selector(sel)
+                        if el:
+                            await el.click()
+                            await page.wait_for_timeout(800)
+                            break
+                    except Exception:
+                        continue
+
+                # Decide if we are on single-place card or list
+                cards = await page.query_selector_all('div[role="article"]')
+                alt_cards = await page.query_selector_all("div.Nv2PK")
+                is_list = (len(cards) > 0) or (len(alt_cards) > 0)
+
+                async def _extract_from_detail_panel() -> Optional[Dict[str, Any]]:
+                    name_el = await page.query_selector("h1.DUwDvf, h1, div.DUwDvf")
+                    name = (await name_el.text_content() if name_el else None)
+                    name = (name or "").strip() or None
+                    if not name:
+                        return None
+                    website = None
+                    try:
+                        w_el = await page.query_selector('a[data-item-id="authority"]')
+                        if w_el:
+                            website = await w_el.get_attribute("href")
+                    except Exception:
+                        pass
+                    phone = None
+                    try:
+                        ph_el = await page.query_selector('button[data-item-id^="phone"]')
+                        if ph_el:
+                            ph_txt = await ph_el.text_content()
+                            phone = _clean_phone(ph_txt)
+                    except Exception:
+                        pass
+                    address = None
+                    try:
+                        a_el = await page.query_selector('button[data-item-id="address"]')
+                        if a_el:
+                            a_txt = await a_el.text_content()
+                            address = (a_txt or "").strip() or None
+                    except Exception:
+                        pass
+                    category = None
+                    try:
+                        c_el = await page.query_selector('button[jsaction*="category"]')
+                        if c_el:
+                            c_txt = await c_el.text_content()
+                            category = (c_txt or "").strip() or None
+                    except Exception:
+                        pass
+                    rating = None
+                    reviews_count = None
+                    try:
+                        r_el = await page.query_selector('div.F7nice span[aria-hidden="true"]')
+                        if r_el:
+                            rating_txt = (await r_el.text_content() or "").replace(",", ".").strip()
+                            try:
+                                rating = float(rating_txt)
+                            except Exception:
+                                pass
+                        rc_el = await page.query_selector('div.F7nice span[aria-label*="recensioni"], div.F7nice span[aria-label*="reviews"]')
+                        if rc_el:
+                            rc_txt = (await rc_el.text_content() or "")
+                            m = re.search(r"(\d[\d\.\,]*)", rc_txt)
+                            if m:
+                                try:
+                                    reviews_count = int(m.group(1).replace(".", "").replace(",", ""))
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                    return {
+                        "name": name,
+                        "website": website,
+                        "phone": phone,
+                        "address": address,
+                        "category": category,
+                        "rating": rating,
+                        "reviews_count": reviews_count,
+                    }
+
+                if not is_list:
+                    item = await _extract_from_detail_panel()
+                    if item:
+                        results.append(item)
+                else:
+                    # Click first card and extract
+                    try:
+                        first_card = cards[0] if cards else alt_cards[0]
+                        await first_card.click()
+                        await page.wait_for_timeout(2000)
+                        item = await _extract_from_detail_panel()
+                        if item:
+                            results.append(item)
+                    except Exception:
+                        pass
+            finally:
+                try: await context.close()
+                except Exception: pass
+                try: await browser.close()
+                except Exception: pass
+    except Exception as e:
+        return {"found": False, "results": [], "error": str(e)}
+
+    results = results[:max_results] if results else []
+    return {"found": len(results) > 0, "results": results}
+
+
 if __name__ == "__main__":
     main()

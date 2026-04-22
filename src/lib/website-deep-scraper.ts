@@ -54,6 +54,16 @@ const PLATFORM_DOMAINS = new Set([
   'pazienti.it', 'guidadottori.it',
   'thefork.it', 'justeat.it', 'deliveroo.it', 'glovo.com',
   'matrimonio.com', 'matrimonio.it',
+  // ATS / hiring platforms — NEVER the real company site (usually sub-domain like piksel.breezy.hr)
+  'breezy.hr', 'breezy.com', 'greenhouse.io', 'lever.co',
+  'workable.com', 'jobvite.com', 'bamboohr.com',
+  'workday.com', 'myworkdayjobs.com', 'recruitee.com',
+  'smartrecruiters.com', 'teamtailor.com', 'personio.com',
+  'personio.de', 'zohorecruit.com', 'jobs.lever.co',
+  'hireology.com', 'jazzhr.com', 'applytojob.com',
+  // Portals / marketplaces / blog platforms
+  'medium.com', 'substack.com', 'notion.site', 'github.io',
+  'gitlab.io', 'netlify.app', 'vercel.app',
 ])
 
 function isPlatformDomain(website: string): boolean {
