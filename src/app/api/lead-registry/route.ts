@@ -1008,7 +1008,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     }
 
     // Helper: merge only missing fields — with aggressive junk filtering
-    const JUNK_VALUES = ['nome e cognome', 'nome cognome', 'codice numerico', 'descrizione attività', 'tipo società', 'importo', 'indirizzo completo', 'indirizzo pec', 'anno o data', 'numero p.iva', 'cf azienda', 'codice fiscale se', 'amministratore/socio', 'numero se noto', 'dettagli', 'eventuali sinistri', 'altre info', 'numero dipendenti', 'importo in euro', 'anno di riferimento', 'es. 100k', 'rischio 1', 'rischio 2', 'iso 9001', 'non divulgato', 'non disponibile', 'n/d', 'null', 'numero p.iva']
+    const JUNK_VALUES = ['nome e cognome', 'nome cognome', 'codice numerico', 'descrizione attività', "descrizione dell'attività", 'tipo di società', 'tipo società', 'importo', 'indirizzo completo', 'indirizzo pec', 'anno o data', 'numero p.iva', 'cf azienda', 'codice fiscale se', 'amministratore/socio', 'numero se noto', 'dettagli', 'eventuali sinistri', 'altre info', 'numero dipendenti', 'importo in euro', 'anno di riferimento', 'es. 100k', 'rischio 1', 'rischio 2', 'iso 9001', 'non divulgato', 'non disponibile', 'n/d', 'null', 'numero p.iva', 'non specificato', 'non noto', 'sconosciuto', 'nessuno', 'none']
     function isJunkValue(v: any): boolean {
       if (v === null || v === undefined || v === '' || v === 0 || v === '0') return true
       if (typeof v === 'string') {
@@ -1039,6 +1039,11 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     function mergeTavily(extracted: Record<string, any>) {
       for (const [k, v] of Object.entries(extracted)) {
         if (isJunkValue(v)) continue
+        // ATECO must be XX.XX.XX format — reject pure digits like "12345"
+        if (k === 'codice_ateco' && typeof v === 'string' && !/^\d{2}\.\d{2}(\.\d{2})?$/.test(v.trim())) {
+          console.log(`[LEAD-REGISTRY] REJECTED invalid ATECO format: "${v}"`)
+          continue
+        }
         if (isHallucinatedNumber(k, v)) {
           console.log(`[LEAD-REGISTRY] REJECTED hallucinated ${k}="${v}" (unrealistic for IT company)`)
           continue
@@ -1129,9 +1134,9 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
             [/direttore\s*(?:generale|tecnico)/i, 80],
             [/amministratore\s*unico/i, 75],
             [/titolare/i, 70],
-            [/fondatore/i, 65],
-            [/proprietario/i, 60],
-            [/amministratore/i, 50],
+            [/amministratore/i, 65],
+            [/fondatore/i, 40],
+            [/proprietario/i, 55],
             [/socio/i, 20],
           ]
           const roleScore = (r: string) => {

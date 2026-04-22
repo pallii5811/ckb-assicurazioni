@@ -1513,7 +1513,7 @@ export default function DashboardShell() {
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder='Es. "Mario Rossi" oppure "Marco Bianchi Milano"'
+              placeholder='Nome + azienda/professione + città (es. "Marco Bianchi Allianz Milano")'
               value={personSearchQuery}
               onChange={(e) => setPersonSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') document.getElementById('btn-person-search')?.click() }}
@@ -1614,7 +1614,7 @@ export default function DashboardShell() {
             </button>
           </div>
           <p className="text-[10px] text-slate-400">
-            Funziona con: nome e cognome (es. &quot;Mario Rossi&quot;), nome + città (es. &quot;Marco Bianchi Milano&quot;), nome + azienda (es. &quot;Luigi Verdi Enel&quot;)
+            Per risultati precisi scrivi: <strong>nome + azienda</strong> (es. &quot;Luigi Verdi Enel&quot;) oppure <strong>nome + professione + città</strong> (es. &quot;Anna Rossi wedding planner Roma&quot;). Più dettagli = più preciso.
           </p>
 
           {personSearchError && (
@@ -1697,6 +1697,12 @@ export default function DashboardShell() {
                     <div className="bg-slate-50 rounded-lg p-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Facebook</p>
                       <a href={personSearchResult.facebook.startsWith('http') ? personSearchResult.facebook : `https://facebook.com/${personSearchResult.facebook}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:underline">{personSearchResult.facebook.replace(/.*facebook\.com\//, 'facebook.com/')}</a>
+                    </div>
+                  )}
+                  {(personSearchResult.twitter_x || personSearchResult.twitter) && (
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Twitter / X</p>
+                      {(() => { const tw = personSearchResult.twitter_x || personSearchResult.twitter; return <a href={tw.startsWith('http') ? tw : `https://twitter.com/${tw.replace(/^@/, '')}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-slate-800 hover:underline">{tw.replace(/.*twitter\.com\//, '@').replace(/.*x\.com\//, '@')}</a> })()}
                     </div>
                   )}
                   {personSearchResult.sito_web && (

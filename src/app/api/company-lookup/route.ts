@@ -1331,6 +1331,11 @@ export async function POST(req: NextRequest) {
     function mergeTavily(extracted: Record<string, any>) {
       for (const [k, v] of Object.entries(extracted)) {
         if (isJunkValue(v)) continue
+        // ATECO must be XX.XX or XX.XX.XX format — reject pure digits like "12345"
+        if (k === 'codice_ateco' && typeof v === 'string' && !/^\d{2}\.\d{2}(\.\d{2})?$/.test(v.trim())) {
+          console.log(`[COMPANY-LOOKUP] REJECTED invalid ATECO: "${v}"`)
+          continue
+        }
         if (k === 'persone' || k === 'soci' || k === 'amministratori') {
           if (Array.isArray(v) && v.length > 0) {
             const clean = v.filter((p: any) => {
@@ -1670,6 +1675,25 @@ JSON:
         nome: result.titolare,
         ruolo: result.ruolo_titolare || 'Titolare / Rappresentante Legale',
       }]
+    }
+    // ── Cross-validate titolare vs persone: prefer active Amministratore over Fondatore ──
+    if (result.titolare && Array.isArray(result.persone) && result.persone.length > 1) {
+      const titLow = String(result.titolare).toLowerCase().trim()
+      const titRuolo = String(result.ruolo_titolare || '').toLowerCase()
+      // If current titolare is "Fondatore" but persone has an Amministratore/Rappresentante Legale, switch
+      if (titRuolo.includes('fondator') || titRuolo.includes('socio')) {
+        const activeAdmin = (result.persone as any[]).find((p: any) => {
+          if (!p?.nome || !p?.ruolo) return false
+          const r = String(p.ruolo).toLowerCase()
+          const n = String(p.nome).toLowerCase().trim()
+          return n !== titLow && (r.includes('amministrator') || r.includes('rappresentante legale') || r.includes('presidente'))
+        })
+        if (activeAdmin) {
+          console.log(`[COMPANY-LOOKUP] Titolare correction: "${result.titolare}" (${result.ruolo_titolare}) → "${activeAdmin.nome}" (${activeAdmin.ruolo}) — prefer active admin over founder`)
+          result.titolare = activeAdmin.nome
+          result.ruolo_titolare = activeAdmin.ruolo
+        }
+      }
     }
     console.log(`[COMPANY-LOOKUP] Search 2d final — titolare: "${result.titolare || 'N/A'}", persone: ${result.persone ? JSON.stringify(result.persone) : 'NONE'}`)
 

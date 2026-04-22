@@ -35,6 +35,8 @@ async function handlePersonLookup(req: NextRequest) {
   // We'll use GPT to split person name from company hint
   let queryPersonName = query
   let queryCompanyHint = ''
+  let queryProfessionHint = ''
+  let queryCityHint = ''
   try {
     const splitRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -42,8 +44,8 @@ async function handlePersonLookup(req: NextRequest) {
       body: JSON.stringify({
         model: 'gpt-4o-mini', temperature: 0,
         messages: [
-          { role: 'system', content: 'Separa il nome della persona dal nome dell\'azienda nella query. Rispondi SOLO con JSON.' },
-          { role: 'user', content: `Dalla query "${query}", separa il nome della persona dal nome dell'azienda (se presente). JSON:\n{"persona":"nome e cognome","azienda":"nome azienda o vuoto se non specificata"}` },
+          { role: 'system', content: 'Separa il nome della persona dagli altri dettagli nella query. Rispondi SOLO con JSON.' },
+          { role: 'user', content: `Dalla query "${query}", estrai le informazioni. JSON:\n{"persona":"nome e cognome","azienda":"nome azienda o vuoto se non specificata","professione":"professione/ruolo se specificato (es. wedding planner, avvocato, architetto)","citta":"città se specificata"}` },
         ],
       }),
       signal: AbortSignal.timeout(8000),
@@ -54,7 +56,9 @@ async function handlePersonLookup(req: NextRequest) {
       const parsed = JSON.parse(raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
       if (parsed.persona) queryPersonName = parsed.persona
       if (parsed.azienda) queryCompanyHint = parsed.azienda
-      console.log(`[PERSON-LOOKUP] Parsed — persona: "${queryPersonName}", azienda hint: "${queryCompanyHint}"`)
+      if (parsed.professione) queryProfessionHint = parsed.professione
+      if (parsed.citta) queryCityHint = parsed.citta
+      console.log(`[PERSON-LOOKUP] Parsed — persona: "${queryPersonName}", azienda: "${queryCompanyHint}", professione: "${queryProfessionHint}", città: "${queryCityHint}"`)
     }
   } catch { /* use full query as person name */ }
 
@@ -125,13 +129,17 @@ async function handlePersonLookup(req: NextRequest) {
     // Reject GPT-echoed prompt placeholders (e.g. "Profilo Instagram", "URL profilo Facebook", "Canale YouTube")
     if (/^(profilo|url|canale|pagina|account|username|handle|link|nome|numero|indirizzo|email|cellulare|telefono|sito|bio|descrizione)\s+(instagram|facebook|linkedin|twitter|youtube|tiktok|pinterest|x|social|personale|aziendale|utente|azienda|web|\w+)?\s*$/i.test(v.trim())) return true
     if (/^(instagram|facebook|linkedin|twitter|youtube|tiktok|pinterest)\s+(profilo|pagina|account|username|url|canale|handle|personale)?\s*$/i.test(v.trim())) return true
+    // Reject obvious GPT placeholder/example values
+    if (/esempio|example|sample|test|placeholder|lorem|ipsum|12345|00000/i.test(s)) return true
+    if (/^(via|corso|piazza)\s+esempio/i.test(s)) return true
     return false
   }
 
   // ── Search 1: Info base persona (ruolo, azienda, contatti) ──
   const searchName = queryPersonName
   const companyCtx = queryCompanyHint ? ` ${queryCompanyHint}` : ''
-  const text1 = await tavilySearch(`"${searchName}"${companyCtx} chi è ruolo azienda società`)
+  const profCtx = queryProfessionHint ? ` ${queryProfessionHint}` : ''
+  const text1 = await tavilySearch(`"${searchName}"${companyCtx}${profCtx} ${queryCityHint ? queryCityHint + ' ' : ''}Italia chi è ruolo azienda società`)
   if (text1.length > 50) {
     const ext1 = await gptExtract(text1, `Estrai tutte le informazioni sulla persona "${searchName}"${queryCompanyHint ? ` in relazione all'azienda "${queryCompanyHint}"` : ''}. JSON:
 {"nome_completo":"nome e cognome completo","ruolo":"ruolo/carica attuale","azienda":"nome azienda/società dove lavora${queryCompanyHint ? ` (PRIORITIZZA ${queryCompanyHint} se la persona ci lavora)` : ''}","settore":"settore di attività","citta":"città","descrizione":"breve descrizione professionale della persona (2-3 frasi)","linkedin":"URL profilo LinkedIn completo","tipo_lavoro":"dipendente / libero professionista / imprenditore / socio","seniority":"junior / mid / senior / executive / C-level","dimensione_azienda":"micro / piccola / media / grande (stima basata su info disponibili)"}`)
@@ -167,7 +175,7 @@ async function handlePersonLookup(req: NextRequest) {
 
   const personName = result.nome_completo || searchName
   const company = result.azienda || queryCompanyHint || ''
-  const city = result.citta || ''
+  const city = result.citta || queryCityHint || ''
 
   // ── Search 1e (PRIORITY for liberi professionisti): lead-registry con nome persona come "business" ──
   // Per architetti, consulenti, avvocati, ecc. il loro nome È la loro attività su Maps.
@@ -377,6 +385,38 @@ JSON:
         if (!isJunk(extCompany.sito_web) && !result.sito_web) {
           result.sito_web = extCompany.sito_web
         }
+      }
+    }
+    // Validate: reject websites from wrong company (omonimo confusion)
+    if (result.sito_web && company) {
+      const siteDomain = (result.sito_web.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] || '').toLowerCase()
+      const compClean = company.toLowerCase().replace(/[^a-z0-9]/g, '')
+      // If domain doesn't contain any company word and isn't .it, it might be wrong
+      const domainLooksRight = siteDomain.includes(compClean) || compClean.split('').filter((c: string, i: number) => siteDomain.includes(compClean.slice(i, i + 3))).length > 0 || siteDomain.endsWith('.it')
+      if (!domainLooksRight && siteDomain.length > 0) {
+        console.log(`[PERSON-LOOKUP] REMOVED suspicious website "${result.sito_web}" — domain "${siteDomain}" doesn't match "${company}"`)
+        delete result.sito_web
+      }
+    }
+    // Validate: reject non-Italian phone numbers (omonimo confusion with foreign companies)
+    if (result.telefono) {
+      const digits = String(result.telefono).replace(/[\s\-().]/g, '')
+      const isItalian = /^(\+?39|0[0-9]|3[0-9]{2})/.test(digits)
+      if (!isItalian) {
+        console.log(`[PERSON-LOOKUP] REMOVED non-Italian phone: "${result.telefono}"`)
+        delete result.telefono
+        delete result.telefono_fonte
+      }
+    }
+    // Validate: reject emails from clearly wrong domains (omonimo confusion)
+    if (result.email && company) {
+      const emailDomain = result.email.split('@')[1]?.toLowerCase() || ''
+      const compWords = company.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 3)
+      const domainMatchesCompany = compWords.some((w: string) => emailDomain.includes(w)) || emailDomain.includes(company.toLowerCase().replace(/[^a-z0-9]/g, ''))
+      if (!domainMatchesCompany && !emailDomain.endsWith('.it') && !emailDomain.includes('pec')) {
+        console.log(`[PERSON-LOOKUP] REMOVED suspicious email "${result.email}" — domain "${emailDomain}" doesn't match "${company}"`)
+        delete result.email
+        delete result.email_fonte
       }
     }
     console.log(`[PERSON-LOOKUP] After company lookup — tel: "${result.telefono || 'N/A'}", email: "${result.email || 'N/A'}"`)
@@ -675,6 +715,7 @@ ATTENZIONE CRITICA: "${personName}" è un nome che potrebbe avere OMONIMI. Inclu
       if (fbHit) { result.facebook = fbHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: Facebook via URL regex: ${result.facebook}`) }
     }
     // Dedicated LinkedIn search if still missing — most effective for nominal LinkedIn lookup
+    console.log(`[PERSON-LOOKUP] Search 2b: pre-dedicated — linkedin=${!!result.linkedin} instagram=${!!result.instagram} facebook=${!!result.facebook} sito_web=${result.sito_web || 'none'}`)
     if (!result.linkedin) {
       const text2bLi = await tavilySearch(`"${personName}" ${city} site:linkedin.com/in`)
       if (text2bLi.length > 50) {
@@ -682,6 +723,92 @@ ATTENZIONE CRITICA: "${personName}" è un nome che potrebbe avere OMONIMI. Inclu
         const liHit = liMatches.find(m => { const slug = m[1].toLowerCase(); return nameParts2b.some((p: string) => slug.includes(p)) })
         if (liHit) { result.linkedin = liHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: LinkedIn dedicated search: ${result.linkedin}`) }
       }
+    }
+    // Dedicated Instagram search if still missing
+    console.log(`[PERSON-LOOKUP] Search 2b: LinkedIn dedicated done — found=${!!result.linkedin}`)
+    if (!result.instagram) {
+      const text2bIg = await tavilySearch(`"${personName}" ${company} site:instagram.com`)
+      if (text2bIg.length > 30) {
+        const igMatches = [...text2bIg.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)\/?/gi)]
+        const igHit = igMatches.find(m => !/^(p|reel|tv|stories|explore|accounts|about|developer|legal)$/i.test(m[1]))
+        if (igHit) { result.instagram = igHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: Instagram dedicated search: ${result.instagram}`) }
+      }
+    }
+    // Dedicated Facebook search if still missing
+    if (!result.facebook) {
+      const text2bFb = await tavilySearch(`"${personName}" ${company} site:facebook.com`)
+      if (text2bFb.length > 30) {
+        const fbMatches = [...text2bFb.matchAll(/https?:\/\/(?:www\.|m\.)?facebook\.com\/([a-zA-Z0-9._\-]+)\/?/gi)]
+        const fbHit = fbMatches.find(m => !/^(sharer|share|dialog|tr|plugins|events|pages|groups|watch|marketplace|gaming|business)$/i.test(m[1]))
+        if (fbHit) { result.facebook = fbHit[0].replace(/\/$/, ''); console.log(`[PERSON-LOOKUP] Search 2b: Facebook dedicated search: ${result.facebook}`) }
+      }
+    }
+    console.log(`[PERSON-LOOKUP] Search 2b: after dedicated — linkedin=${!!result.linkedin} instagram=${!!result.instagram} facebook=${!!result.facebook}`)
+    // Fallback: find person's actual website via Tavily if missing
+    if (!result.sito_web && !result.sito) {
+      // First try direct domain probing (more reliable than Tavily for small sites)
+      const compSlug = (company || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (compSlug.length >= 3) {
+        for (const tld of ['.it', '.com', '.net']) {
+          const probeUrl = `https://www.${compSlug}${tld}`
+          try {
+            const probeRes = await fetch(probeUrl, { signal: AbortSignal.timeout(5000), headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' }).catch(() => null)
+            if (probeRes && probeRes.ok) {
+              const probeHtml = await probeRes.text()
+              const pNameLow = personName.toLowerCase()
+              const nameWords = pNameLow.split(/\s+/).filter((w: string) => w.length >= 3)
+              const htmlLow = probeHtml.toLowerCase()
+              // Accept if page mentions person name or company name
+              if (nameWords.some((w: string) => htmlLow.includes(w)) || htmlLow.includes(compSlug)) {
+                result.sito_web = probeRes.url || probeUrl
+                console.log(`[PERSON-LOOKUP] Search 2b: Found website via domain probe: ${result.sito_web}`)
+                break
+              }
+            }
+          } catch { /* probe failed */ }
+        }
+      }
+    }
+    if (!result.sito_web && !result.sito) {
+      const textSite = await tavilySearch(`"${personName}" ${company} sito web portfolio contatti`)
+      if (textSite.length > 30) {
+        // Extract URLs that could be the person/company site (not social, not directories)
+        const urlMatches = [...textSite.matchAll(/https?:\/\/(?:www\.)?([a-zA-Z0-9.-]+\.[a-z]{2,})/gi)]
+        const skipDomains = /linkedin|facebook|instagram|twitter|youtube|tiktok|wikipedia|ufficiocamerale|registroimprese|reportaziend|paginegialle|infobel|google|bing|tavily/i
+        for (const u of urlMatches) {
+          if (!skipDomains.test(u[1])) { result.sito_web = u[0]; console.log(`[PERSON-LOOKUP] Search 2b: Found website via Tavily: ${u[0]}`); break }
+        }
+      }
+    }
+    // Also try dati_azienda.sito as potential website
+    const daSito = result.dati_azienda?.sito || ''
+    const personalSite = result.sito_web || result.sito || daSito || ''
+    // Scrape website for social links
+    if (personalSite && (!result.linkedin || !result.instagram || !result.facebook)) {
+      try {
+        const siteUrl = personalSite.startsWith('http') ? personalSite : `https://${personalSite}`
+        console.log(`[PERSON-LOOKUP] Search 2b: Scraping ${siteUrl} for social links`)
+        const siteRes = await fetch(siteUrl, { signal: AbortSignal.timeout(10000), headers: { 'User-Agent': 'Mozilla/5.0' } }).catch(() => null)
+        if (siteRes && siteRes.ok) {
+          const html = await siteRes.text()
+          if (!result.linkedin) {
+            const liM = html.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9._\-%]+/i)
+            if (liM) { result.linkedin = liM[0]; console.log(`[PERSON-LOOKUP] Search 2b: LinkedIn from website: ${liM[0]}`) }
+          }
+          if (!result.instagram) {
+            const igM = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/i)
+            if (igM && !/^(p|reel|tv|stories|explore|accounts)$/i.test(igM[1])) { result.instagram = igM[0]; console.log(`[PERSON-LOOKUP] Search 2b: Instagram from website: ${igM[0]}`) }
+          }
+          if (!result.facebook) {
+            const fbM = html.match(/https?:\/\/(?:www\.|m\.)?facebook\.com\/([a-zA-Z0-9._\-]+)/i)
+            if (fbM && !/^(sharer|share|dialog|tr|plugins)$/i.test(fbM[1])) { result.facebook = fbM[0]; console.log(`[PERSON-LOOKUP] Search 2b: Facebook from website: ${fbM[0]}`) }
+          }
+          if (!result.twitter_x) {
+            const twM = html.match(/https?:\/\/(?:www\.)?(twitter|x)\.com\/([a-zA-Z0-9._]+)/i)
+            if (twM) { result.twitter_x = twM[0]; console.log(`[PERSON-LOOKUP] Search 2b: Twitter from website: ${twM[0]}`) }
+          }
+        }
+      } catch { /* website scraping failed — continue */ }
     }
   }
 
@@ -891,18 +1018,48 @@ JSON:
             console.log(`[PERSON-LOOKUP] LinkedIn VERIFIED by company match but URL not extractable — keeping "${result.linkedin}"`)
           }
         } else {
-          console.log(`[PERSON-LOOKUP] LinkedIn verification: company "${company}" NOT found in results — DISCARDING "${result.linkedin}" (likely omonimo)`)
-          result.linkedin_scartato = result.linkedin
-          result.linkedin_scartato_motivo = `Non verificato per ${company} — probabilmente omonimo`
-          delete result.linkedin
+          // Company not verified — but if the LinkedIn slug matches the person's name, keep it (strong signal)
+          const liSlug = (result.linkedin || '').toLowerCase().replace(/.*\/in\//, '').replace(/[^a-z]/g, '')
+          const nameSlug = personName.toLowerCase().replace(/[^a-z]/g, '')
+          if (liSlug.includes(nameSlug) || nameSlug.split('').filter((c: string, i: number) => liSlug.includes(nameSlug.slice(i, Math.min(i + 4, nameSlug.length)))).length >= 3) {
+            console.log(`[PERSON-LOOKUP] LinkedIn verification: company NOT found but slug "${liSlug}" matches name "${nameSlug}" — KEEPING (name match)`)
+          } else {
+            console.log(`[PERSON-LOOKUP] LinkedIn verification: company "${company}" NOT found and slug doesn't match name — DISCARDING "${result.linkedin}" (likely omonimo)`)
+            result.linkedin_scartato = result.linkedin
+            result.linkedin_scartato_motivo = `Non verificato per ${company} — probabilmente omonimo`
+            delete result.linkedin
+          }
         }
       } else {
-        // No Tavily results for person+company LinkedIn — the real person may not have LinkedIn
-        console.log(`[PERSON-LOOKUP] LinkedIn verification: no results for "${personName}" + "${company}" on LinkedIn — DISCARDING "${result.linkedin}" (likely omonimo)`)
-        result.linkedin_scartato = result.linkedin
-        result.linkedin_scartato_motivo = `Nessun profilo LinkedIn trovato per ${personName} a ${company}`
-        delete result.linkedin
+        // No Tavily results — but if the LinkedIn slug matches the person's name, keep it
+        const liSlug = (result.linkedin || '').toLowerCase().replace(/.*\/in\//, '').replace(/[^a-z]/g, '')
+        const nameSlug = personName.toLowerCase().replace(/[^a-z]/g, '')
+        if (liSlug.includes(nameSlug) || nameSlug.split('').filter((c: string, i: number) => liSlug.includes(nameSlug.slice(i, Math.min(i + 4, nameSlug.length)))).length >= 3) {
+          console.log(`[PERSON-LOOKUP] LinkedIn verification: no Tavily results but slug "${liSlug}" matches name "${nameSlug}" — KEEPING (name match)`)
+        } else {
+          console.log(`[PERSON-LOOKUP] LinkedIn verification: no results for "${personName}" + "${company}" on LinkedIn and slug doesn't match — DISCARDING "${result.linkedin}"`)
+          result.linkedin_scartato = result.linkedin
+          result.linkedin_scartato_motivo = `Nessun profilo LinkedIn trovato per ${personName} a ${company}`
+          delete result.linkedin
+        }
       }
+    }
+  }
+
+  // ── Copy social links from dati_azienda when person = titolare ──
+  // For freelancers/sole proprietors, company social IS their personal social
+  if (result.dati_azienda && typeof result.dati_azienda === 'object') {
+    const da = result.dati_azienda as Record<string, any>
+    const titName = da.titolare ? String(da.titolare).toLowerCase().trim() : ''
+    const pName = (result.nome_completo || personName || '').toLowerCase().trim()
+    const isSamePerson = titName && pName && (titName.includes(pName) || pName.includes(titName) ||
+      pName.split(/\s+/).every((w: string) => w.length < 3 || titName.includes(w)))
+    if (isSamePerson) {
+      if (!result.linkedin && da.linkedin) { result.linkedin = da.linkedin; console.log(`[PERSON-LOOKUP] Copied LinkedIn from dati_azienda (person=titolare)`) }
+      if (!result.instagram && da.instagram) { result.instagram = da.instagram; console.log(`[PERSON-LOOKUP] Copied Instagram from dati_azienda (person=titolare)`) }
+      if (!result.facebook && da.facebook) { result.facebook = da.facebook; console.log(`[PERSON-LOOKUP] Copied Facebook from dati_azienda (person=titolare)`) }
+      if (!result.twitter_x && (da.twitter || da.twitter_x)) { result.twitter_x = da.twitter_x || da.twitter; console.log(`[PERSON-LOOKUP] Copied Twitter from dati_azienda (person=titolare)`) }
+      if (!result.sito_web && da.sito) { result.sito_web = da.sito }
     }
   }
 
@@ -937,5 +1094,16 @@ JSON:
   }
 
   delete result._skipSecondLeadRegistry
+
+  // ── Final cleanup: remove ANY remaining placeholder/example values ──
+  const placeholderRx = /esempio|example|sample|placeholder|lorem|ipsum|12345678/i
+  for (const key of Object.keys(result)) {
+    const v = result[key]
+    if (typeof v === 'string' && placeholderRx.test(v)) {
+      console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed placeholder "${key}": "${v.slice(0, 80)}"`)
+      delete result[key]
+    }
+  }
+
   return NextResponse.json(result)
 }
