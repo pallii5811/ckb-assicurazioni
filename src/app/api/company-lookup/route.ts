@@ -1325,6 +1325,10 @@ export async function POST(req: NextRequest) {
         // Reject GPT-echoed prompt placeholders (e.g. "Profilo Instagram", "URL profilo Facebook")
         if (/^(profilo|url|canale|pagina|account|username|handle|link|nome|numero|indirizzo|email|cellulare|telefono|sito|bio|descrizione)\s+(instagram|facebook|linkedin|twitter|youtube|tiktok|pinterest|x|social|personale|aziendale|utente|azienda|web|\w+)?\s*$/i.test(v.trim())) return true
         if (/^(instagram|facebook|linkedin|twitter|youtube|tiktok|pinterest)\s+(profilo|pagina|account|username|url|canale|handle|personale)?\s*$/i.test(v.trim())) return true
+        // Reject obvious GPT placeholder/example values
+        if (/esempio|example|sample|placeholder|lorem|ipsum|12345678/i.test(low)) return true
+        // Reject single generic words as ragione_sociale
+        if (/^(risultati|ricerca|pagina|home|error|undefined|object|array)$/i.test(low)) return true
       }
       return false
     }
@@ -2124,6 +2128,36 @@ JSON:
     for (const [key, val] of Object.entries(result)) {
       if (typeof val === 'string' && NULL_STRINGS.includes(val.toLowerCase().trim())) {
         delete result[key]
+      }
+    }
+
+    // ── Final cleanup: remove placeholder/example values hallucinated by GPT ──
+    const placeholderRx = /esempio|example|sample|placeholder|lorem|ipsum/i
+    const fakeNumberRx = /^0?1234567890?\d*$|^0?3456789012$|^0?123456789$/
+    const sequentialRx = /1234567|7654321|0000000|9999999/
+    const PORTAL_DOMAINS = ['risultati.it','nomeesatto.it','esattospa.it','reportaziende.it','italiaonline.it','informazione-aziende.it','getfound.it','cercaziende.it','trovaaziende.it','misterimprese.it','guida-monaci.it']
+    for (const key of Object.keys(result)) {
+      const v = result[key]
+      if (typeof v === 'string') {
+        if (placeholderRx.test(v)) {
+          console.log(`[COMPANY-LOOKUP] CLEANUP: removed placeholder "${key}": "${v.slice(0, 60)}"`)
+          delete result[key]
+        } else if (['partita_iva', 'codice_fiscale', 'telefono', 'cellulare'].includes(key) && fakeNumberRx.test(v.replace(/\D/g, ''))) {
+          console.log(`[COMPANY-LOOKUP] CLEANUP: removed fake number "${key}": "${v}"`)
+          delete result[key]
+        } else if (['telefono', 'cellulare'].includes(key) && sequentialRx.test(v.replace(/\D/g, ''))) {
+          console.log(`[COMPANY-LOOKUP] CLEANUP: removed sequential phone "${key}": "${v}"`)
+          delete result[key]
+        } else if (['sito', 'sito_web', 'email'].includes(key) && PORTAL_DOMAINS.some(d => v.includes(d))) {
+          console.log(`[COMPANY-LOOKUP] CLEANUP: removed portal domain "${key}": "${v.slice(0, 60)}"`)
+          delete result[key]
+        } else if (key === 'email' && /^(mario\.rossi|nome\.cognome|info\.test|test@|user@|admin@example|esempio|prova@)/.test(v.toLowerCase())) {
+          console.log(`[COMPANY-LOOKUP] CLEANUP: removed fake email "${key}": "${v}"`)
+          delete result[key]
+        } else if (key === 'ragione_sociale' && /^(risultati|ricerca|nome esatto|pagina|home|error)$/i.test(v.trim())) {
+          console.log(`[COMPANY-LOOKUP] CLEANUP: removed junk ragione_sociale: "${v}"`)
+          delete result[key]
+        }
       }
     }
 

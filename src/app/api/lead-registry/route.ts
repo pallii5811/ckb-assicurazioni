@@ -431,7 +431,7 @@ export async function POST(req: NextRequest) {
   // ─── Step 2: Extract P.IVA from company website ───────────────
   // SKIP if website is a third-party platform (miodottore.it, paginegialle.it, etc.)
   // — the P.IVA on those pages belongs to the PLATFORM, not the business
-  const PLATFORM_DOMAINS = ['miodottore.it','doctolib.it','paginegialle.it','paginebianche.it','tuttocitta.it','yelp.com','yelp.it','tripadvisor.it','tripadvisor.com','booking.com','airbnb.it','airbnb.com','subito.it','immobiliare.it','idealista.it','linkedin.com','facebook.com','instagram.com','youtube.com','twitter.com','tiktok.com','trustpilot.com','google.com','europages.it','kompass.com','hotfrog.it','cylex.it','virgilio.it','wix.com','wordpress.com','jimdo.com','weebly.com','shopify.com','etsy.com','amazon.it','amazon.com','ebay.it','ebay.com','topdoctors.it','dottori.it','medicitalia.it','pazienti.it','guidadottori.it','thefork.it','justeat.it','deliveroo.it','glovo.com','matrimonio.com','1240.it','12auto.it','1254.it','pronto.it','infoimprese.it','dnb.com','infocamere.it','registroimprese.it','companyreports.it','ufficiocamerale.it','cercaziende.it','guida-monaci.it','misterimprese.it','trovaaziende.it']
+  const PLATFORM_DOMAINS = ['miodottore.it','doctolib.it','paginegialle.it','paginebianche.it','tuttocitta.it','yelp.com','yelp.it','tripadvisor.it','tripadvisor.com','booking.com','airbnb.it','airbnb.com','subito.it','immobiliare.it','idealista.it','linkedin.com','facebook.com','instagram.com','youtube.com','twitter.com','tiktok.com','trustpilot.com','google.com','europages.it','kompass.com','hotfrog.it','cylex.it','virgilio.it','wix.com','wordpress.com','jimdo.com','weebly.com','shopify.com','etsy.com','amazon.it','amazon.com','ebay.it','ebay.com','topdoctors.it','dottori.it','medicitalia.it','pazienti.it','guidadottori.it','thefork.it','justeat.it','deliveroo.it','glovo.com','matrimonio.com','1240.it','12auto.it','1254.it','pronto.it','infoimprese.it','dnb.com','infocamere.it','registroimprese.it','companyreports.it','ufficiocamerale.it','cercaziende.it','guida-monaci.it','misterimprese.it','trovaaziende.it','risultati.it','nomeesatto.it','esattospa.it','reportaziende.it','italiaonline.it','informazione-aziende.it','getfound.it']
   const isThirdPartyPlatform = (() => {
     if (!website) return false
     try {
@@ -974,19 +974,30 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     const pivaStr = websitePiva || ''
     const openaiKey = process.env.OPENAI_API_KEY
 
-    // Helper: single Tavily search
+    // Helper: single Tavily search (with retry on 429)
     async function tavilySearch(query: string): Promise<string> {
-      try {
-        const res = await fetch('https://api.tavily.com/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: tavilyKey, query, search_depth: 'advanced', include_answer: true, max_results: 5 }),
-          signal: AbortSignal.timeout(12000),
-        })
-        if (!res.ok) return ''
-        const data = await res.json()
-        return (data.answer || '') + ' ' + (data.results || []).map((r: any) => (r.title || '') + ' ' + (r.content || '')).join(' ')
-      } catch { return '' }
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: tavilyKey, query, search_depth: 'advanced', include_answer: true, max_results: 5 }),
+            signal: AbortSignal.timeout(15000),
+          })
+          if (res.status === 429 && attempt === 0) {
+            console.log(`[LEAD-REGISTRY] Tavily 429 rate limit — waiting 3s then retry...`)
+            await new Promise(r => setTimeout(r, 3000))
+            continue
+          }
+          if (!res.ok) {
+            console.log(`[LEAD-REGISTRY] Tavily HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
+            return ''
+          }
+          const data = await res.json()
+          return (data.answer || '') + ' ' + (data.results || []).map((r: any) => (r.title || '') + ' ' + (r.content || '')).join(' ')
+        } catch (e: any) { console.log(`[LEAD-REGISTRY] Tavily error: ${e.message || e}`); return '' }
+      }
+      return ''
     }
 
     // Helper: GPT extract JSON from text
@@ -1017,6 +1028,10 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
         if (JUNK_VALUES.some(j => low.includes(j))) return true
         // Filter out template-like values (contain "/" suggesting alternatives)
         if (low.includes('/') && low.length > 20) return true
+        // Reject obvious GPT placeholder/example values
+        if (/esempio|example|sample|placeholder|lorem|ipsum|12345678/i.test(low)) return true
+        // Reject single generic words as ragione_sociale
+        if (/^(risultati|ricerca|pagina|home|error|undefined|object|array)$/i.test(low)) return true
       }
       return false
     }
@@ -1576,6 +1591,36 @@ JSON:
     if (ZERO_FILTER_KEYS.includes(key)) {
       const v = String(profile[key]).replace(/[^\d.-]/g, '')
       if (v === '0' || v === '0.00' || v === '') delete profile[key]
+    }
+  }
+
+  // ── Final cleanup: remove placeholder/example values hallucinated by GPT ──
+  const placeholderRx = /esempio|example|sample|placeholder|lorem|ipsum/i
+  const fakeNumberRx = /^0?1234567890?\d*$|^0?3456789012$|^0?123456789$/
+  const sequentialRx = /1234567|7654321|0000000|9999999/
+  const PORTAL_DOMS = ['risultati.it','nomeesatto.it','esattospa.it','reportaziende.it','italiaonline.it','informazione-aziende.it','getfound.it','cercaziende.it','trovaaziende.it','misterimprese.it','guida-monaci.it']
+  for (const key of Object.keys(profile)) {
+    const v = profile[key]
+    if (typeof v === 'string') {
+      if (placeholderRx.test(v)) {
+        console.log(`[LEAD-REGISTRY] CLEANUP: removed placeholder "${key}": "${v.slice(0, 60)}"`)
+        delete profile[key]
+      } else if (['partita_iva', 'codice_fiscale', 'telefono', 'cellulare'].includes(key) && fakeNumberRx.test(v.replace(/\D/g, ''))) {
+        console.log(`[LEAD-REGISTRY] CLEANUP: removed fake number "${key}": "${v}"`)
+        delete profile[key]
+      } else if (['telefono', 'cellulare', 'telefono_fonte'].includes(key) && sequentialRx.test(v.replace(/\D/g, ''))) {
+        console.log(`[LEAD-REGISTRY] CLEANUP: removed sequential phone "${key}": "${v}"`)
+        delete profile[key]
+      } else if (['sito_web', 'sito', 'email'].includes(key) && PORTAL_DOMS.some(d => v.includes(d))) {
+        console.log(`[LEAD-REGISTRY] CLEANUP: removed portal domain "${key}": "${v.slice(0, 60)}"`)
+        delete profile[key]
+      } else if (key === 'email' && /^(mario\.rossi|nome\.cognome|info\.test|test@|user@|admin@example|esempio|prova@)/.test(v.toLowerCase())) {
+        console.log(`[LEAD-REGISTRY] CLEANUP: removed fake email "${key}": "${v}"`)
+        delete profile[key]
+      } else if (key === 'ragione_sociale' && /^(risultati|ricerca|nome esatto|pagina|home|error)$/i.test(v.trim())) {
+        console.log(`[LEAD-REGISTRY] CLEANUP: removed junk ragione_sociale: "${v}"`)
+        delete profile[key]
+      }
     }
   }
 

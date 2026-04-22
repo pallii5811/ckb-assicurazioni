@@ -65,33 +65,44 @@ async function handlePersonLookup(req: NextRequest) {
   // Helper: Tavily search — onlyBestMatch picks the single most relevant result
   // Reverted to 'advanced' always — 'basic' was producing lower-quality results
   async function tavilySearch(q: string, onlyBestMatch = false, matchName?: string, _deep = false): Promise<string> {
-    try {
-      const res = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: tavilyKey, query: q, search_depth: 'advanced', include_answer: false, max_results: 5 }),
-        signal: AbortSignal.timeout(15000),
-      })
-      if (!res.ok) return ''
-      const data = await res.json()
-      const results = data.results || []
-      if (results.length === 0) return ''
-      if (onlyBestMatch && matchName) {
-        const nameWords = matchName.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 3)
-        let bestResult: any = null, bestScore = -1
-        for (const r of results) {
-          const text = ((r.title || '') + ' ' + (r.content || '') + ' ' + (r.url || '')).toLowerCase()
-          const score = nameWords.filter((w: string) => text.includes(w)).length
-          if (score > bestScore) { bestScore = score; bestResult = r }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: tavilyKey, query: q, search_depth: 'advanced', include_answer: false, max_results: 5 }),
+          signal: AbortSignal.timeout(15000),
+        })
+        if (res.status === 429 && attempt === 0) {
+          console.log(`[PERSON-LOOKUP] Tavily 429 rate limit — waiting 3s then retry...`)
+          await new Promise(r => setTimeout(r, 3000))
+          continue
         }
-        if (bestResult && bestScore > 0) {
-          console.log(`[PERSON-LOOKUP] Tavily best match (${bestScore}/${nameWords.length}): "${bestResult.title}" url="${bestResult.url || ''}"`)
-          return (bestResult.title || '') + ' ' + (bestResult.content || '') + ' ' + (bestResult.url || '')
+        if (!res.ok) {
+          console.log(`[PERSON-LOOKUP] Tavily HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
+          return ''
         }
-        return ''
-      }
-      return results.map((r: any) => (r.title || '') + ' ' + (r.content || '')).join(' ')
-    } catch { return '' }
+        const data = await res.json()
+        const results = data.results || []
+        if (results.length === 0) return ''
+        if (onlyBestMatch && matchName) {
+          const nameWords = matchName.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 3)
+          let bestResult: any = null, bestScore = -1
+          for (const r of results) {
+            const text = ((r.title || '') + ' ' + (r.content || '') + ' ' + (r.url || '')).toLowerCase()
+            const score = nameWords.filter((w: string) => text.includes(w)).length
+            if (score > bestScore) { bestScore = score; bestResult = r }
+          }
+          if (bestResult && bestScore > 0) {
+            console.log(`[PERSON-LOOKUP] Tavily best match (${bestScore}/${nameWords.length}): "${bestResult.title}" url="${bestResult.url || ''}"`)
+            return (bestResult.title || '') + ' ' + (bestResult.content || '') + ' ' + (bestResult.url || '')
+          }
+          return ''
+        }
+        return results.map((r: any) => (r.title || '') + ' ' + (r.content || '')).join(' ')
+      } catch (e: any) { console.log(`[PERSON-LOOKUP] Tavily error: ${e.message || e}`); return '' }
+    }
+    return ''
   }
 
   // Helper: GPT extract
@@ -1097,11 +1108,24 @@ JSON:
 
   // ── Final cleanup: remove ANY remaining placeholder/example values ──
   const placeholderRx = /esempio|example|sample|placeholder|lorem|ipsum|12345678/i
+  const sequentialRx = /1234567|7654321|0000000|9999999/
+  const PORTAL_DOMS = ['risultati.it','nomeesatto.it','esattospa.it','reportaziende.it','italiaonline.it','informazione-aziende.it','getfound.it','cercaziende.it','trovaaziende.it']
   for (const key of Object.keys(result)) {
     const v = result[key]
-    if (typeof v === 'string' && placeholderRx.test(v)) {
-      console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed placeholder "${key}": "${v.slice(0, 80)}"`)
-      delete result[key]
+    if (typeof v === 'string') {
+      if (placeholderRx.test(v)) {
+        console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed placeholder "${key}": "${v.slice(0, 80)}"`)
+        delete result[key]
+      } else if (['telefono', 'cellulare'].includes(key) && sequentialRx.test(v.replace(/\D/g, ''))) {
+        console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed sequential phone "${key}": "${v}"`)
+        delete result[key]
+      } else if (['sito_web', 'email'].includes(key) && PORTAL_DOMS.some(d => v.includes(d))) {
+        console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed portal domain "${key}": "${v.slice(0, 60)}"`)
+        delete result[key]
+      } else if (key === 'email' && /^(mario\.rossi|nome\.cognome|info\.test|test@|user@|admin@example|esempio|prova@)/.test(v.toLowerCase())) {
+        console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed fake email "${key}": "${v}"`)
+        delete result[key]
+      }
     }
   }
 
