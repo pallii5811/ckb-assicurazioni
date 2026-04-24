@@ -2174,14 +2174,60 @@ JSON:
           return out
         }
         const compPositions = findAll(textLow, compKey)
-        const titPositions = findAll(textLow, titParts[0])
+        // Use the LAST word (typically cognome) — more distinctive than nome
+        const titLastWord = titParts[titParts.length - 1]
+        const titPositions = findAll(textLow, titLastWord)
         if (compPositions.length === 0 || titPositions.length === 0) return false
-        let minDist = Infinity
+
+        // ── TIGHTER PROXIMITY: 400 chars (was 2000) ──
+        // Rationale: 2000 chars spanned multiple paragraphs of concatenated Tavily snippets,
+        // allowing "Gerry Cardinale (fondatore RedBird Capital)" to pass validation for
+        // unrelated "RES FREEDATA" because both words appeared within 2000 chars of noise.
+        const MAX_DISTANCE = 400
+        let bestPair: { c: number; t: number; dist: number } | null = null
         for (const c of compPositions) for (const t of titPositions) {
           const d = Math.abs(c - t)
-          if (d < minDist) minDist = d
+          if (d <= MAX_DISTANCE && (!bestPair || d < bestPair.dist)) {
+            bestPair = { c, t, dist: d }
+          }
         }
-        return minDist < 2000
+        if (!bestPair) return false
+
+        // ── ANTI-ASSOCIATION: reject if name is tightly bound to a DIFFERENT entity ──
+        // Scan ±150 chars around the titolare position for company-entity signatures
+        // (Capital, Group, Holding, SpA, SRL, Inc, Ltd, LLC, Corp, Partners, Ventures, Fund).
+        // If such a signature exists AND its preceding word is NOT part of compName,
+        // the person is likely linked to a different company (e.g. "Cardinale, RedBird Capital").
+        const titStart = bestPair.t
+        const around = textLow.slice(Math.max(0, titStart - 150), titStart + titLastWord.length + 150)
+        // Entity pattern: CapitalizedOrLowercaseWord (3+ chars) followed by entity suffix
+        const entityRx = /\b([a-zà-ù]{3,})\s+(capital|group|holding|holdings|ventures|partners|fund|funds|spa|s\.p\.a|srl|s\.r\.l|inc|ltd|llc|corp|corporation|gmbh|sa|s\.a)\b/gi
+        const entitiesNearby: string[] = []
+        for (const m of around.matchAll(entityRx)) {
+          const nearbyCompanyWord = m[1].toLowerCase()
+          // Skip if this is actually the target company's distinctive word
+          if (compWords.includes(nearbyCompanyWord)) continue
+          entitiesNearby.push(nearbyCompanyWord + ' ' + m[2])
+        }
+        if (entitiesNearby.length > 0) {
+          // Person name is associated with a different entity in the same ~300-char window
+          console.log(`[COMPANY-LOOKUP] VALIDATOR: "${titName}" linked to other entity [${entitiesNearby.join(', ')}] — not target "${compName}"`)
+          return false
+        }
+
+        // ── CONTEXT SUPPORT: a role keyword must appear in the window between comp and tit ──
+        // The short span between the two positions must contain a linking role keyword,
+        // otherwise the two names just happen to appear near each other without any claimed relationship.
+        const spanStart = Math.min(bestPair.c, bestPair.t)
+        const spanEnd = Math.max(bestPair.c, bestPair.t) + Math.max(compKey.length, titLastWord.length) + 80
+        const span = textLow.slice(Math.max(0, spanStart - 80), spanEnd)
+        const ROLE_SUPPORT_RX = /\b(amministratore|amministratrice|amministra|titolare|fondatore|fondatrice|fondato|founder|founded|ceo|presidente|preside|rappresentante|dirige|diretto\s+da|guidato\s+da|guida|gestisce|proprietario|proprietaria|socio|soci|amministrator|direttore|direttrice|leader|owner|owns|possiede|capo)\b/i
+        if (!ROLE_SUPPORT_RX.test(span)) {
+          console.log(`[COMPANY-LOOKUP] VALIDATOR: "${titName}" near "${compName}" but NO role keyword in span — link not proven, rejecting`)
+          return false
+        }
+
+        return true
       }
       // Reject roles that indicate a NON-company-representative context:
       // politicians (the "comune" where company is located), GDPR data controllers, etc.
