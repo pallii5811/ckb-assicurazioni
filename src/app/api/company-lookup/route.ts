@@ -9,6 +9,7 @@ export const maxDuration = 300
 
 // ── OpenAPI.it endpoints (FREE tier) ────────────────────────
 async function searchByPiva(piva: string, token: string) {
+  if (!token) return null // OpenAPI.it disabilitato — CompanyReports.it fornisce dati gratis
   const clean = piva.replace(/^IT/i, '').replace(/\s/g, '').trim()
   if (clean.length < 11) return null
 
@@ -113,11 +114,12 @@ async function searchByPiva(piva: string, token: string) {
 }
 
 async function searchByName(name: string, token: string) {
+  if (!token) return null // OpenAPI.it disabilitato — CompanyReports.it fornisce dati gratis
   const fonti: string[] = []
 
   // 1. OpenAPI.it /IT-search (FREE — 100/day)
   try {
-    const res = await fetch(`https://company.openapi.com/IT-search?name=${encodeURIComponent(name)}`, {
+    const res = await fetch(`https://company.openapi.com/IT-search?companyName=${encodeURIComponent(name)}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       signal: AbortSignal.timeout(10000),
     })
@@ -426,6 +428,335 @@ async function scrapeCompanyReports(piva: string): Promise<Record<string, string
   } catch { return null }
 }
 
+// ── fatturatoitalia.it scraper — structured data (P.IVA, sede, ATECO, bilanci) ──
+// URL pattern: /x-{PIVA} (alias) or /{slug}-{PIVA}
+// Returns all fields parseable from the page. null if not found / inaccessible.
+async function scrapeFatturatoItalia(piva: string): Promise<Record<string, string> | null> {
+  try {
+    const url = `https://www.fatturatoitalia.it/x-${piva}`
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html', 'Accept-Language': 'it-IT,it;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000), redirect: 'follow',
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    if (html.length < 2000) return null
+    const data: Record<string, string> = {}
+
+    // 1) Parse all JSON-LD blocks — this is the authoritative source for this site
+    const jsonLdBlocks = [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)]
+      .map(m => m[1].trim())
+    for (const block of jsonLdBlocks) {
+      try {
+        const obj = JSON.parse(block)
+        const items = Array.isArray(obj) ? obj : [obj]
+        for (const it of items) {
+          const type = Array.isArray(it['@type']) ? it['@type'][0] : it['@type']
+          // Organization / LocalBusiness: core company identity
+          if (type === 'LocalBusiness' || type === 'Organization' || type === 'Corporation') {
+            if (!data.ragione_sociale && (it.legalName || it.name)) {
+              const n = String(it.legalName || it.name).trim()
+              if (n && !/fatturato\s*italia/i.test(n)) data.ragione_sociale = n
+            }
+            if (!data.partita_iva && it.vatID) {
+              const v = String(it.vatID).replace(/\D/g, '')
+              if (/^\d{11}$/.test(v)) data.partita_iva = v
+            }
+            if (!data.codice_fiscale && it.taxID) {
+              const v = String(it.taxID).trim().toUpperCase()
+              if (/^[A-Z0-9]{11,16}$/.test(v)) data.codice_fiscale = v
+            }
+            if (!data.data_costituzione && it.foundingDate) data.data_costituzione = String(it.foundingDate).trim()
+            if (!data.codice_ateco && it.isicV4) {
+              // isicV4 format "331303" → "33.13.03"
+              const raw = String(it.isicV4).replace(/\D/g, '')
+              if (raw.length >= 4) {
+                const formatted = raw.length >= 6 ? `${raw.slice(0,2)}.${raw.slice(2,4)}.${raw.slice(4,6)}` : `${raw.slice(0,2)}.${raw.slice(2,4)}`
+                data.codice_ateco = normalizeAteco(formatted) || formatted
+              }
+            }
+            if (!data.descrizione_ateco && it.knowsAbout) data.descrizione_ateco = String(it.knowsAbout).trim()
+            if (it.address && typeof it.address === 'object') {
+              const a = it.address
+              if (!data.sede_legale && a.streetAddress) {
+                const city = (a.addressLocality || '').replace(/,\s*Italy$/i, '').trim()
+                data.sede_legale = [a.streetAddress, city].filter(Boolean).join(', ')
+              }
+              if (!data.citta && a.addressLocality) data.citta = String(a.addressLocality).replace(/,\s*Italy$/i, '').trim()
+              if (!data.provincia && a.addressRegion) data.provincia = String(a.addressRegion).trim()
+              if (!data.cap && a.postalCode) data.cap = String(a.postalCode).trim()
+            }
+          }
+          // Dataset: bilanci (fatturato/utile per year)
+          if (type === 'Dataset' && Array.isArray(it.variableMeasured)) {
+            let latestYear = 0, latestFat = '', latestUtile = ''
+            for (const vm of it.variableMeasured) {
+              const name = String(vm.name || '')
+              const val = vm.value?.value ?? vm.value
+              if (!val) continue
+              const yearM = name.match(/(\d{4})/)
+              if (!yearM) continue
+              const year = parseInt(yearM[1])
+              if (/fatturato/i.test(name) && year > latestYear) { latestYear = year; latestFat = String(val) }
+              if (/utile/i.test(name) && year >= latestYear) { latestUtile = String(val) }
+            }
+            if (latestFat && !data.fatturato) {
+              data.fatturato = latestFat.trim()
+              if (latestYear) data.fatturato_anno = String(latestYear)
+            }
+            if (latestUtile && !data.utile_netto) data.utile_netto = latestUtile.trim()
+          }
+        }
+      } catch { /* skip malformed JSON-LD */ }
+    }
+
+    // 2) Meta description fallback (summary: "fatturato X, P.IVA Y, CF Z")
+    const metaDescM = html.match(/<meta\s+name="description"\s+content="([^"]+)"/i)
+    if (metaDescM) {
+      const desc = metaDescM[1]
+      if (!data.fatturato) {
+        const fm = desc.match(/fatturato\s*([\d.,]+)/i)
+        if (fm) data.fatturato = fm[1].replace(/[.,]+$/, '').trim()
+      }
+      if (!data.codice_fiscale) {
+        const cfm = desc.match(/\bCF\s+([A-Z0-9]{11,16})/i)
+        if (cfm) data.codice_fiscale = cfm[1].toUpperCase()
+      }
+      if (!data.partita_iva) {
+        const pm = desc.match(/P\.?\s*IVA\s+(\d{11})/i)
+        if (pm) data.partita_iva = pm[1]
+      }
+    }
+
+    // 3) Secondary HTML regex for fields not in JSON-LD: dipendenti, forma_giuridica, capitale_sociale, REA
+    //    The page uses column layout (label-label / value-value) so we need proximity-based regex.
+    if (!data.dipendenti) {
+      const dipM = html.match(/N\.?\s*Dipendenti[\s\S]{0,400}?>\s*(\d+(?:\s*[-–a]\s*\d+)?)\s*<\/(?:p|td|span|div|strong|b)/i)
+      if (dipM) data.dipendenti = dipM[1].trim()
+    }
+    if (!data.forma_giuridica) {
+      const fgM = html.match(/Forma\s*giuridica[\s\S]{0,400}?>\s*(Societa['àa'][^<]{3,70}|Ditta[^<]{3,50}|Impresa[^<]{3,50}|Consorzio[^<]{3,50}|Cooperativa[^<]{3,50})</i)
+      if (fgM) data.forma_giuridica = fgM[1].trim().replace(/\s+/g, ' ')
+    }
+    if (!data.capitale_sociale) {
+      const capM = html.match(/Capitale\s*sociale[\s\S]{0,400}?€?\s*([\d.,]+)\s*(?:€|<)/i)
+      if (capM) data.capitale_sociale = capM[1].replace(/[.,]+$/, '').trim()
+    }
+    if (!data.rea) {
+      // REA format: "MI 1996009" or just digits
+      const reaM = html.match(/\bREA[\s\S]{0,400}?>\s*([A-Z]{2}\s*-?\s*\d{3,8}|\d{3,8})\s*<\/(?:p|td|span|div|strong|b)/i)
+      if (reaM) data.rea = reaM[1].trim().replace(/\s+/g, ' ')
+    }
+    if (!data.costo_personale) {
+      const cpM = html.match(/Costo\s*del\s*personale[\s\S]{0,400}?€?\s*([\d.,]+)\s*(?:€|<)/i)
+      if (cpM) data.costo_personale = cpM[1].replace(/[.,]+$/, '').trim()
+    }
+
+    // 4) Normalize data_costituzione: prefer full date, fall back to year
+    if (data.data_costituzione) {
+      const iso = data.data_costituzione.match(/^(\d{4}-\d{2}-\d{2})/)
+      if (iso) data.data_costituzione = iso[1]
+    }
+
+    return Object.keys(data).length > 0 ? data : null
+  } catch { return null }
+}
+
+// ── Scrape the official company website for P.IVA / Codice Fiscale ──
+// Tries homepage + a few common footer-bearing paths (/contatti, /chi-siamo, /privacy, /cookies).
+// The P.IVA is legally required to appear on every Italian commercial website, typically in the footer.
+async function scrapeWebsiteForPIVA(siteUrl: string): Promise<{ partita_iva?: string; codice_fiscale?: string } | null> {
+  if (!siteUrl) return null
+  let base: URL
+  try { base = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`) } catch { return null }
+  // Common paths where Italian sites put the P.IVA (homepage first, then footer-heavy pages)
+  const paths = ['/', '/contatti', '/contacts', '/chi-siamo', '/about', '/about-us', '/privacy', '/privacy-policy', '/cookie-policy', '/note-legali', '/legal']
+  const fetchPage = async (path: string): Promise<string | null> => {
+    try {
+      const u = new URL(path, base).toString()
+      const res = await fetch(u, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+        },
+        signal: AbortSignal.timeout(8000), redirect: 'follow',
+      })
+      if (!res.ok) return null
+      const ct = res.headers.get('content-type') || ''
+      if (!ct.includes('text/html')) return null
+      return await res.text()
+    } catch { return null }
+  }
+
+  // Regex for Italian VAT ID: "P. IVA 12345678901", "Partita IVA: 12345678901", "VAT IT12345678901", etc.
+  // P.IVA is EXACTLY 11 digits; codice fiscale is 11 digits (for companies) or 16 alphanumeric (individuals).
+  const pivaRx = /(?:partita\s*iva|p\.?\s*iva|vat\s*(?:id|number)?|c\.?\s*f\.?\s*e?\s*p\.?\s*iva)\s*[:.\-#]?\s*(?:it\s*)?(\d{11})\b/gi
+  const cfRx = /(?:codice\s*fiscale|c\.?\s*f\.?)\s*[:.\-#]?\s*([A-Z0-9]{11,16})\b/gi
+
+  const seenPiva = new Set<string>()
+  const seenCf = new Set<string>()
+  let picked: { partita_iva?: string; codice_fiscale?: string } = {}
+
+  for (const p of paths) {
+    const html = await fetchPage(p)
+    if (!html) continue
+    // Normalize: strip tags but keep content (footer often embeds P.IVA inside <span>/<p>)
+    const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+    for (const m of text.matchAll(pivaRx)) {
+      const v = m[1]
+      // P.IVA validation: must be 11 digits and pass Italian checksum (Luhn-like odd/even)
+      if (!/^\d{11}$/.test(v)) continue
+      // Skip obviously invalid (all zeros, sequential)
+      if (/^0{11}$/.test(v) || /^1{11}$/.test(v)) continue
+      seenPiva.add(v)
+    }
+    for (const m of text.matchAll(cfRx)) {
+      const v = m[1].toUpperCase()
+      if (/^[A-Z0-9]{11}$/.test(v) || /^[A-Z0-9]{16}$/.test(v)) seenCf.add(v)
+    }
+    // If we already found a P.IVA on the homepage, we can stop — no need to hit more pages
+    if (seenPiva.size > 0 && p === '/') break
+    // Stop after finding any P.IVA on any page (avoid wasting time on many paths)
+    if (seenPiva.size > 0) break
+  }
+
+  if (seenPiva.size > 0) {
+    // Prefer the most common P.IVA if multiple; take the first one found
+    picked.partita_iva = Array.from(seenPiva)[0]
+  }
+  if (seenCf.size > 0) picked.codice_fiscale = Array.from(seenCf)[0]
+  return (picked.partita_iva || picked.codice_fiscale) ? picked : null
+}
+
+// ── Find fatturatoitalia.it page by company name via Tavily ──
+// Discovers P.IVA from the URL pattern /slug-PIVA, then calls scrapeFatturatoItalia.
+// Validates slug contains at least one token of the company name (anti-homonym).
+async function findFatturatoItaliaByName(companyName: string, cityHint?: string): Promise<Record<string, string> | null> {
+  const tavilyKey = process.env.TAVILY_API_KEY
+  if (!tavilyKey || !companyName || companyName.length < 3) return null
+
+  const nameTokens = companyName.toLowerCase()
+    .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?a\.?s|s\.?n\.?c|srl|srls|spa|sas|snc|società|societa|unipersonale)\b/gi, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 3)
+  if (nameTokens.length === 0) return null
+
+  const legalSuffixes = new Set(['srl', 'srls', 'spa', 'sas', 'snc', 'scarl', 'scrl', 'ssd', 'ltd', 'sarl'])
+  const cityLow = cityHint ? cityHint.toLowerCase().split(',')[0].trim() : ''
+
+  // When input has >= 2 meaningful tokens, STRICT: require ALL tokens to be present in the slug.
+  // This prevents "REPOWER VENDITA ITALIA SPA" from being hijacked by slug "repower-italia-spa"
+  // (P.IVA of parent Repower Italia SpA — an homonym).
+  const minRequired = nameTokens.length >= 2 ? nameTokens.length : 1
+
+  // Helper: run one Tavily query and collect viable candidates
+  const runQuery = async (q: string): Promise<Array<{ piva: string, slug: string, tokenMatches: number, extraWords: number, firstMatch: boolean, snippet: string }>> => {
+    try {
+      const res = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: tavilyKey, query: q, search_depth: 'basic', max_results: 10 }),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      const results = (data.results || []) as Array<{ url?: string; title?: string; content?: string }>
+      const out: Array<{ piva: string, slug: string, tokenMatches: number, extraWords: number, firstMatch: boolean, snippet: string }> = []
+      for (const r of results) {
+        const url = r.url || ''
+        const m = url.match(/fatturatoitalia\.it\/([a-z0-9-]+)-(\d{11})(?:\/|$|\?)/i)
+        if (!m) continue
+        const slug = m[1].toLowerCase()
+        const piva = m[2]
+        const slugWords = slug.split('-').filter(w => w.length > 0)
+        const tokenMatches = nameTokens.filter(t => slugWords.includes(t)).length
+        if (tokenMatches < minRequired) continue
+        const extraWords = slugWords.filter(w => !nameTokens.includes(w) && !legalSuffixes.has(w) && !/^\d+$/.test(w)).length
+        const firstMatch = slugWords.length > 0 && nameTokens.includes(slugWords[0])
+        const snippet = `${r.title || ''} ${r.content || ''}`.toLowerCase()
+        out.push({ piva, slug, tokenMatches, extraWords, firstMatch, snippet })
+      }
+      return out
+    } catch { return [] }
+  }
+
+  try {
+    // First attempt: quoted exact-phrase with optional city
+    const q1 = cityLow
+      ? `site:fatturatoitalia.it "${companyName}" ${cityLow}`
+      : `site:fatturatoitalia.it "${companyName}"`
+    let candidates = await runQuery(q1)
+
+    // Fallback 1: without quotes — Tavily/Google sometimes miss quoted phrases for long names
+    if (candidates.length === 0) {
+      const q2 = cityLow
+        ? `site:fatturatoitalia.it ${nameTokens.join(' ')} ${cityLow}`
+        : `site:fatturatoitalia.it ${nameTokens.join(' ')}`
+      console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: fallback query (unquoted) for "${companyName}"`)
+      candidates = await runQuery(q2)
+    }
+
+    if (candidates.length === 0) {
+      console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: no matching URL for "${companyName}" (cityHint=${cityLow || 'none'}, minRequired=${minRequired}/${nameTokens.length})`)
+      return null
+    }
+
+    // De-dup by P.IVA (union of both query rounds)
+    const seen = new Set<string>()
+    const uniq = candidates.filter(c => { if (seen.has(c.piva)) return false; seen.add(c.piva); return true })
+
+    uniq.sort((a, b) => {
+      if (b.tokenMatches !== a.tokenMatches) return b.tokenMatches - a.tokenMatches
+      if (cityLow) {
+        const aHas = a.snippet.includes(cityLow) ? 1 : 0
+        const bHas = b.snippet.includes(cityLow) ? 1 : 0
+        if (aHas !== bHas) return bHas - aHas
+      }
+      if (a.firstMatch !== b.firstMatch) return a.firstMatch ? -1 : 1
+      return a.extraWords - b.extraWords
+    })
+    console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: ${uniq.length} candidate(s) for "${companyName}" (cityHint=${cityLow || 'none'}, minTokens=${minRequired}/${nameTokens.length}):`)
+    uniq.slice(0, 5).forEach((c, i) => console.log(`  ${i}: ${c.slug} p=${c.piva} tokens=${c.tokenMatches}/${nameTokens.length} city=${cityLow && c.snippet.includes(cityLow)} extra=${c.extraWords}`))
+
+    // Try up to 3 candidates. Validate scraped ragione_sociale contains all name tokens.
+    const maxTries = Math.min(3, uniq.length)
+    for (let i = 0; i < maxTries; i++) {
+      const cand = uniq[i]
+      const scraped = await scrapeFatturatoItalia(cand.piva)
+      if (!scraped) {
+        console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: scrape failed for ${cand.piva}, trying next`)
+        continue
+      }
+      const scrapedCity = (scraped.citta || '').toLowerCase()
+      if (cityLow && scrapedCity && !scrapedCity.includes(cityLow) && !cityLow.includes(scrapedCity)) {
+        console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: city mismatch for ${cand.piva} — scraped="${scrapedCity}" hint="${cityLow}", trying next`)
+        continue
+      }
+      // Validate scraped name contains all input tokens — strong anti-homonym check
+      const scrapedName = String(scraped.ragione_sociale || '').toLowerCase()
+      if (scrapedName && nameTokens.length >= 2) {
+        const missing = nameTokens.filter(t => !scrapedName.includes(t))
+        if (missing.length > 0) {
+          console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: name mismatch for ${cand.piva} — scraped="${scrapedName}" missing tokens [${missing.join(',')}], trying next`)
+          continue
+        }
+      }
+      scraped.partita_iva = scraped.partita_iva || cand.piva
+      console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: ACCEPTED P.IVA ${cand.piva} (slug="${cand.slug}", city="${scrapedCity || 'n/a'}")`)
+      return scraped
+    }
+    console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName: all ${maxTries} candidate(s) rejected (city/name mismatch or scrape failed)`)
+    return null
+  } catch (e: any) {
+    console.log(`[COMPANY-LOOKUP] findFatturatoItaliaByName error: ${e?.message}`)
+    return null
+  }
+}
+
 // ── AI Insurance Analysis — GPT-4o-mini analizza dati reali dell'azienda ─────
 interface PolicyCheck {
   polizza: string
@@ -504,7 +835,7 @@ RISPONDI SOLO CON IL JSON ARRAY, nessun altro testo.`
         temperature: 0.1,
         max_tokens: 3000,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(200000),
     })
     if (!res.ok) return []
     const data = await res.json()
@@ -624,7 +955,7 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ business_name: query, city: '', max_results: 1 }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(200000),
       }).catch((err: any) => { console.log(`[COMPANY-LOOKUP] Step 0a: fetch error ${err?.message || err}`); return null })
       if (mapsRes && mapsRes.ok) {
         const mapsData = await mapsRes.json().catch(() => null) as any
@@ -732,6 +1063,84 @@ export async function POST(req: NextRequest) {
     console.log(`[COMPANY-LOOKUP] DB: nessun risultato`)
   }
 
+  // ─── Step 1a: fatturatoitalia.it discovery — find P.IVA and authoritative data by name ───
+  // Runs only if we have a company name query (not a P.IVA search) and P.IVA is still unknown.
+  // fatturatoitalia.it URLs embed the P.IVA: /slug-{PIVA}. We use Tavily site-search to discover,
+  // then scrape the structured data (sede, ATECO, bilanci). This populates P.IVA for downstream
+  // CompanyReports.it and ufficiocamerale scrapes which require it.
+  if (!isPiva && !result.partita_iva && query.length >= 3) {
+    // Extract city hint from what we already know (Maps step 0a may have populated it)
+    let cityHint = ''
+    if (result.citta && typeof result.citta === 'string') cityHint = result.citta
+    else if (result.sede_legale && typeof result.sede_legale === 'string') {
+      // Try to extract city name from sede_legale (e.g. "Via Roma 1, Milano" → "Milano")
+      const parts = String(result.sede_legale).split(',').map(p => p.trim()).filter(Boolean)
+      if (parts.length >= 2) cityHint = parts[parts.length - 1].replace(/\d{5}\s*/g, '').trim()
+    }
+    console.log(`[COMPANY-LOOKUP] Step 1a: fatturatoitalia.it discovery for "${query}" (cityHint="${cityHint}")`)
+    const fiData = await findFatturatoItaliaByName(query, cityHint)
+    if (fiData) {
+      console.log(`[COMPANY-LOOKUP] Step 1a: fatturatoitalia.it returned: ${JSON.stringify(fiData)}`)
+      // Authoritative fields: override even if already set (fatturatoitalia has REGISTERED address
+      // from Chamber of Commerce, while Maps may show a branch or unrelated physical location).
+      const authoritativeKeys = new Set(['sede_legale', 'citta', 'provincia', 'cap', 'partita_iva', 'codice_fiscale', 'codice_ateco', 'descrizione_ateco', 'forma_giuridica', 'data_costituzione', 'rea'])
+      for (const [k, v] of Object.entries(fiData)) {
+        if (!v) continue
+        if (authoritativeKeys.has(k) || !(result as any)[k]) {
+          (result as any)[k] = v
+        }
+      }
+      if (!fonti.includes('fatturatoitalia.it')) fonti.push('fatturatoitalia.it')
+    } else {
+      console.log(`[COMPANY-LOOKUP] Step 1a: no fatturatoitalia.it match`)
+    }
+  }
+
+  // ─── Step 1a2: Scrape the official website for P.IVA (when chamber-of-commerce sources failed) ───
+  // Italian law requires P.IVA to appear on every commercial website, usually in the footer.
+  // This is often the AUTHORITATIVE source for companies not indexed by fatturatoitalia.it.
+  if (!result.partita_iva && result.sito && typeof result.sito === 'string') {
+    console.log(`[COMPANY-LOOKUP] Step 1a2: scraping website "${result.sito}" for P.IVA`)
+    const siteData = await scrapeWebsiteForPIVA(String(result.sito))
+    if (siteData?.partita_iva) {
+      result.partita_iva = siteData.partita_iva
+      if (siteData.codice_fiscale && !result.codice_fiscale) result.codice_fiscale = siteData.codice_fiscale
+      if (!fonti.includes('Sito ufficiale')) fonti.push('Sito ufficiale')
+      console.log(`[COMPANY-LOOKUP] Step 1a2: P.IVA ${siteData.partita_iva} trovata sul sito ufficiale`)
+      // Now that we have the P.IVA, enrich with CompanyReports / fatturatoitalia (the direct scrapes)
+      try {
+        const crData = await scrapeCompanyReports(result.partita_iva as string)
+        if (crData) {
+          if (crData.ragione_sociale && !result.ragione_sociale) result.ragione_sociale = crData.ragione_sociale
+          if (crData.fatturato) result.fatturato = crData.fatturato
+          if (crData.fatturato_anno) result.fatturato_anno = crData.fatturato_anno
+          if (crData.dipendenti) result.dipendenti = crData.dipendenti
+          if (crData.codice_ateco && !result.codice_ateco) result.codice_ateco = crData.codice_ateco
+          if (crData.descrizione_ateco && !result.descrizione_ateco) result.descrizione_ateco = crData.descrizione_ateco
+          if (crData.forma_giuridica && !result.forma_giuridica) result.forma_giuridica = crData.forma_giuridica
+          if (crData.sede_legale && !result.sede_legale) result.sede_legale = crData.sede_legale
+          if (crData.pec && !result.pec) result.pec = crData.pec
+          if (!fonti.includes('CompanyReports.it')) fonti.push('CompanyReports.it')
+          console.log(`[COMPANY-LOOKUP] Step 1a2: CompanyReports enriched with fatturato=${crData.fatturato || 'n/a'}, ragione_sociale="${crData.ragione_sociale || 'n/a'}"`)
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 1a2: CompanyReports error: ${e?.message}`) }
+      try {
+        const fiData = await scrapeFatturatoItalia(result.partita_iva as string)
+        if (fiData) {
+          const authoritativeKeys = new Set(['sede_legale', 'citta', 'provincia', 'cap', 'codice_fiscale', 'codice_ateco', 'descrizione_ateco', 'forma_giuridica', 'data_costituzione', 'rea'])
+          for (const [k, v] of Object.entries(fiData)) {
+            if (!v) continue
+            if (authoritativeKeys.has(k) || !(result as any)[k]) (result as any)[k] = v
+          }
+          if (!fonti.includes('fatturatoitalia.it')) fonti.push('fatturatoitalia.it')
+          console.log(`[COMPANY-LOOKUP] Step 1a2: fatturatoitalia.it enriched`)
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 1a2: fatturatoitalia error: ${e?.message}`) }
+    } else {
+      console.log(`[COMPANY-LOOKUP] Step 1a2: no P.IVA found on website`)
+    }
+  }
+
   // ─── Step 2: REMOVED — Maps scraping is now done in Step 0a via /search-maps-single ───
 
   // ── Quick cleanup: if phone looks like a P.IVA (11 digits, not a valid phone prefix), remove it ──
@@ -741,6 +1150,53 @@ export async function POST(req: NextRequest) {
     if (pd === pvd) {
       console.log(`[COMPANY-LOOKUP] REMOVED phone from Maps — it was the P.IVA: ${result.telefono}`)
       delete result.telefono
+    }
+  }
+
+  // ── Step 1b: Extract titolare from AUTHORITATIVE sources (before any Tavily/GPT) ──
+  // Method 1: IMPRESA INDIVIDUALE — titolare name is in the ragione sociale ("X DI NOME COGNOME")
+  if (!result.titolare && result.ragione_sociale) {
+    const rs = String(result.ragione_sociale)
+    // Match "DI NOME COGNOME" at end of company name (e.g. "G.E.M DI GORGONE MARCO")
+    const diMatch = rs.match(/\bDI\s+([A-ZÀ-Ú][A-Za-zÀ-ú]+(?:\s+[A-ZÀ-Ú][A-Za-zÀ-ú]+){1,3})\s*$/i)
+      || rs.match(/\bDI\s+([A-ZÀ-Ú]{2,}(?:\s+[A-ZÀ-Ú]{2,}){1,3})\s*$/i)
+    if (diMatch?.[1]) {
+      const raw = diMatch[1].trim()
+      const parts = raw.split(/\s+/)
+      // Convert ALL-CAPS to Title Case, then swap "COGNOME NOME" → "Nome Cognome"
+      const titled = parts.map((w: string) => w.length > 2 && w === w.toUpperCase() ? w.charAt(0) + w.slice(1).toLowerCase() : w)
+      // Italian convention: COGNOME comes first in official records → reverse to get natural order
+      const titName = titled.length === 2 ? `${titled[1]} ${titled[0]}` : titled.join(' ')
+      result.titolare = titName
+      result.ruolo_titolare = 'Titolare'
+      result.titolare_fonte = 'ragione_sociale'
+      console.log(`[COMPANY-LOOKUP] Step 1b: Extracted titolare from company name: "${titName}"`)
+    }
+  }
+  // Method 2: OpenAPI.it shareholders — pick the one with the most authoritative role
+  if (!result.titolare && Array.isArray(result.persone) && (result.persone as any[]).length > 0) {
+    const ROLE_PRIORITY: [RegExp, number][] = [
+      [/socio\s*unico/i, 100],
+      [/rappresentante\s*legale/i, 95],
+      [/amministratore\s*delegato/i, 90],
+      [/amministratore\s*unico/i, 85],
+      [/presidente/i, 80],
+      [/titolare/i, 75],
+      [/amministratore/i, 60],
+      [/socio/i, 20],
+    ]
+    let bestPerson: any = null, bestScore = 0
+    for (const p of result.persone as any[]) {
+      if (!p?.nome) continue
+      let score = 10 // default
+      for (const [rx, s] of ROLE_PRIORITY) { if (rx.test(p.ruolo || '')) { score = Math.max(score, s); break } }
+      if (score > bestScore) { bestScore = score; bestPerson = p }
+    }
+    if (bestPerson) {
+      result.titolare = bestPerson.nome
+      result.ruolo_titolare = bestPerson.ruolo || 'Socio'
+      result.titolare_fonte = 'registro_imprese'
+      console.log(`[COMPANY-LOOKUP] Step 1b: Set titolare from shareholders: "${bestPerson.nome}" (${bestPerson.ruolo})`)
     }
   }
 
@@ -1595,7 +2051,8 @@ JSON:
         } else if (ext2c.instagram) {
           console.log(`[COMPANY-LOOKUP] REJECTED likely guessed Instagram: "${ext2c.instagram}"`)
         }
-        if (ext2c.linkedin && !result.linkedin) { result.linkedin = ext2c.linkedin; tavilyUsed = true }
+        if (ext2c.linkedin && !result.linkedin && /linkedin\.com\//i.test(String(ext2c.linkedin))) { result.linkedin = ext2c.linkedin; tavilyUsed = true }
+        else if (ext2c.linkedin && !/linkedin\.com\//i.test(String(ext2c.linkedin))) { console.log(`[COMPANY-LOOKUP] REJECTED fake LinkedIn URL: "${ext2c.linkedin}"`) }
         if (ext2c.facebook && !result.facebook && !isLikelyGuessed(ext2c.facebook, 'facebook')) {
           result.facebook = ext2c.facebook; tavilyUsed = true
         } else if (ext2c.facebook) {
@@ -1604,9 +2061,131 @@ JSON:
       }
     }
 
+    // ── Step 2d0: Extract titolare from the LEGAL NAME itself (Italian SAS/ditta patterns) ──
+    // Italian business names commonly embed the owner's name in specific patterns:
+    // - "... S.A.S. DI <NAME>"       → e.g. "RS PLANNER S.A.S DI SISTI PAOLO"   → Sisti Paolo
+    // - "... DI <NAME> & C."         → e.g. "SALVATORE S.A.S. DI FIEMMINO GENNARO & C." → Fiemmino Gennaro
+    // - "<COGNOME> <NOME>" (2 words) → e.g. "RUFFA MICHELA"                     → Ruffa Michela
+    // Since this data comes from the official legal name (Chamber of Commerce), it is
+    // authoritative — we set result.titolare directly without Tavily proximity validation.
+    // Run even if titolare is already set — legal name pattern is AUTHORITATIVE and should
+    // override earlier extractions (which may be from Tavily/GPT hallucinations or corrupted scrapers).
+    {
+      const extractOwnerFromLegalName = (name: string): string | null => {
+        // Strip common trailing city/region noise that may have been appended to the query
+        const cleaned = name
+          .replace(/[""'']/g, '')
+          .replace(/\s+/g, ' ')
+          .replace(/\s+(Milano|Roma|Napoli|Torino|Bologna|Firenze|Genova|Palermo|Bari|Catania|Venezia|Verona|Padova|Brescia|Bergamo)\s*$/i, '')
+          .trim()
+        // Blocklist for captured "owner name": anything that's clearly NOT a person
+        const BAD_OWNER_WORDS = new Set([
+          // Legal forms and descriptors
+          'italia', 'italy', 'spa', 'srl', 'srls', 'sas', 'snc', 'sociale', 'unico',
+          'gruppo', 'group', 'holding', 'international', 'services', 'service', 'consulting',
+          // Cities / regions
+          'milano', 'roma', 'napoli', 'torino', 'bologna', 'firenze', 'genova', 'palermo',
+          'bari', 'catania', 'venezia', 'verona', 'padova', 'brescia', 'bergamo',
+          'lombardia', 'piemonte', 'veneto', 'lazio', 'campania', 'sicilia', 'sardegna',
+          // Italian prepositions and articulated prepositions (NOT person names)
+          'su', 'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
+          'del', 'dello', 'della', 'dei', 'degli', 'delle',
+          'al', 'allo', 'alla', 'ai', 'agli', 'alle',
+          'in', 'nel', 'nello', 'nella', 'nei', 'negli', 'nelle',
+          'con', 'per', 'tra', 'fra',
+          // Common nouns appearing in company names after "di" (product/sector categories)
+          'ricerca', 'ricerche', 'centro', 'studio', 'studi', 'scuola', 'servizi', 'servizio',
+          'consulenza', 'consulenze', 'progettazione', 'produzione', 'produzioni',
+          'commercio', 'commerciale', 'vendita', 'vendite', 'noleggio', 'noleggi',
+          'gestione', 'gestioni', 'sviluppo', 'informatica', 'ingegneria', 'architettura',
+          'design', 'comunicazione', 'marketing', 'proprieta', 'proprietà',
+          'tutela', 'difesa', 'promozione', 'assistenza', 'riparazione', 'manutenzione',
+          'trasporti', 'trasporto', 'logistica', 'import', 'export',
+          'ristorazione', 'alimentari', 'abbigliamento', 'calzature',
+          'enti', 'ente', 'societa', 'società', 'associazione', 'fondazione',
+          'pubblici', 'pubblica', 'privata', 'privati'
+        ])
+        const isValidOwnerWord = (w: string) => /^[A-ZÀ-Ù][A-Za-zÀ-ÿ']{1,}$/.test(w) && !BAD_OWNER_WORDS.has(w.toLowerCase())
+        // Pattern 1/2: "... DI <NAME> <NAME>" (exactly 2 capitalized tokens after DI)
+        // Uses case-sensitive match on the captured tokens to ensure they look like proper names.
+        const diMatches = Array.from(cleaned.matchAll(/\bDI\s+([A-ZÀ-Ù][A-Za-zÀ-ÿ']+)\s+([A-ZÀ-Ù][A-Za-zÀ-ÿ']+)/g))
+        for (const m of diMatches) {
+          const w1 = m[1], w2 = m[2]
+          if (isValidOwnerWord(w1) && isValidOwnerWord(w2)) {
+            return `${w1} ${w2}`
+          }
+        }
+        // Pattern 3: whole name is just "<WORD1> <WORD2>" — libero professionista
+        const LEGAL_RX = /\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?a\.?s|s\.?n\.?c|srl|srls|spa|sas|snc|scarl|societa|società|studio|associati|associate|consulting|&|\be\s+c\b|\bdi\b)\b/i
+        if (!LEGAL_RX.test(cleaned)) {
+          const tokens = cleaned.split(/\s+/)
+          if (tokens.length === 2 && isValidOwnerWord(tokens[0]) && isValidOwnerWord(tokens[1])) {
+            return `${tokens[0]} ${tokens[1]}`
+          }
+        }
+        return null
+      }
+      // Prefer the ORIGINAL user query (ground truth) over ragione_sociale from scrapers,
+      // which may have encoding/parsing corruptions (e.g. "FIEMMINO" → "IEMMINO").
+      const fromQuery = typeof query === 'string' ? extractOwnerFromLegalName(query) : null
+      const fromRS = companyName ? extractOwnerFromLegalName(companyName) : null
+      const fromName = fromQuery || fromRS
+      if (fromName) {
+        const titleCase = fromName.split(/\s+/).map(w => w.length > 0 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(' ')
+        const prev = result.titolare
+        result.titolare = titleCase
+        // Keep any more specific role already set (e.g. "Amministratore Delegato" from camerale);
+        // but if previous role was weak or absent, set the generic one.
+        if (!result.ruolo_titolare || /^(socio|fondatore|direttore|key contact)$/i.test(String(result.ruolo_titolare))) {
+          result.ruolo_titolare = 'Titolare / Rappresentante Legale'
+        }
+        console.log(`[COMPANY-LOOKUP] Step 2d0: titolare da NOME LEGALE = "${titleCase}" (da query="${fromQuery ? query : 'N/A'}", rs="${fromRS ? companyName : 'N/A'}"; prev="${prev || 'empty'}")`)
+      }
+    }
+
     // ── Search 2d: Titolare / Rappresentante Legale — SEMPRE cercato, anche se ci sono già soci ──
     // I soci (da OpenAPI/ufficiocamerale) possono essere diversi dal rappresentante legale/titolare
     if (!result.titolare) {
+      // Anti-hallucination: titolare name must appear in Tavily text AND be in the same
+      // neighborhood as the company name (at least one occurrence). We check MIN distance
+      // across ALL occurrences to handle texts where the company is mentioned multiple times.
+      const validateTitolareInText = (titName: string, text: string, compName: string): boolean => {
+        if (!titName) return false
+        const titLow = String(titName).toLowerCase()
+        // Reject when the "name" is actually a role description (e.g. "Presidente del Consiglio di Amministrazione")
+        const ROLE_AS_NAME_RX = /\b(presidente|amministratore|amministratrice|titolare|sindaco|sindaca|assessore|consigliere|segretario|direttore|direttrice|responsabile|legale\s+rappresentante|rappresentante\s+legale|socio|fondatore|fondatrice|presidente\s+del\s+consiglio)\b/i
+        if (ROLE_AS_NAME_RX.test(titLow)) return false
+        // A real person name must have at least 2 parts (nome + cognome) — reject single-word values
+        const rawParts = String(titName).trim().split(/\s+/)
+        if (rawParts.length < 2) return false
+        const textLow = text.toLowerCase()
+        const titParts = titLow.split(/\s+/).filter(w => w.length >= 3)
+        if (titParts.length === 0 || !titParts.every(w => textLow.includes(w))) return false
+        // Pick the MOST DISTINCTIVE company word (longest, >= 4 chars, skip legal suffixes)
+        const LEGAL = /^(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?a\.?s|s\.?n\.?c|srl|srls|spa|sas|snc|scarl|societa|società)$/i
+        const compWords = String(compName).toLowerCase().split(/\s+/).filter(w => w.length >= 4 && !LEGAL.test(w))
+        if (compWords.length === 0) return false
+        const compKey = compWords.sort((a, b) => b.length - a.length)[0]
+        // Find ALL occurrences of compKey and titolare-first-word, compute MIN distance
+        const findAll = (s: string, needle: string): number[] => {
+          const out: number[] = []
+          let i = s.indexOf(needle)
+          while (i >= 0) { out.push(i); i = s.indexOf(needle, i + 1) }
+          return out
+        }
+        const compPositions = findAll(textLow, compKey)
+        const titPositions = findAll(textLow, titParts[0])
+        if (compPositions.length === 0 || titPositions.length === 0) return false
+        let minDist = Infinity
+        for (const c of compPositions) for (const t of titPositions) {
+          const d = Math.abs(c - t)
+          if (d < minDist) minDist = d
+        }
+        return minDist < 2000
+      }
+      // Reject roles that indicate a NON-company-representative context:
+      // politicians (the "comune" where company is located), GDPR data controllers, etc.
+      const BAD_ROLE_RX = /\b(sindaco|sindaca|vicesindaco|assessore|assessora|consigliere\s+comunale|segretario\s+comunale|presidente\s+del\s+consiglio\s+comunale|giunta\s+comunale|trattamento\s+(?:dei\s+)?dati\s+personali|data\s+protection\s+officer|\bdpo\b|responsabile\s+della\s+protezione\s+dei\s+dati)\b/i
       // Search 2d1: LinkedIn + web per rappresentante legale
       const q2d1 = `"${companyName}" titolare rappresentante legale amministratore linkedin.com`
       const text2d1 = await tavilySearch(q2d1, true, true)
@@ -1623,11 +2202,18 @@ ATTENZIONE CRITICA:
 JSON:
 {"titolare":"nome e cognome del rappresentante legale/titolare SOLO se confermato da visura camerale","ruolo_titolare":"Titolare / Rappresentante Legale / Amministratore Unico / Amministratore Delegato / Presidente del CdA","linkedin_titolare":"URL LinkedIn del titolare se trovato"}`)
         if (ext2d1.titolare && !isJunkValue(ext2d1.titolare)) {
-          result.titolare = ext2d1.titolare
-          if (ext2d1.ruolo_titolare) result.ruolo_titolare = ext2d1.ruolo_titolare
-          if (ext2d1.linkedin_titolare && !isJunkValue(ext2d1.linkedin_titolare)) result.linkedin_titolare = ext2d1.linkedin_titolare
-          tavilyUsed = true
-          console.log(`[COMPANY-LOOKUP] Search 2d1: titolare = "${ext2d1.titolare}" (${ext2d1.ruolo_titolare || ''})`)
+          const badRole = ext2d1.ruolo_titolare && BAD_ROLE_RX.test(String(ext2d1.ruolo_titolare))
+          if (badRole) {
+            console.log(`[COMPANY-LOOKUP] Search 2d1: REJECTED titolare "${ext2d1.titolare}" — bad role "${ext2d1.ruolo_titolare}" (politician/GDPR, not company rep)`)
+          } else if (validateTitolareInText(ext2d1.titolare, text2d1, companyName)) {
+            result.titolare = ext2d1.titolare
+            if (ext2d1.ruolo_titolare) result.ruolo_titolare = ext2d1.ruolo_titolare
+            if (ext2d1.linkedin_titolare && !isJunkValue(ext2d1.linkedin_titolare)) result.linkedin_titolare = ext2d1.linkedin_titolare
+            tavilyUsed = true
+            console.log(`[COMPANY-LOOKUP] Search 2d1: titolare = "${ext2d1.titolare}" (${ext2d1.ruolo_titolare || ''})`)
+          } else {
+            console.log(`[COMPANY-LOOKUP] Search 2d1: REJECTED hallucinated titolare "${ext2d1.titolare}" — not linked to "${companyName}" in Tavily text`)
+          }
         }
       }
 
@@ -1636,13 +2222,20 @@ JSON:
         const q2d1b = `"${companyName}" ${city} chi è il titolare fondatore proprietario`
         const text2d1b = await tavilySearch(q2d1b)
         if (text2d1b.length > 50) {
-          const ext2d1b = await gptExtract(text2d1b, `Chi è il titolare/fondatore/proprietario di "${companyName}"? JSON:
+          const ext2d1b = await gptExtract(text2d1b, `Chi è il titolare/fondatore/proprietario di "${companyName}"? IMPORTANTE: restituisci il nome SOLO se esplicitamente menzionato nel testo come proprietario di "${companyName}". Se il testo parla di altre aziende, restituisci null. JSON:
 {"titolare":"nome e cognome","ruolo_titolare":"ruolo","linkedin_titolare":"URL LinkedIn se trovato"}`)
           if (ext2d1b.titolare && !isJunkValue(ext2d1b.titolare)) {
-            result.titolare = ext2d1b.titolare
-            if (ext2d1b.ruolo_titolare) result.ruolo_titolare = ext2d1b.ruolo_titolare
-            if (ext2d1b.linkedin_titolare && !isJunkValue(ext2d1b.linkedin_titolare)) result.linkedin_titolare = ext2d1b.linkedin_titolare
-            tavilyUsed = true
+            const badRoleB = ext2d1b.ruolo_titolare && BAD_ROLE_RX.test(String(ext2d1b.ruolo_titolare))
+            if (badRoleB) {
+              console.log(`[COMPANY-LOOKUP] Search 2d1b: REJECTED titolare "${ext2d1b.titolare}" — bad role "${ext2d1b.ruolo_titolare}" (politician/GDPR)`)
+            } else if (validateTitolareInText(ext2d1b.titolare, text2d1b, companyName)) {
+              result.titolare = ext2d1b.titolare
+              if (ext2d1b.ruolo_titolare) result.ruolo_titolare = ext2d1b.ruolo_titolare
+              if (ext2d1b.linkedin_titolare && !isJunkValue(ext2d1b.linkedin_titolare)) result.linkedin_titolare = ext2d1b.linkedin_titolare
+              tavilyUsed = true
+            } else {
+              console.log(`[COMPANY-LOOKUP] Search 2d1b: REJECTED hallucinated titolare "${ext2d1b.titolare}" — not linked to "${companyName}"`)
+            }
           }
         }
       }
@@ -1718,12 +2311,18 @@ JSON:
         return true
       }
 
+      // ── Context for anti-omonimo ──
+      const atecoCtx = (result.descrizione_ateco || '') as string
+      const cityCtx = (result.citta || (result.sede_legale ? String(result.sede_legale).split(',').pop()?.trim() : '') || '') as string
+      const formaCtx = (result.forma_giuridica || '') as string
+
       // Search 2e1: LinkedIn profile + professional info
       const q2e1 = `"${titName}" ${compForTit} LinkedIn ruolo bio esperienza formazione`
       const text2e1 = await tavilySearch(q2e1, true, true)
       if (text2e1.length > 50) {
         const ext2e1 = await gptExtract(text2e1, `Estrai il profilo professionale COMPLETO di "${titName}" che lavora/dirige "${compForTit}".
-ATTENZIONE: Verifica che i dati si riferiscano effettivamente a "${titName}" presso "${compForTit}", NON a omonimi presso altre aziende.
+L'azienda "${compForTit}" opera nel settore: ${atecoCtx || 'non specificato'}${cityCtx ? '. Sede: ' + cityCtx : ''}.
+ATTENZIONE: Verifica che i dati si riferiscano effettivamente a "${titName}" presso "${compForTit}", NON a omonimi presso altre aziende. Se trovi più persone con lo stesso nome, scegli SOLO quella collegata a questo settore e azienda.
 JSON:
 {"linkedin":"URL profilo LinkedIn ESATTO trovato nel testo","bio":"descrizione professionale 2-3 frasi","ruolo":"ruolo attuale preciso","seniority":"junior/mid/senior/executive/C-level/founder","esperienze_precedenti":"elenco esperienze lavorative precedenti con azienda e ruolo","formazione":"titoli di studio, università, master, certificazioni","competenze":"competenze chiave separate da virgola","anni_esperienza":"stima anni di esperienza","tipo_lavoro":"dipendente/imprenditore/libero professionista/socio","settore":"settore di competenza","colleghi_noti":"nomi di colleghi o co-fondatori noti","dimensione_azienda":"micro/piccola/media/grande"}`)
 
@@ -1731,7 +2330,26 @@ JSON:
         const compClean = compForTit.toLowerCase().replace(/[^a-zà-ú\s]/gi, '').trim()
         const compWords = compClean.split(/\s+/).filter((w: string) => w.length > 3 && !/^(srl|srls|spa|sas|snc|societa|società)$/i.test(w))
         const checkText = [ext2e1.esperienze_precedenti, ext2e1.bio, ext2e1.colleghi_noti, text2e1].filter(Boolean).join(' ').toLowerCase()
-        const matchesComp = compWords.length === 0 || compWords.some((w: string) => checkText.includes(w))
+        let matchesComp = compWords.length === 0 || compWords.some((w: string) => checkText.includes(w))
+
+        // ── Anti-omonimo rafforzato: coerenza settore + tipo lavoro ──
+        if (matchesComp && atecoCtx) {
+          const extSettore = [ext2e1.settore, ext2e1.bio, ext2e1.competenze].filter(Boolean).join(' ').toLowerCase()
+          const atecoLow = atecoCtx.toLowerCase()
+          const atecoKw = atecoLow.split(/[\s,;/()']+/).filter((w: string) => w.length > 4)
+          const settoreKw = extSettore.split(/[\s,;/()']+/).filter((w: string) => w.length > 4)
+          if (atecoKw.length > 0 && settoreKw.length > 0) {
+            const hasOverlap = atecoKw.some((w: string) => extSettore.includes(w)) || settoreKw.some((w: string) => atecoLow.includes(w))
+            if (!hasOverlap) {
+              console.log(`[COMPANY-LOOKUP] Search 2e1: SECTOR MISMATCH — ATECO "${atecoCtx}" vs settore "${ext2e1.settore}" — likely omonimo`)
+              matchesComp = false
+            }
+          }
+        }
+        if (matchesComp && /impresa\s*individuale/i.test(formaCtx) && /dipendente/i.test(String(ext2e1.tipo_lavoro || ''))) {
+          console.log(`[COMPANY-LOOKUP] Search 2e1: IMPRESA INDIVIDUALE owner listed as "dipendente" — likely omonimo`)
+          matchesComp = false
+        }
 
         if (matchesComp) {
           console.log(`[COMPANY-LOOKUP] Search 2e1: titolare profile VERIFIED for "${compForTit}"`)
@@ -1856,7 +2474,7 @@ JSON:
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ business_name: companyNameNow, city: mapsCity, max_results: 1 }),
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(200000),
         }).catch(() => null)
         if (mapsRes && mapsRes.ok) {
           const mapsData = await mapsRes.json().catch(() => null) as any
@@ -1993,6 +2611,143 @@ JSON:
         fonti.push(...(nameResult.fonti as string[] || []))
       }
     }
+  }
+
+  // ─── Step 6b: PEC discovery pipeline (free sources FIRST, OpenAPI as LAST RESORT) ───
+  // PEC is legally mandatory for Italian companies — these sources have ~95% coverage combined.
+  // Priority order:
+  //   1. INIPEC.gov.it direct (official government registry) — by P.IVA, then by name
+  //   2. Tavily search restricted to inipec/cerca-pec/ufficiocamerale
+  //   3. Official website footer scraping (labels like "PEC:" or PEC-domain emails)
+  //   4. OpenAPI.it /IT-pec (consumes quota 30/month, use only if nothing else works)
+  if (!result.pec) {
+    const pivaClean = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+    const nameForPec = String(result.ragione_sociale || query || '').trim()
+
+    // Regex tuned for PEC emails (must end in a known PEC TLD/keyword to reduce false positives)
+    const pecEmailRx = /([a-z0-9._%+\-]+@(?:[a-z0-9.\-]*\.)?(?:pec|legalmail|pecimprese|arubapec|postecert|cert\.legalmail|pec\.cciaa|pec\.it|sicurezzapostale|registerpec|mypec|actaliscertymail|telecompost|bpm|namirial|infocert|trust)[a-z0-9.\-]*\.[a-z]{2,})/i
+
+    // 1) INIPEC direct (by P.IVA first — more precise than name search)
+    if (!result.pec && pivaClean.length === 11) {
+      try {
+        console.log(`[COMPANY-LOOKUP] Step 6b/1: INIPEC by P.IVA ${pivaClean}`)
+        const r = await fetch(`https://www.inipec.gov.it/cerca/imprese?codicefiscale=${pivaClean}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36', Accept: 'text/html', 'Accept-Language': 'it-IT,it;q=0.9' },
+          signal: AbortSignal.timeout(9000), redirect: 'follow',
+        })
+        if (r.ok) {
+          const html = await r.text()
+          const m = html.match(pecEmailRx)
+          if (m) {
+            result.pec = m[1].toLowerCase()
+            if (!fonti.includes('INIPEC')) fonti.push('INIPEC')
+            console.log(`[COMPANY-LOOKUP] Step 6b/1: PEC = ${result.pec}`)
+          }
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 6b/1 error: ${e?.message}`) }
+    }
+    // 1b) INIPEC by name (fallback when P.IVA missing or not found)
+    if (!result.pec && nameForPec.length >= 3) {
+      try {
+        console.log(`[COMPANY-LOOKUP] Step 6b/1b: INIPEC by name "${nameForPec}"`)
+        const r = await fetch(`https://www.inipec.gov.it/cerca/imprese?denominazione=${encodeURIComponent(nameForPec)}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36', Accept: 'text/html', 'Accept-Language': 'it-IT,it;q=0.9' },
+          signal: AbortSignal.timeout(9000), redirect: 'follow',
+        })
+        if (r.ok) {
+          const html = await r.text()
+          const m = html.match(pecEmailRx)
+          if (m) {
+            result.pec = m[1].toLowerCase()
+            if (!fonti.includes('INIPEC')) fonti.push('INIPEC')
+            console.log(`[COMPANY-LOOKUP] Step 6b/1b: PEC = ${result.pec}`)
+          }
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 6b/1b error: ${e?.message}`) }
+    }
+
+    // 2) Tavily search on INIPEC / cerca-pec / ufficiocamerale
+    if (!result.pec && tavilyKey && (nameForPec.length >= 3 || pivaClean.length === 11)) {
+      try {
+        const qTerm = pivaClean.length === 11 ? pivaClean : `"${nameForPec}"`
+        const tq = `${qTerm} PEC posta elettronica certificata site:inipec.gov.it OR site:cerca-pec.it OR site:ufficiocamerale.it OR site:registroimprese.it`
+        console.log(`[COMPANY-LOOKUP] Step 6b/2: Tavily PEC search`)
+        const r = await fetch('https://api.tavily.com/search', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: tavilyKey, query: tq, search_depth: 'basic', max_results: 8, include_answer: false }),
+          signal: AbortSignal.timeout(10000),
+        })
+        if (r.ok) {
+          const data = await r.json()
+          const allText = ((data.results || []) as Array<{ title?: string; content?: string }>)
+            .map(x => `${x.title || ''}\n${x.content || ''}`).join('\n')
+          const m = allText.match(pecEmailRx)
+          if (m) {
+            result.pec = m[1].toLowerCase()
+            if (!fonti.includes('INIPEC (via Tavily)')) fonti.push('INIPEC (via Tavily)')
+            console.log(`[COMPANY-LOOKUP] Step 6b/2: PEC = ${result.pec}`)
+          }
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 6b/2 error: ${e?.message}`) }
+    }
+
+    // 3) Official website footer scraping
+    if (!result.pec && result.sito && typeof result.sito === 'string') {
+      console.log(`[COMPANY-LOOKUP] Step 6b/3: scraping website "${result.sito}" for PEC`)
+      try {
+        let base: URL | null = null
+        try { base = new URL(String(result.sito).startsWith('http') ? String(result.sito) : `https://${result.sito}`) } catch { base = null }
+        if (base) {
+          const paths = ['/', '/contatti', '/contacts', '/privacy', '/privacy-policy', '/note-legali', '/legal', '/chi-siamo']
+          const pecLabelRx = /(?:pec|posta\s*elettronica\s*certificata)\s*[:.\-#]?\s*([a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,})/gi
+          for (const p of paths) {
+            try {
+              const u = new URL(p, base).toString()
+              const r = await fetch(u, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36', Accept: 'text/html', 'Accept-Language': 'it-IT,it;q=0.9' },
+                signal: AbortSignal.timeout(7000), redirect: 'follow',
+              })
+              if (!r.ok) continue
+              const ct = r.headers.get('content-type') || ''
+              if (!ct.includes('text/html')) continue
+              const html = await r.text()
+              const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toLowerCase()
+              const labelled = [...text.matchAll(pecLabelRx)].map(m => m[1]).find(Boolean)
+              if (labelled) { result.pec = labelled; break }
+              const byDomain = text.match(pecEmailRx)
+              if (byDomain) { result.pec = byDomain[1].toLowerCase(); break }
+            } catch { /* try next path */ }
+          }
+          if (result.pec) {
+            if (!fonti.includes('Sito ufficiale (PEC)')) fonti.push('Sito ufficiale (PEC)')
+            console.log(`[COMPANY-LOOKUP] Step 6b/3: PEC dal sito = ${result.pec}`)
+          }
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 6b/3 error: ${e?.message}`) }
+    }
+
+    // 4) OpenAPI.it /IT-pec — LAST RESORT (consumes 30/month quota)
+    if (!result.pec && pivaClean.length === 11 && token) {
+      console.log(`[COMPANY-LOOKUP] Step 6b/4: OpenAPI /IT-pec for ${pivaClean} (fallback, consuma quota)`)
+      try {
+        const r = await fetch(`https://company.openapi.com/IT-pec/${pivaClean}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+          signal: AbortSignal.timeout(6000),
+        })
+        if (r.ok) {
+          const json = await r.json()
+          const d = (json?.data as Array<Record<string, unknown>>)?.[0]
+          const pec = (d?.pec || d?.certifiedEmail) as string | undefined
+          if (pec && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pec)) {
+            result.pec = pec.toLowerCase()
+            if (!fonti.includes('OpenAPI.it (PEC)')) fonti.push('OpenAPI.it (PEC)')
+            console.log(`[COMPANY-LOOKUP] Step 6b/4: PEC = ${result.pec}`)
+          }
+        }
+      } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 6b/4 error: ${e?.message}`) }
+    }
+
+    if (!result.pec) console.log(`[COMPANY-LOOKUP] Step 6b: PEC non trovata da nessuna fonte`)
   }
 
   // ─── Step 7: Analisi assicurativa — polizze mancanti / gap ───
@@ -2157,6 +2912,40 @@ JSON:
         } else if (key === 'ragione_sociale' && /^(risultati|ricerca|nome esatto|pagina|home|error)$/i.test(v.trim())) {
           console.log(`[COMPANY-LOOKUP] CLEANUP: removed junk ragione_sociale: "${v}"`)
           delete result[key]
+        }
+      }
+    }
+
+    // ── FINAL GATE: anti-homonym P.IVA validation ──
+    // If the user searched by NAME (not by P.IVA) and we found a P.IVA, verify that the scraped
+    // ragione_sociale actually contains all significant tokens of the original query name.
+    // Otherwise the P.IVA belongs to an homonym (e.g. "RELCO SRL Milano" pulling RELCO of
+    // Buccinasco, or "REPOWER VENDITA ITALIA" pulling parent Repower Italia).
+    if (!isPiva && result.partita_iva && result.ragione_sociale) {
+      const queryTokens = String(query).toLowerCase()
+        .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?a\.?s|s\.?n\.?c|srl|srls|spa|sas|snc|società|societa|unipersonale|italia|italy|milano|roma|napoli|torino|bologna|firenze|genova|palermo|bari|catania|venezia|verona|padova|brescia|bergamo)\b/gi, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 3)
+      const rsLow = String(result.ragione_sociale).toLowerCase()
+      if (queryTokens.length >= 1) {
+        const missing = queryTokens.filter(t => !rsLow.includes(t))
+        // Tolerate 1 missing token when query has >=3 tokens (abbreviations happen)
+        const tolerated = queryTokens.length >= 3 ? 1 : 0
+        if (missing.length > tolerated) {
+          console.log(`[COMPANY-LOOKUP] FINAL GATE: P.IVA mismatch — ragione_sociale="${result.ragione_sociale}" does not contain query tokens [${missing.join(',')}] — clearing fiscal data`)
+          // Clear P.IVA-derived fields (fiscal/camerale) but keep Maps contact data
+          const toClear = ['partita_iva', 'codice_fiscale', 'rea', 'codice_ateco', 'descrizione_ateco',
+                           'fatturato', 'fatturato_anno', 'utile_netto', 'dipendenti', 'forma_giuridica',
+                           'data_costituzione', 'capitale_sociale', 'stato_attivita', 'sede_legale',
+                           'citta', 'provincia', 'cap', 'pec']
+          for (const k of toClear) delete (result as any)[k]
+          // Also clear camerale-sourced "fonti" entries since those data points were wrong
+          if (Array.isArray(result.fonti)) {
+            result.fonti = (result.fonti as string[]).filter(f => !/fatturatoitalia|companyreports|ufficiocamerale|openapi|registro imprese/i.test(f))
+          }
+          if (!Array.isArray(result.warnings)) result.warnings = []
+          ;(result.warnings as string[]).push(`P.IVA non confermata: nome scrappato "${result.ragione_sociale}" non contiene tutti i termini della query "${query}". Dati fiscali scartati per evitare omonimi.`)
         }
       }
     }

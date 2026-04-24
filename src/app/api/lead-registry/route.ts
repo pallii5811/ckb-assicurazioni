@@ -1253,12 +1253,33 @@ JSON:
       const q1c = `"${companyId}" chi è il titolare fondatore proprietario`
       const text1c = await tavilySearch(q1c)
       if (text1c.length > 50) {
-        const ext1c = await gptExtract(text1c, `Chi è il titolare/fondatore/proprietario di "${companyId}"? JSON: {"titolare":"nome e cognome","titolare_ruolo":"ruolo"}`)
+        const ext1c = await gptExtract(text1c, `Chi è il titolare/fondatore/proprietario di "${companyId}"? IMPORTANTE: restituisci il nome SOLO se è ESPLICITAMENTE menzionato come titolare/fondatore/proprietario di "${companyId}" nel testo. Se non è chiaro o se il testo parla di altre aziende, restituisci null. JSON: {"titolare":"nome e cognome","titolare_ruolo":"ruolo"}`)
         const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh)\b/i
         if (ext1c.titolare && !isJunkValue(ext1c.titolare) && !compSuffix.test(ext1c.titolare)) {
-          profile.titolare = ext1c.titolare
-          profile.titolare_fonte = 'tavily'
-          if (ext1c.titolare_ruolo) profile.ruolo_titolare = ext1c.titolare_ruolo
+          // STRICT VALIDATION: the name must actually appear in the Tavily text
+          // This prevents GPT hallucinations of famous entrepreneurs (e.g. "Nicolas G. Hayek")
+          const titLow = String(ext1c.titolare).toLowerCase()
+          const textLow = text1c.toLowerCase()
+          const titParts = titLow.split(/\s+/).filter(w => w.length >= 3)
+          const nameInText = titParts.length > 0 && titParts.every(w => textLow.includes(w))
+          // Also check proximity: the company name must appear near the titolare name
+          const companyLow = companyId.toLowerCase()
+          let properlyLinked = false
+          if (nameInText) {
+            // Find position of company name and titolare name — must be within 500 chars of each other
+            const compIdx = textLow.indexOf(companyLow.split(/\s+/)[0])
+            const titIdx = textLow.indexOf(titParts[0])
+            if (compIdx >= 0 && titIdx >= 0 && Math.abs(compIdx - titIdx) < 500) {
+              properlyLinked = true
+            }
+          }
+          if (properlyLinked) {
+            profile.titolare = ext1c.titolare
+            profile.titolare_fonte = 'tavily'
+            if (ext1c.titolare_ruolo) profile.ruolo_titolare = ext1c.titolare_ruolo
+          } else {
+            console.log(`[LEAD-REGISTRY] Search 1c: REJECTED hallucinated titolare "${ext1c.titolare}" — name not linked to "${companyId}" in Tavily text`)
+          }
         }
         tavilyUsed = true
       }
