@@ -60,7 +60,45 @@ async function handlePersonLookup(req: NextRequest) {
       if (parsed.citta) queryCityHint = parsed.citta
       console.log(`[PERSON-LOOKUP] Parsed — persona: "${queryPersonName}", azienda: "${queryCompanyHint}", professione: "${queryProfessionHint}", città: "${queryCityHint}"`)
     }
-  } catch { /* use full query as person name */ }
+  } catch (splitErr: any) {
+    console.log(`[PERSON-LOOKUP] GPT split failed: ${splitErr?.message || splitErr} — using regex fallback`)
+  }
+
+  // ── REGEX FALLBACK: if GPT didn't split (queryCompanyHint still empty), try regex ──
+  if (!queryCompanyHint && !queryCityHint && query.length > 5) {
+    // Detect company legal form in query: "Nome Cognome Asterix S.r.l. Bologna"
+    // Strategy: find the legal form, take 1-3 words before it as company name
+    const legalFormRx = /\b(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|srl|srls|spa|sas|snc)\b\.?/i
+    const formMatch = query.match(legalFormRx)
+    if (formMatch && formMatch.index !== undefined) {
+      const formIdx = formMatch.index
+      const formEnd = formIdx + formMatch[0].length
+      // Text before legal form — last 1-3 words are company name, rest is person
+      const beforeForm = query.slice(0, formIdx).trim()
+      const beforeWords = beforeForm.split(/\s+/)
+      // Heuristic: company name is typically 1-3 words before the legal form
+      // Person names are typically 2 words (nome cognome), so take from word 3 onwards as company
+      let companyNameWords = 1 // at least 1 word before S.r.l.
+      if (beforeWords.length >= 4) companyNameWords = Math.min(3, beforeWords.length - 2)
+      else if (beforeWords.length === 3) companyNameWords = 1
+      const personWords = beforeWords.slice(0, beforeWords.length - companyNameWords)
+      const compWords = beforeWords.slice(beforeWords.length - companyNameWords)
+      queryPersonName = personWords.join(' ').trim()
+      queryCompanyHint = `${compWords.join(' ')} ${formMatch[0]}`.trim()
+      const afterCompany = query.slice(formEnd).replace(/^\s*\.?\s*/, '').trim()
+      if (afterCompany.length >= 3) queryCityHint = afterCompany
+      console.log(`[PERSON-LOOKUP] REGEX FALLBACK: persona="${queryPersonName}", azienda="${queryCompanyHint}", città="${queryCityHint}"`)
+    } else {
+      // No company form detected — check if last word is an Italian city
+      const CITIES_RX = /\b(milano|roma|napoli|torino|bologna|firenze|genova|venezia|verona|padova|trieste|bari|palermo|catania|cagliari|brescia|bergamo|modena|parma|reggio\s*emilia|prato|livorno|ravenna|ferrara|rimini|sassari|monza|trento|bolzano|perugia|ancona|pescara|udine|arezzo|vicenza|lecce|terni|piacenza|novara|varese|como|lodi|cremona|mantova|siena|lucca|pisa|massa|pistoia|grosseto|biella|vercelli|asti|cuneo|aosta|sondrio|savona|imperia|la\s*spezia|forlì|cesena|imola|rovigo|belluno|treviso|pordenone|gorizia|potenza|matera|cosenza|catanzaro|reggio\s*calabria|trapani|agrigento|siracusa|ragusa|nuoro|oristano|olbia|taranto|brindisi|foggia|avellino|benevento|caserta|salerno|frosinone|latina|rieti|viterbo|chieti|l'?aquila|teramo|ascoli|macerata|fermo|pesaro|urbino)\s*$/i
+      const cityM = query.match(CITIES_RX)
+      if (cityM) {
+        queryCityHint = cityM[1].trim()
+        queryPersonName = query.replace(CITIES_RX, '').trim()
+        console.log(`[PERSON-LOOKUP] REGEX FALLBACK (city only): persona="${queryPersonName}", città="${queryCityHint}"`)
+      }
+    }
+  }
 
   // Helper: Tavily search — onlyBestMatch picks the single most relevant result
   // Reverted to 'advanced' always — 'basic' was producing lower-quality results
@@ -156,7 +194,7 @@ async function handlePersonLookup(req: NextRequest) {
   if (text1.length > 50) {
     const profHintPrompt = queryProfessionHint ? `\nATTENZIONE: l'utente cerca specificamente "${searchName}" che è ${queryProfessionHint.toUpperCase()}. Se nel testo ci sono più persone con lo stesso nome, estrai SOLO quella che lavora come ${queryProfessionHint}. Ignora omonimi con professioni diverse.` : ''
     const ext1 = await gptExtract(text1, `Estrai tutte le informazioni sulla persona "${searchName}"${queryCompanyHint ? ` in relazione all'azienda "${queryCompanyHint}"` : ''}.${profHintPrompt} JSON:
-{"nome_completo":"nome e cognome completo","ruolo":"ruolo/carica attuale","azienda":"nome azienda/società dove lavora${queryCompanyHint ? ` (PRIORITIZZA ${queryCompanyHint} se la persona ci lavora)` : ''}","settore":"settore di attività","citta":"città","descrizione":"breve descrizione professionale della persona (2-3 frasi)","linkedin":"URL profilo LinkedIn completo","tipo_lavoro":"dipendente / libero professionista / imprenditore / socio","seniority":"junior / mid / senior / executive / C-level","dimensione_azienda":"micro / piccola / media / grande (stima basata su info disponibili)"}`)
+{"nome_completo":"nome e cognome completo","nome":"SOLO il nome di battesimo (es. da 'Marco Rossi' → 'Marco')","cognome":"SOLO il cognome (es. da 'Marco Rossi' → 'Rossi')","ruolo":"ruolo/carica attuale","azienda":"nome azienda/società dove lavora${queryCompanyHint ? ` (PRIORITIZZA ${queryCompanyHint} se la persona ci lavora)` : ''}","settore":"settore di attività","citta":"città","descrizione":"breve descrizione professionale della persona (2-3 frasi)","linkedin":"URL profilo LinkedIn completo","tipo_lavoro":"dipendente / libero professionista / imprenditore / socio","seniority":"junior / mid / senior / executive / C-level","dimensione_azienda":"micro / piccola / media / grande (stima basata su info disponibili)"}`)
     for (const [k, v] of Object.entries(ext1)) {
       if (!isJunk(v)) result[k] = v
     }
@@ -215,6 +253,50 @@ async function handlePersonLookup(req: NextRequest) {
   const personName = result.nome_completo || searchName
   const company = result.azienda || queryCompanyHint || ''
   const city = result.citta || queryCityHint || ''
+
+  // ── Fix: populate nome/cognome if GPT didn't split them ──
+  if (!result.nome || !result.cognome) {
+    const fullName = personName.trim()
+    const parts = fullName.split(/\s+/)
+    if (parts.length >= 2) {
+      // Italian convention: first word(s) = nome, last word = cognome
+      // Handle compound surnames: if last two words are both capitalized short words, treat last as cognome
+      result.cognome = result.cognome || parts[parts.length - 1]
+      result.nome = result.nome || parts.slice(0, -1).join(' ')
+    } else if (parts.length === 1) {
+      result.nome = result.nome || parts[0]
+    }
+    console.log(`[PERSON-LOOKUP] nome/cognome split: nome="${result.nome || ''}", cognome="${result.cognome || ''}" (from "${fullName}")`)
+  }
+
+  // ── Fix: Geographic omonimo filter ──
+  // If user specified a city and GPT found a different one, the Search 1 result likely belongs to an omonimo
+  if (queryCityHint && result.citta && !result._omonimo_detected) {
+    const queryCityLow = queryCityHint.toLowerCase().replace(/[^a-zà-ú]/gi, '').trim()
+    const resultCityLow = (result.citta || '').toLowerCase().replace(/[^a-zà-ú]/gi, '').trim()
+    // Check if cities match (allow partial match for variants like "Milano"/"MI", "Roma"/"RM")
+    const cityMatch = resultCityLow.includes(queryCityLow) || queryCityLow.includes(resultCityLow)
+      || (queryCityLow.length <= 2 && resultCityLow.startsWith(queryCityLow)) // province code
+    if (!cityMatch && queryCityLow.length >= 3 && resultCityLow.length >= 3) {
+      console.log(`[PERSON-LOOKUP] ⚠️ GEOGRAPHIC MISMATCH: user specified "${queryCityHint}" but Search 1 found city "${result.citta}" — discarding omonimo data`)
+      result._omonimo_detected = true
+      result._citta_query = queryCityHint
+      result._citta_scartata = result.citta
+      // Discard identity fields that likely belong to the wrong person
+      const geoPoisoned = ['linkedin', 'descrizione', 'ruolo', 'settore',
+        'facebook', 'instagram', 'twitter', 'youtube', 'tiktok', 'sito_web',
+        'tipo_lavoro', 'seniority', 'dimensione_azienda', 'formazione',
+        'esperienze_precedenti', 'competenze', 'interessi_social']
+      for (const field of geoPoisoned) {
+        if (result[field]) {
+          console.log(`[PERSON-LOOKUP] GEO FILTER: discarding ${field}: "${String(result[field]).slice(0, 60)}"`)
+          delete result[field]
+        }
+      }
+      // Reset city to what the user asked for
+      result.citta = queryCityHint
+    }
+  }
 
   // ── Search 1e (PRIORITY for liberi professionisti): lead-registry con nome persona come "business" ──
   // Per architetti, consulenti, avvocati, ecc. il loro nome È la loro attività su Maps.
@@ -619,6 +701,60 @@ JSON:
     console.log(`[PERSON-LOOKUP] After OpenAPI.it — P.IVA: "${result.partita_iva || 'N/A'}", PEC: "${result.pec || 'N/A'}"`)
   }
 
+  // ── Search 1d2: Dedicated P.IVA search for individual professionals ──
+  // For architects, lawyers, consultants etc. P.IVA is often under "COGNOME NOME" in registroimprese
+  // Also detect profession from ruolo if queryProfessionHint is empty
+  const detectedProfession = queryProfessionHint || (() => {
+    const r = String(result.ruolo || '').toLowerCase()
+    const profDetect: Array<[RegExp, string]> = [
+      [/architett/, 'architetto'], [/avvocat/, 'avvocato'], [/consulent/, 'consulente'],
+      [/ingegner/, 'ingegnere'], [/commercialista/, 'commercialista'], [/notai/, 'notaio'],
+      [/medic|dottor/, 'medico'], [/dentist/, 'dentista'], [/geometr/, 'geometra'],
+      [/psicolog/, 'psicologo'], [/fisioterap/, 'fisioterapista'], [/veterinar/, 'veterinario'],
+      [/restaurat/, 'restauratore'], [/farmacist/, 'farmacista'], [/agronomo/, 'agronomo'],
+    ]
+    for (const [re, prof] of profDetect) if (re.test(r)) return prof
+    return ''
+  })()
+  if (!result.partita_iva && detectedProfession) {
+    const reverseName1d2 = personName.split(' ').reverse().join(' ')
+    const cityCtx1d2 = city ? ` ${city}` : ''
+    const profCtx1d2 = detectedProfession
+    console.log(`[PERSON-LOOKUP] Search 1d2: P.IVA search for professional "${reverseName1d2}" (${profCtx1d2})${cityCtx1d2}`)
+
+    // Try 1: registroimprese.it / informazioniaziende.it with COGNOME NOME
+    const q1d2a = `"${reverseName1d2}" ${profCtx1d2}${cityCtx1d2} partita IVA ditta individuale site:registroimprese.it OR site:informazioniaziende.it OR site:ufficiocamerale.it`
+    const text1d2a = await tavilySearch(q1d2a, true, reverseName1d2, true)
+    if (text1d2a.length > 50) {
+      const ext1d2a = await gptExtract(text1d2a, `Trova la P.IVA della ditta individuale di "${personName}" (formato camerale: "${reverseName1d2}"), ${profCtx1d2}${cityCtx1d2 ? ` a${cityCtx1d2}` : ''}. La ragione sociale DEVE contenere "${reverseName1d2}" o "${personName}". JSON:\n{"partita_iva":"P.IVA 11 cifre","ragione_sociale":"ragione sociale esatta","pec":"PEC se disponibile"}`)
+      const piva1d2 = (ext1d2a.partita_iva || '').replace(/\D/g, '')
+      const rs1d2 = String(ext1d2a.ragione_sociale || '').toLowerCase()
+      const pWords1d2 = personName.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3)
+      if (piva1d2.length === 11 && pWords1d2.some((w: string) => rs1d2.includes(w))) {
+        result.partita_iva = piva1d2
+        if (!isJunk(ext1d2a.pec) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ext1d2a.pec) && !result.pec) result.pec = ext1d2a.pec
+        if (!result._camerale_ragione_sociale) result._camerale_ragione_sociale = ext1d2a.ragione_sociale
+        console.log(`[PERSON-LOOKUP] Search 1d2: ✅ P.IVA found for professional: ${piva1d2} (rs: "${ext1d2a.ragione_sociale}")`)
+      }
+    }
+
+    // Try 2: professional registry (ordine) + Tavily if still missing
+    if (!result.partita_iva) {
+      const q1d2b = `"${personName}" ${profCtx1d2}${cityCtx1d2} "partita iva" OR "P.IVA" OR "codice fiscale" ordine albo`
+      const text1d2b = await tavilySearch(q1d2b, true, personName, true)
+      if (text1d2b.length > 50) {
+        const ext1d2b = await gptExtract(text1d2b, `Trova la P.IVA di "${personName}", ${profCtx1d2}${cityCtx1d2 ? ` a${cityCtx1d2}` : ''}. SOLO P.IVA intestata a QUESTA persona. JSON:\n{"partita_iva":"P.IVA 11 cifre","pec":"PEC se disponibile"}`)
+        const piva1d2b = (ext1d2b.partita_iva || '').replace(/\D/g, '')
+        if (piva1d2b.length === 11) {
+          result.partita_iva = piva1d2b
+          if (!isJunk(ext1d2b.pec) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ext1d2b.pec) && !result.pec) result.pec = ext1d2b.pec
+          console.log(`[PERSON-LOOKUP] Search 1d2b: ✅ P.IVA found via albo/ordine: ${piva1d2b}`)
+        }
+      }
+    }
+    console.log(`[PERSON-LOOKUP] After Search 1d2 — P.IVA: "${result.partita_iva || 'N/A'}"`)
+  }
+
   // ── Search 1f: Scrape company website for contacts + data (same as company-lookup) ──
   if (result.sito_web && (!result.email || !result.telefono || !result.pec)) {
     const siteBase = String(result.sito_web).startsWith('http') ? String(result.sito_web) : `https://${result.sito_web}`
@@ -767,8 +903,50 @@ JSON:
               const pecM = html.match(/(?:Indirizzo\s*)?PEC<\/b><\/p><\/div>\s*<div[^>]*><p>([^<]+@[^<]+)/i)
               if (pecM) crData.pec = pecM[1].trim().toLowerCase()
             }
+            const crLooksLikeCompany = /s\.?r\.?l|societa|società|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s/i.test(`${crData.ragione_sociale || ''} ${crData.forma_giuridica || ''}`)
+            const crProfessionText = `${crData.ragione_sociale || ''} ${crData.codice_ateco || ''}`.toLowerCase()
+            let crRejectedForProfessional = false
+            // ── COMPANY NAME FILTER: if user specified a company, CR ragione_sociale MUST match ──
+            if (queryCompanyHint && crData.ragione_sociale) {
+              const hintClean = queryCompanyHint.toLowerCase().replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|di|e)\b/gi, '').replace(/[^a-zà-ú0-9\s]/gi, '').trim()
+              const crClean = crData.ragione_sociale.toLowerCase().replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|di|e)\b/gi, '').replace(/[^a-zà-ú0-9\s]/gi, '').trim()
+              const hintWords = hintClean.split(/\s+/).filter((w: string) => w.length >= 3)
+              const crMatches = hintWords.length > 0 && hintWords.some((w: string) => crClean.includes(w))
+              if (!crMatches) {
+                console.log(`[PERSON-LOOKUP] CompanyReports REJECTED — ragione_sociale "${crData.ragione_sociale}" does NOT match query company "${queryCompanyHint}" — omonimia`)
+                delete result.partita_iva; delete result.pec; delete result.dati_azienda
+                delete result._cr_ragione_sociale; delete result._cr_sede_legale
+                result.piva_scartata = pivaStr
+                result.piva_scartata_motivo = `P.IVA intestata a "${crData.ragione_sociale}" (non corrisponde a "${queryCompanyHint}")`
+                crRejectedForProfessional = true
+              }
+            }
+            // ── CITY FILTER: if user specified a city, CR sede_legale MUST match ──
+            if (!crRejectedForProfessional && queryCityHint && crData.sede_legale) {
+              const cityLow = queryCityHint.toLowerCase()
+              const sedeLow = crData.sede_legale.toLowerCase()
+              if (!sedeLow.includes(cityLow) && cityLow.length >= 3) {
+                console.log(`[PERSON-LOOKUP] CompanyReports REJECTED — sede "${crData.sede_legale}" does NOT match city "${queryCityHint}" — omonimia`)
+                delete result.partita_iva; delete result.pec; delete result.dati_azienda
+                delete result._cr_ragione_sociale; delete result._cr_sede_legale
+                result.piva_scartata = pivaStr
+                result.piva_scartata_motivo = `P.IVA in "${crData.sede_legale}" (non corrisponde a "${queryCityHint}")`
+                crRejectedForProfessional = true
+              }
+            }
+            if (!crRejectedForProfessional && detectedProfession && crLooksLikeCompany && !crProfessionText.includes(detectedProfession.toLowerCase().slice(0, 6))) {
+              console.log(`[PERSON-LOOKUP] CompanyReports P.IVA ${pivaStr} rejected — "${crData.ragione_sociale}" is a company, not individual professional "${personName}" (${detectedProfession})`)
+              delete result.partita_iva
+              delete result.pec
+              delete result.dati_azienda
+              delete result._cr_ragione_sociale
+              delete result._cr_sede_legale
+              result.piva_scartata = pivaStr
+              result.piva_scartata_motivo = `P.IVA intestata a società/omonimo (${crData.ragione_sociale || crData.forma_giuridica})`
+              crRejectedForProfessional = true
+            }
             // Store as dati_azienda
-            if (Object.keys(crData).length > 0) {
+            if (!crRejectedForProfessional && Object.keys(crData).length > 0) {
               console.log(`[PERSON-LOOKUP] CompanyReports data:`, JSON.stringify(crData))
               if (!result.dati_azienda) result.dati_azienda = {}
               if (crData.ragione_sociale) {
@@ -836,6 +1014,17 @@ JSON:
                 if (pWords.every((w: string) => sLow.includes(w))) { personLinked = true; break }
               }
             }
+            // USER TRUST: if the user explicitly specified a company AND lead-registry returned THAT company,
+            // trust the user even if titolare is not yet verified (may be Gemini 429 / data unavailable)
+            if (!personLinked && queryCompanyHint) {
+              const hintClean = queryCompanyHint.toLowerCase().replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|di|e)\b/gi, '').replace(/[^a-zà-ú0-9\s]/gi, '').trim()
+              const regRsClean = rsLow.replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|di|e)\b/gi, '').replace(/[^a-zà-ú0-9\s]/gi, '').trim()
+              const hintW = hintClean.split(/\s+/).filter((w: string) => w.length >= 3)
+              if (hintW.length > 0 && hintW.some((w: string) => regRsClean.includes(w))) {
+                console.log(`[PERSON-LOOKUP] USER TRUST: user specified "${queryCompanyHint}" and lead-registry found "${regData.ragione_sociale}" — accepting link`)
+                personLinked = true
+              }
+            }
           } else {
             personLinked = true // can't validate short names, accept
           }
@@ -847,6 +1036,16 @@ JSON:
             const profInCompany = companyText.includes(profStem.slice(0, 5))
             if (!profInCompany && companyText.replace(/[^a-z ]/g, '').trim().length > 10) {
               console.log(`[PERSON-LOOKUP] ⚠️ PROFESSION MISMATCH: user asked "${queryProfessionHint}" but company is "${regData.ragione_sociale}" (sector: "${regData.settore || 'N/A'}") — REJECTING`)
+              personLinked = false
+            }
+          }
+
+          // ── CITY VALIDATION: if user specified city, lead-registry result must match ──
+          if (personLinked && queryCityHint && queryCityHint.length >= 3) {
+            const regCity = String(regData.citta || regData.sede_legale || '').toLowerCase()
+            const queryCityLow = queryCityHint.toLowerCase()
+            if (regCity.length > 0 && !regCity.includes(queryCityLow)) {
+              console.log(`[PERSON-LOOKUP] ⚠️ CITY MISMATCH: user asked "${queryCityHint}" but lead-registry returned "${regData.citta || regData.sede_legale}" — REJECTING`)
               personLinked = false
             }
           }
@@ -1305,6 +1504,28 @@ JSON:
     const cityFromSede = authSede.match(/[-–]\s*([A-ZÀ-Ú][A-Za-zÀ-ú\s]+?)\s*(?:\([A-Z]{2}\))?\s*$/)
     if (cityFromSede) result.citta = cityFromSede[1].trim()
     delete result._cr_sede_legale
+  }
+
+  // ── POST-PIPELINE GEOGRAPHIC VALIDATION ──
+  // If user specified a city in the query, validate that the final result city is compatible
+  // This catches late-stage omonimo contamination from CompanyReports/lead-registry/fatturatoitalia
+  if (queryCityHint && result.citta) {
+    const qCityFinal = queryCityHint.toLowerCase().replace(/[^a-zà-ú]/gi, '').trim()
+    const rCityFinal = String(result.citta).toLowerCase().replace(/[^a-zà-ú]/gi, '').trim()
+    const finalCityOk = rCityFinal.includes(qCityFinal) || qCityFinal.includes(rCityFinal)
+      || (qCityFinal.length <= 2 && rCityFinal.startsWith(qCityFinal))
+    if (!finalCityOk && qCityFinal.length >= 3 && rCityFinal.length >= 3) {
+      console.log(`[PERSON-LOOKUP] POST-PIPELINE GEO CHECK: city "${result.citta}" ≠ query "${queryCityHint}" — resetting city to query value`)
+      result._citta_alternativa = result.citta
+      result.citta = queryCityHint
+      // Also check dati_azienda sede — if it's from a different city, flag it
+      if (result.dati_azienda?.sede_legale) {
+        const sedeLow = String(result.dati_azienda.sede_legale).toLowerCase()
+        if (!sedeLow.includes(qCityFinal) && sedeLow.length > 10) {
+          console.log(`[PERSON-LOOKUP] POST-PIPELINE GEO CHECK: sede "${result.dati_azienda.sede_legale}" may be from different city than "${queryCityHint}"`)
+        }
+      }
+    }
   }
 
   // ── WEBSITE P.IVA VALIDATION: discard website if P.IVA on page doesn't match ours ──
@@ -1767,12 +1988,24 @@ JSON:
     console.log(`[PERSON-LOOKUP] REMOVED invalid PEC: "${result.pec}"`)
     delete result.pec
   }
-  // Phone: basic Italian phone validation
-  if (result.telefono) {
-    const digits = String(result.telefono).replace(/\D/g, '')
-    if (digits.length < 9 || digits.length > 13) {
-      console.log(`[PERSON-LOOKUP] REMOVED invalid phone: "${result.telefono}"`)
-      delete result.telefono
+  // Phone: cleanup garbage characters + format normalization + validation
+  for (const phoneKey of ['telefono', 'cellulare']) {
+    if (result[phoneKey] && typeof result[phoneKey] === 'string') {
+      // Remove fontawesome icons (î°, ï‚, etc), emoji, non-printable chars
+      let cleaned = String(result[phoneKey])
+        .replace(/[^\x20-\x7E+]/g, '')
+        .replace(/^\s+|\s+$/g, '')
+        .replace(/\s{2,}/g, ' ')
+      // Normalize: "39 340..." → "+39 340...", "0039 340..." → "+39 340..."
+      cleaned = cleaned.replace(/^0039\s*/, '+39 ').replace(/^39\s+(\d)/, '+39 $1')
+      const digits = cleaned.replace(/\D/g, '')
+      if (digits.length < 9 || digits.length > 13 || cleaned.length === 0) {
+        console.log(`[PERSON-LOOKUP] REMOVED invalid phone "${phoneKey}": "${result[phoneKey]}"`)
+        delete result[phoneKey]
+      } else if (cleaned !== result[phoneKey]) {
+        console.log(`[PERSON-LOOKUP] Phone "${phoneKey}" cleaned: "${result[phoneKey]}" → "${cleaned}"`)
+        result[phoneKey] = cleaned
+      }
     }
   }
 
@@ -1782,6 +2015,13 @@ JSON:
   }
 
   delete result._skipSecondLeadRegistry
+  delete result._tavily_last_url
+  delete result._citta_query
+  delete result._citta_scartata
+  delete result._citta_alternativa
+  delete result._omonimo_detected
+  delete result._camerale_data
+  delete result._camerale_ragione_sociale
 
   // ── Social URL validation: must contain actual domain, not placeholder text ──
   const socialValidation: Record<string, string> = {

@@ -1448,7 +1448,13 @@ JSON:
   // ─── Step 9: Classificazione dimensionale EU + Gap Analysis + Stima Premi ──
   const parseFatturato = (f: any): number | null => {
     if (!f) return null
-    const n = Number(String(f).replace(/[^\d]/g, ''))
+    let s = String(f)
+    // Strip year suffixes like "nel 2024", "anno 2023", "(2024)" before digit extraction
+    s = s.replace(/\b(?:nel|anno|year|esercizio)\s*\d{4}\b/gi, '')
+    s = s.replace(/\(\d{4}\)/g, '')
+    // Strip currency symbols and text
+    s = s.replace(/[€$]/g, '').replace(/\b(?:euro|eur)\b/gi, '')
+    const n = Number(s.replace(/[^\d]/g, ''))
     return isNaN(n) || n === 0 ? null : n
   }
   const parseDipendenti = (d: any): number | null => {
