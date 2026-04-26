@@ -283,10 +283,32 @@ export function isCompanyMatch(
 //  IDENTITY MATCHER per PERSONE
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Token significativi di un nome di persona (rimuove particelle "de","di","la"...) */
+/** Token significativi di un nome di persona (rimuove particelle "de","di","la"... e titoli professionali) */
 export function personTokens(name?: string | null): string[] {
   if (!name || typeof name !== 'string') return []
-  const STOP = new Set(['de', 'di', 'da', 'del', 'della', 'dei', 'delle', 'la', 'le', 'lo', 'il'])
+  // Stop words: particelle nobiliari/di legame + titoli professionali italiani e inglesi.
+  // I punti vengono rimossi dal regex sottostante: "Dott." → "dott", "Sig.ra" → "sigra",
+  // "Dott.ssa" → "dottssa", "Prof.ssa" → "profssa".
+  const STOP = new Set([
+    // particelle italiane
+    'de', 'di', 'da', 'del', 'della', 'dei', 'delle', 'dello', 'degli',
+    'la', 'le', 'lo', 'il', 'i', 'gli',
+    // titoli professionali italiani (forme abbreviate normalizzate)
+    // NOTA: il regex sostituisce i punti con spazi, quindi "Dott.ssa" diventa
+    // "dott ssa" (due token), "Sig.ra" → "sig ra", "Prof.ssa" → "prof ssa".
+    // Per questo aggiungiamo anche i suffissi residui ('ssa', 'ra', 'na').
+    'avv', 'avvto',
+    'dott', 'dr', 'dssa', 'dottssa', 'ssa',
+    'ing',
+    'arch',
+    'geom',
+    'prof', 'profssa',
+    'sig', 'sigra', 'signa', 'sigr', 'ra', 'na',
+    'rag',
+    'comm', 'cav', 'mons', 'don', 'rev',
+    // titoli inglesi
+    'mr', 'mrs', 'ms',
+  ])
   return name
     .toLowerCase()
     .replace(/[^a-zà-ú\s'-]/gi, ' ')
