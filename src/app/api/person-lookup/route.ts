@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  type PersonIdentity, type Evidence as IGEvidence,
+  isPersonMatch,
+} from '@/lib/identity-gate'
 
 export const maxDuration = 300
 
@@ -165,7 +169,10 @@ async function handlePersonLookup(req: NextRequest) {
       const data = await res.json()
       const raw = data.choices?.[0]?.message?.content || '{}'
       const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-      return JSON.parse(cleaned)
+      const parsed = JSON.parse(cleaned)
+      // Garantisce che il return sia sempre un oggetto, mai null/array/primitivo
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
+      return {}
     } catch { return {} }
   }
 
@@ -338,8 +345,8 @@ async function handlePersonLookup(req: NextRequest) {
             // Validate it matches the person (business name must contain person's words)
             const regName = String(regData.ragione_sociale || '').toLowerCase()
             const nameParts = personName.toLowerCase().split(/\s+/).filter((p: string) => p.length >= 3)
-            const isPersonMatch = nameParts.every((p: string) => regName.includes(p))
-            if (isPersonMatch) {
+            const isLocalPersonMatch = nameParts.every((p: string) => regName.includes(p))
+            if (isLocalPersonMatch) {
               // ONLY write person-specific contact fields to avoid polluting dati_azienda lookup
               if (regData.telefono) {
                 result.telefono = regData.telefono
@@ -2076,6 +2083,74 @@ JSON:
       } else if (key === 'email' && /^(mario\.rossi|nome\.cognome|info\.test|test@|user@|admin@example|esempio|prova@)/.test(v.toLowerCase())) {
         console.log(`[PERSON-LOOKUP] FINAL CLEANUP: removed fake email "${key}": "${v}"`)
         delete result[key]
+      }
+    }
+  }
+
+  // ── Final PEC domain validation — better empty than wrong ──
+  const PEC_DOMAIN_RX_PL = /@(?:[a-z0-9.\-]*\.)?(?:pec|legalmail|pecimprese|arubapec|postecert|cert\.legalmail|pec\.cciaa|pec\.it|sicurezzapostale|registerpec|mypec|actaliscertymail|telecompost|bpm|namirial|infocert|trust)[a-z0-9.\-]*\.[a-z]{2,}$/i
+  if (result.pec && typeof result.pec === 'string' && !PEC_DOMAIN_RX_PL.test(result.pec)) {
+    console.log(`[PERSON-LOOKUP] FINAL: PEC "${result.pec}" is not a valid PEC domain — clearing`)
+    if (!result.email) result.email = result.pec
+    delete result.pec
+  }
+  if (result.email && typeof result.email === 'string' && PEC_DOMAIN_RX_PL.test(result.email) && !result.pec) {
+    console.log(`[PERSON-LOOKUP] FINAL: email "${result.email}" is a PEC domain — moving to PEC`)
+    result.pec = result.email
+    delete result.email
+  }
+  // ── Final social junk validation ──
+  if (result.facebook && typeof result.facebook === 'string') {
+    const fb = String(result.facebook).replace(/\/+$/, '')
+    if (/^https?:\/\/(?:www\.|m\.)?facebook\.com\/?$/i.test(fb) ||
+        /^https?:\/\/(?:www\.|m\.)?facebook\.com\/(groups|pages|sharer|share|dialog|tr|plugins|events)\/?$/i.test(fb)) {
+      console.log(`[PERSON-LOOKUP] FINAL: REMOVED junk Facebook "${result.facebook}"`)
+      delete result.facebook
+    }
+  }
+  if (result.instagram && typeof result.instagram === 'string') {
+    const ig = String(result.instagram).replace(/\/+$/, '')
+    if (/^https?:\/\/(?:www\.)?instagram\.com\/?$/i.test(ig) ||
+        /^https?:\/\/(?:www\.)?instagram\.com\/(p|reel|tv|stories|explore|accounts)\/?$/i.test(ig)) {
+      console.log(`[PERSON-LOOKUP] FINAL: REMOVED junk Instagram "${result.instagram}"`)
+      delete result.instagram
+    }
+  }
+  if (result.linkedin && typeof result.linkedin === 'string') {
+    const li = String(result.linkedin).replace(/\/+$/, '')
+    // Junk: solo dominio
+    if (/^https?:\/\/(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com\/?$/i.test(li)) {
+      console.log(`[PERSON-LOOKUP] FINAL: REMOVED junk LinkedIn "${result.linkedin}"`)
+      delete result.linkedin
+    }
+  }
+  // Placeholder LinkedIn (es. "linkedin.com/in/valentina-barbareschi-xxxxxx" con
+  // sequenze di "xxxx", "yyyy", "0000", "1234567" che sono evidentemente segnaposto).
+  for (const k of ['linkedin', 'facebook', 'instagram', 'twitter', 'twitter_x', 'tiktok', 'youtube'] as const) {
+    const v = (result as any)[k]
+    if (v && typeof v === 'string') {
+      // Pattern di placeholder: 4+ x/y/z/0 consecutive, sequenze ascending tipo 12345
+      if (/[xyz]{4,}/i.test(v) || /(?:0{4,}|1234567|abcdef|placeholder|esempio|example|sample)/i.test(v)) {
+        console.log(`[PERSON-LOOKUP] FINAL: REMOVED placeholder ${k} "${v}"`)
+        delete (result as any)[k]
+      }
+    }
+  }
+
+  // ── FINAL: Deriva il sito dall'email business se manca ──
+  // Es. "barosio@studiobarosio.it" → sito "https://studiobarosio.it"
+  // NON applicare se email è generica (gmail, hotmail, alice.it, libero, ecc.) o PEC.
+  if (!result.sito && !result.sito_web && result.email && typeof result.email === 'string') {
+    const emailDom = String(result.email).split('@')[1]?.toLowerCase().trim() || ''
+    if (emailDom && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(emailDom)) {
+      const isGeneric = /^(gmail|yahoo|hotmail|outlook|libero|virgilio|tiscali|alice|aruba|live|icloud|protonmail|tin|me|pec|legalmail|pecimprese|pecmail|postacert|casellapec)\./i.test(emailDom)
+        || /^(gmail|yahoo|hotmail|outlook)\.[a-z]+$/i.test(emailDom)
+        || emailDom === 'pec.it' || emailDom === 'libero.it' || emailDom === 'alice.it'
+      if (!isGeneric) {
+        // Strip eventuali sottodomini "mail." / "www." / "pec." per derivare il sito
+        const cleanDom = emailDom.replace(/^(?:mail|www|pec|smtp|webmail|posta)\./, '')
+        result.sito = `https://${cleanDom}`
+        console.log(`[PERSON-LOOKUP] FINAL: derived sito "${result.sito}" from email "${result.email}"`)
       }
     }
   }

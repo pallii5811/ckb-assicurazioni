@@ -14,11 +14,12 @@
 param(
   [string]$BaseUrl = "http://localhost:3000",
   [int]$TimeoutSec = 300,
-  [string]$OutputFile = "tests/regression/results-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+  [string]$OutputFile = "tests/regression/results-$(Get-Date -Format 'yyyyMMdd-HHmmss').json",
+  [string]$GroundTruthFile = "companies-ground-truth.json"
 )
 
 $ErrorActionPreference = 'Stop'
-$groundTruthPath = Join-Path $PSScriptRoot 'companies-ground-truth.json'
+$groundTruthPath = if ([System.IO.Path]::IsPathRooted($GroundTruthFile)) { $GroundTruthFile } else { Join-Path $PSScriptRoot $GroundTruthFile }
 if (-not (Test-Path $groundTruthPath)) { throw "Ground truth file not found: $groundTruthPath" }
 
 $groundTruth = Get-Content $groundTruthPath -Raw -Encoding UTF8 | ConvertFrom-Json

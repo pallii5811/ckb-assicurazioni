@@ -974,14 +974,28 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     const pivaStr = websitePiva || ''
     const openaiKey = process.env.OPENAI_API_KEY
 
+    // ── TAVILY BUDGET CONTROL ──
+    // Max calls allowed for lead-registry fallback
+    let tavilyCallsCount = 0
+    const MAX_TAVILY_CALLS = 5
+
     // Helper: single Tavily search (with retry on 429)
-    async function tavilySearch(query: string): Promise<string> {
+    async function tavilySearch(query: string, _onlyBestMatch = false, deep = false): Promise<string> {
+      if (tavilyCallsCount >= MAX_TAVILY_CALLS) {
+        console.log(`[LEAD-REGISTRY] Tavily budget reached (${MAX_TAVILY_CALLS} calls). Skipping query: "${query}"`)
+        return ''
+      }
+      
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
+          tavilyCallsCount++
+          const depth = deep ? 'advanced' : 'basic'
+          console.log(`[LEAD-REGISTRY] Tavily API Call ${tavilyCallsCount}/${MAX_TAVILY_CALLS} (depth: ${depth}): "${query}"`)
+          
           const res = await fetch('https://api.tavily.com/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ api_key: tavilyKey, query, search_depth: 'advanced', include_answer: true, max_results: 5 }),
+            body: JSON.stringify({ api_key: tavilyKey, query, search_depth: depth, include_answer: false, max_results: 5 }),
             signal: AbortSignal.timeout(15000),
           })
           if (res.status === 429 && attempt === 0) {
@@ -1052,6 +1066,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     }
 
     function mergeTavily(extracted: Record<string, any>) {
+      const PEC_DOMAIN_RX = /@(?:[a-z0-9.\-]*\.)?(?:pec|legalmail|pecimprese|arubapec|postecert|cert\.legalmail|pec\.cciaa|pec\.it|sicurezzapostale|registerpec|mypec|actaliscertymail|telecompost|bpm|namirial|infocert|trust)[a-z0-9.\-]*\.[a-z]{2,}$/i
       for (const [k, v] of Object.entries(extracted)) {
         if (isJunkValue(v)) continue
         // ATECO must be XX.XX.XX format — reject pure digits like "12345"
@@ -1061,6 +1076,19 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
         }
         if (isHallucinatedNumber(k, v)) {
           console.log(`[LEAD-REGISTRY] REJECTED hallucinated ${k}="${v}" (unrealistic for IT company)`)
+          continue
+        }
+        // PEC must have a valid PEC domain — reject normal emails like info@azienda.it
+        if (k === 'pec' && typeof v === 'string' && !PEC_DOMAIN_RX.test(v)) {
+          console.log(`[LEAD-REGISTRY] REJECTED non-PEC email in PEC field: "${v}"`)
+          // If it's a valid email, save it as regular email instead
+          if (!profile.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) profile.email = v
+          continue
+        }
+        // If email has PEC domain, move it to pec instead
+        if (k === 'email' && typeof v === 'string' && PEC_DOMAIN_RX.test(v) && !profile.pec) {
+          console.log(`[LEAD-REGISTRY] SWAP email→PEC: "${v}" has PEC domain`)
+          profile.pec = v
           continue
         }
         if (k === 'persone' || k === 'soci' || k === 'amministratori') {
@@ -1117,7 +1145,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     // ── Search 1: Visura / camerale (titolare, soci, ATECO, capitale) ──
     if (!profile.titolare || !profile.codice_ateco) {
       const q1 = `"${companyId}" ${pivaStr} visura camerale rappresentante legale amministratore delegato titolare soci ATECO`
-      const text1 = await tavilySearch(q1)
+      const text1 = await tavilySearch(q1, false, true)
       if (text1.length > 50) {
         const ext1 = await gptExtract(text1, `Estrai i dati della visura camerale per "${companyId}". IMPORTANTE: il "titolare" deve essere il RAPPRESENTANTE LEGALE o AMMINISTRATORE DELEGATO (chi gestisce e firma per l'azienda), NON un semplice socio. JSON:
 {"titolare":"nome e cognome del RAPPRESENTANTE LEGALE o AMMINISTRATORE DELEGATO (NON un semplice socio)","titolare_ruolo":"ruolo esatto (es: Rappresentante Legale, Amministratore Delegato, Titolare)","codice_ateco":"codice numerico ATECO","descrizione_ateco":"descrizione attività","forma_giuridica":"tipo società","capitale_sociale":"importo","sede_legale":"indirizzo completo con CAP e città","data_costituzione":"anno o data","pec":"indirizzo PEC","partita_iva":"numero P.IVA","codice_fiscale":"CF azienda","persone":[{"nome":"Nome Cognome","ruolo":"Rappresentante Legale / Amministratore Delegato / Amministratore Unico / Socio / Titolare (specifica il ruolo ESATTO)","cf":"codice fiscale se disponibile","quota":"% se socio"}]}`)
@@ -1288,7 +1316,7 @@ JSON:
     // ── Search 2: Bilancio / dati finanziari ──
     if (!profile.fatturato || !profile.dipendenti) {
       const q2 = `"${companyId}" ${pivaStr} bilancio fatturato ricavi dipendenti utile netto`
-      const text2 = await tavilySearch(q2)
+      const text2 = await tavilySearch(q2, false, true)
       if (text2.length > 50) {
         const ext2 = await gptExtract(text2, `Estrai i dati finanziari per "${companyId}". JSON:
 {"fatturato":"importo in euro dell'ultimo bilancio","dipendenti":"numero dipendenti","utile_netto":"importo","totale_attivo":"importo","fatturato_anno":"anno di riferimento","classe_fatturato":"es. 100K-500K o 1M-5M","costo_personale":"importo","capitale_sociale":"importo"}`)
@@ -1314,8 +1342,8 @@ JSON:
 
     // ── Search 3b: Social media + contatti azienda (LinkedIn, Instagram, Facebook, telefono) ──
     if (!profile.linkedin || !profile.telefono) {
-      const q3b = `"${companyId}" ${city} linkedin.com instagram.com facebook.com telefono contatti`
-      const text3b = await tavilySearch(q3b)
+      const q3b = `"${companyId}" ${city || ''} telefono email sito instagram facebook linkedin contatti`
+      const text3b = await tavilySearch(q3b, false, false)
       if (text3b.length > 50) {
         const ext3b = await gptExtract(text3b, `Cerca i profili social e i contatti dell'azienda "${companyId}" (NON del titolare, dell'AZIENDA).
 ATTENZIONE: Restituisci SOLO URL e dati TROVATI ESPLICITAMENTE nel testo. NON inventare URL.
