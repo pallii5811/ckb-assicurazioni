@@ -38,6 +38,15 @@ async function fetchHtmlSafe(url: string, ms = 6000): Promise<string> {
   }
 }
 
+function isPlausibleItalianPersonName(value: string): boolean {
+  const name = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!name || name.length < 5 || name.length > 60) return false
+  if (/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|società|societa|cooperativa|consorzio|fondazione|associazione|impresa|azienda|ditta)\b/i.test(name)) return false
+  if (!/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*(?:\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*){1,4}$/.test(name)) return false
+  if (/^[a-zà-ÿ]/.test(name)) return false
+  return true
+}
+
 // ── 1. Hiring signals detection (multi-source) ──────────
 
 async function detectHiringSignals(companyName: string, city: string): Promise<Trigger[]> {
@@ -159,15 +168,17 @@ async function detectRegistryChanges(companyName: string, piva: string): Promise
 
       if (adminMatch?.[1]) {
         const adminName = adminMatch[1].trim()
-        triggers.push({
-          type: 'admin_change',
-          severity: 'medium',
-          title: `Amministratore: ${adminName}`,
-          description: `Identificato l'amministratore/legale rappresentante dell'azienda`,
-          source: 'Registro Imprese',
-          date: null,
-          insuranceRelevance: 'Contatto diretto per proposta polizze D&O (Directors & Officers) e RC Amministratori',
-        })
+        if (isPlausibleItalianPersonName(adminName)) {
+          triggers.push({
+            type: 'admin_change',
+            severity: 'medium',
+            title: `Amministratore: ${adminName}`,
+            description: `Identificato l'amministratore/legale rappresentante dell'azienda`,
+            source: 'Registro Imprese',
+            date: null,
+            insuranceRelevance: 'Contatto diretto per proposta polizze D&O (Directors & Officers) e RC Amministratori',
+          })
+        }
       }
 
       // Check for recent changes via date patterns

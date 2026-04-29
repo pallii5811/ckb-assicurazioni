@@ -1049,6 +1049,17 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
       }
       return false
     }
+    const COMPANY_NAME_IN_PERSON_RX = /\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|società|societa|cooperativa|consorzio|fondazione|associazione|impresa|azienda|ditta)\b/i
+    const PERSON_NAME_RX = /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*(?:\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*){1,4}$/
+    const isValidPersonEntry = (p: any): boolean => {
+      const nome = String(p?.nome || '').trim()
+      if (!nome || isJunkValue(nome)) return false
+      if (!PERSON_NAME_RX.test(nome) || COMPANY_NAME_IN_PERSON_RX.test(nome)) return false
+      if (/^[a-zà-ÿ]/.test(nome)) return false
+      const ruolo = String(p?.ruolo || '').toLowerCase().trim()
+      if (/^(n\/?a|non disponibile|non specificato|nessuno|null|undefined)$/.test(ruolo)) p.ruolo = null
+      return true
+    }
     // Sanity bounds for Tavily/GPT hallucinations — realistic for ~99% of Italian companies
     // Only ~20 IT companies exceed 10B € fatturato; top employers ~150k (Poste Italiane)
     // Edge cases (Stellantis, ENI) won't use Tavily fallback anyway — they're in Registro Imprese
@@ -1094,7 +1105,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
         if (k === 'persone' || k === 'soci' || k === 'amministratori') {
           if (Array.isArray(v) && v.length > 0) {
             // Filter out junk person entries
-            const clean = v.filter((p: any) => p?.nome && !isJunkValue(p.nome))
+            const clean = v.filter(isValidPersonEntry)
             if (clean.length > 0 && !profile.persone) profile.persone = clean
           }
         } else if (!profile[k]) {
@@ -1333,8 +1344,22 @@ JSON:
       const q3 = `"${companyId}" ${city} certificazioni ISO SOA flotta veicoli immobili proprietà bandi appalti`
       const text3 = await tavilySearch(q3)
       if (text3.length > 50) {
-        const ext3 = await gptExtract(text3, `Estrai TUTTE le informazioni utili per un broker assicurativo su "${companyId}". JSON:
-{"certificazioni":["ISO 9001","SOA","ecc"],"ha_flotta_veicoli":true/false,"numero_veicoli":"numero se noto","ha_immobili_proprieta":true/false,"immobili_descrizione":"descrizione","partecipa_appalti_pubblici":true/false,"appalti_info":"dettagli","sinistri_noti":"eventuali sinistri noti","attivita_estero":true/false,"rischi_specifici":["rischio 1","rischio 2"],"note_broker":"altre info utili per assicuratore"}`)
+        const ext3 = await gptExtract(text3, `Sei un broker assicurativo senior. Estrai SOLO dati verificabili e specifici per "${companyId}", usando anche questi dati reali già noti:
+Ragione sociale: ${profile.ragione_sociale || companyId}
+P.IVA: ${profile.partita_iva || pivaStr || 'N/D'}
+ATECO: ${profile.codice_ateco || 'N/D'} — ${profile.descrizione_ateco || 'N/D'}
+Forma giuridica: ${profile.forma_giuridica || 'N/D'}
+Fatturato: ${profile.fatturato || 'N/D'}
+Dipendenti: ${profile.dipendenti || 'N/D'}
+Sede: ${profile.sede_legale || city || 'N/D'}
+
+REGOLE:
+- Non scrivere frasi generiche. Ogni rischio deve derivare da ATECO/attività, flotta, immobili, appalti, certificazioni, estero o sinistri trovati.
+- Se un dato non è nel testo o nei dati reali sopra, usa null/false/[].
+- note_broker deve essere concreta e azionabile: 3 frasi con rischi, domande da fare e opportunità polizza basate sui dati reali.
+
+JSON:
+{"certificazioni":["ISO 9001","SOA","ecc"],"ha_flotta_veicoli":true/false,"numero_veicoli":"numero se noto","ha_immobili_proprieta":true/false,"immobili_descrizione":"descrizione verificata","partecipa_appalti_pubblici":true/false,"appalti_info":"dettagli verificati","sinistri_noti":"eventuali sinistri noti","attivita_estero":true/false,"rischi_specifici":["rischio specifico basato su attività/ATECO/dati reali"],"note_broker":"note concrete e azionabili per il broker, non generiche"}`)
         mergeTavily(ext3)
         tavilyUsed = true
       }
@@ -1654,6 +1679,7 @@ JSON:
   const fakeNumberRx = /^0?1234567890?\d*$|^0?3456789012$|^0?123456789$/
   const sequentialRx = /1234567|7654321|0000000|9999999/
   const PORTAL_DOMS = ['risultati.it','nomeesatto.it','esattospa.it','reportaziende.it','italiaonline.it','informazione-aziende.it','getfound.it','cercaziende.it','trovaaziende.it','misterimprese.it','guida-monaci.it']
+  const genericInsuranceRx = /è importante considerare|personalizzare le polizze|dimensione dell['’]?azienda|settore per personalizzare|altre info utili|rischio\s*\d|danno economico al cliente|errore professionale/i
   for (const key of Object.keys(profile)) {
     const v = profile[key]
     if (typeof v === 'string') {
@@ -1675,6 +1701,59 @@ JSON:
       } else if (key === 'ragione_sociale' && /^(risultati|ricerca|nome esatto|pagina|home|error)$/i.test(v.trim())) {
         console.log(`[LEAD-REGISTRY] CLEANUP: removed junk ragione_sociale: "${v}"`)
         delete profile[key]
+      }
+    }
+  }
+  if (typeof profile.note_broker === 'string' && genericInsuranceRx.test(profile.note_broker)) {
+    console.log(`[LEAD-REGISTRY] CLEANUP: removed generic note_broker: "${String(profile.note_broker).slice(0, 100)}"`)
+    delete profile.note_broker
+  }
+  if (Array.isArray(profile.rischi_specifici)) {
+    profile.rischi_specifici = (profile.rischi_specifici as any[])
+      .map((r: any) => String(r || '').trim())
+      .filter((r: string) => r.length >= 6 && !genericInsuranceRx.test(r))
+    if ((profile.rischi_specifici as any[]).length === 0) delete profile.rischi_specifici
+  }
+  if (Array.isArray(profile.persone)) {
+    const companyPersonRx = /\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|società|societa|cooperativa|consorzio|fondazione|associazione|impresa|azienda|ditta)\b/i
+    const personNameRx = /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*(?:\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*){1,4}$/
+    profile.persone = (profile.persone as any[]).filter((p: any) => {
+      const nome = String(p?.nome || '').trim()
+      if (!nome || !personNameRx.test(nome) || companyPersonRx.test(nome)) return false
+      if (/^[a-zà-ÿ]/.test(nome)) return false
+      return true
+    })
+    if ((profile.persone as any[]).length === 0) delete profile.persone
+  }
+
+  // ★ FIX bug visto su CAREL S.r.l. (1 dipendente reale ma sistema mostrava 26):
+  // Sanity check incrociato dipendenti × costo_personale.
+  // Stipendio medio annuo lordo Italia ~25-35k€. Sotto 8k€/anno per dipendente
+  // = impossibile (sotto soglia legale). Sopra 250k€/anno per micro-PMI = improbabile
+  // a meno di executive. Se la ratio è fuori, uno dei due dati è sbagliato:
+  // dato il fatturato basso (PMI), è MOLTO PIÙ probabile che dipendenti sia gonfiato
+  // (es. AI/Tavily ha confuso costo_personale con dipendenti) → scartiamo dipendenti.
+  if (profile.dipendenti && profile.costo_personale) {
+    const dip = parseInt(String(profile.dipendenti).replace(/[^\d]/g, ''), 10)
+    const costo = parseInt(String(profile.costo_personale).replace(/[^\d]/g, ''), 10)
+    if (Number.isFinite(dip) && dip > 0 && Number.isFinite(costo) && costo > 0) {
+      const costoPerDip = costo / dip
+      if (costoPerDip < 8000) {
+        console.log(
+          `[LEAD-REGISTRY] CLEANUP: dipendenti SOSPETTO (${dip}) — ratio costo/dip=${costoPerDip.toFixed(0)}€/anno ` +
+          `troppo bassa (sotto stipendio minimo legale). Dato non plausibile, scartato. ` +
+          `Lasciato vuoto: l'utente deve verificare manualmente sulla visura camerale.`
+        )
+        delete profile.dipendenti
+        delete profile.dipendenti_fonte
+        // NO stima fallback: dipendenti deve venire da fonte camerale autoritativa
+        // (FatturatoItalia, CompanyReports, OpenAPI). Meglio campo vuoto che stima.
+      } else if (costoPerDip > 250000 && dip < 5) {
+        console.log(
+          `[LEAD-REGISTRY] CLEANUP: dipendenti SOSPETTO (${dip}) — ratio costo/dip=${costoPerDip.toFixed(0)}€/anno ` +
+          `troppo alta per micro-PMI. Possibile dato dipendenti errato. Mantenuto ma flaggato.`
+        )
+        // Non scartiamo perché un caso valido è la holding con 1 amministratore pagato 300k.
       }
     }
   }

@@ -1506,10 +1506,16 @@ JSON:
   }
   if (result._cr_sede_legale) {
     const authSede = String(result._cr_sede_legale)
-    if (result.dati_azienda) result.dati_azienda.sede_legale = authSede
-    // Extract city from sede (e.g. "VIALE GIOVANNI DA CERMENATE 76 - MILANO (MI)" → "Milano")
-    const cityFromSede = authSede.match(/[-–]\s*([A-ZÀ-Ú][A-Za-zÀ-ú\s]+?)\s*(?:\([A-Z]{2}\))?\s*$/)
-    if (cityFromSede) result.citta = cityFromSede[1].trim()
+    // Validate sede against queryCityHint before accepting it
+    const sedeMatchesCity = !queryCityHint || authSede.toLowerCase().includes(queryCityHint.toLowerCase())
+    if (sedeMatchesCity) {
+      if (result.dati_azienda) result.dati_azienda.sede_legale = authSede
+      // Extract city from sede (e.g. "VIALE GIOVANNI DA CERMENATE 76 - MILANO (MI)" → "Milano")
+      const cityFromSede = authSede.match(/[-–]\s*([A-ZÀ-Ú][A-Za-zÀ-ú\s]+?)\s*(?:\([A-Z]{2}\))?\s*$/)
+      if (cityFromSede) result.citta = cityFromSede[1].trim()
+    } else {
+      console.log(`[PERSON-LOOKUP] REJECTING _cr_sede_legale "${authSede}" — does not match city "${queryCityHint}"`)
+    }
     delete result._cr_sede_legale
   }
 
@@ -1529,8 +1535,60 @@ JSON:
       if (result.dati_azienda?.sede_legale) {
         const sedeLow = String(result.dati_azienda.sede_legale).toLowerCase()
         if (!sedeLow.includes(qCityFinal) && sedeLow.length > 10) {
-          console.log(`[PERSON-LOOKUP] POST-PIPELINE GEO CHECK: sede "${result.dati_azienda.sede_legale}" may be from different city than "${queryCityHint}"`)
+          console.log(`[PERSON-LOOKUP] POST-PIPELINE GEO CHECK: REMOVING sede "${result.dati_azienda.sede_legale}" — does not match city "${queryCityHint}"`)
+          result._sede_scartata = result.dati_azienda.sede_legale
+          delete result.dati_azienda.sede_legale
+          if (result.indirizzo && !String(result.indirizzo).toLowerCase().includes(qCityFinal)) {
+            delete result.indirizzo
+          }
         }
+      }
+    }
+  }
+
+  // ── RETEIMPRESE PHONE SEARCH: get phone from Italian directories immediately ──
+  // This avoids the 2-minute delay caused by waiting for the async company-lookup callback.
+  {
+    const reteCompanyName = result.azienda || company
+    const reteCity = result.citta || city || queryCityHint || ''
+    if (!result.telefono && reteCompanyName && reteCompanyName.length >= 3) {
+      console.log(`[PERSON-LOOKUP] Reteimprese search: "${reteCompanyName}" ${reteCity}`)
+      try {
+        const qRete = `"${reteCompanyName}" ${reteCity} site:reteimprese.it OR site:paginegialle.it OR site:paginebianche.it`
+        const textRete = await tavilySearch(qRete)
+        if (textRete.length > 50) {
+          const phonePattern = /\+?\s*39\s*[03]\d[\s.\-]?\d{2,4}[\s.\-]?\d{2,4}[\s.\-]?\d{0,4}/g
+          const phones: string[] = []
+          let phM
+          while ((phM = phonePattern.exec(textRete)) !== null) phones.push(phM[0].trim())
+          const compTokens = reteCompanyName.toLowerCase()
+            .replace(/[^a-zà-ù0-9\s]/gi, ' ').split(/\s+/)
+            .filter((t: string) => t.length >= 4 && !/^(srl|srls|spa|sas|snc|italia|italy|milano|roma|napoli|torino|bologna|firenze)$/.test(t))
+          if (compTokens.length === 0) compTokens.push(reteCompanyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8))
+          const textReteLow = textRete.toLowerCase()
+          for (const ph of phones) {
+            const phIdx = textRete.indexOf(ph)
+            if (phIdx === -1) continue
+            const window = textReteLow.slice(Math.max(0, phIdx - 300), phIdx + 50)
+            if (compTokens.some((t: string) => window.includes(t))) {
+              const digits = ph.replace(/\D/g, '')
+              const core = digits.startsWith('39') ? digits.slice(2) : digits
+              if (/^0\d{8,10}$/.test(core)) {
+                result.telefono = ph
+                result.telefono_fonte = 'Reteimprese.it'
+                if (!result.fonti.includes('Reteimprese.it')) result.fonti.push('Reteimprese.it')
+                console.log(`[PERSON-LOOKUP] Reteimprese: telefono fisso found: ${ph}`)
+                break
+              } else if (/^3\d{8,9}$/.test(core) && !result.cellulare) {
+                result.cellulare = ph
+                ;(result as any).cellulare_fonte = 'Reteimprese.it'
+                console.log(`[PERSON-LOOKUP] Reteimprese: cellulare found: ${ph}`)
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        console.log(`[PERSON-LOOKUP] Reteimprese search failed: ${e?.message || e}`)
       }
     }
   }
@@ -1576,10 +1634,20 @@ JSON:
   const text2 = await tavilySearch(`"${personName}" ${company} ${result.ruolo || ''} esperienza professionale famiglia`)
   if (text2.length > 50) {
     const ext2 = await gptExtract(text2, `Estrai il profilo completo di "${personName}" come ${result.ruolo || 'professionista'}${company ? ` presso ${company}` : ''}.
-ATTENZIONE CRITICA: "${personName}" è un nome che potrebbe avere OMONIMI. Includi SOLO informazioni che riguardano la persona che lavora/ha lavorato presso "${company || 'azienda non specificata'}". Se trovi esperienze lavorative presso aziende completamente diverse e non collegate, probabilmente riguardano un OMONIMO — in quel caso scrivi null per quel campo. JSON:
+ATTENZIONE CRITICA: "${personName}" è un nome che potrebbe avere OMONIMI. Includi SOLO informazioni che riguardano la persona che lavora/ha lavorato presso "${company || 'azienda non specificata'}". Se trovi esperienze lavorative presso aziende completamente diverse e non collegate, probabilmente riguardano un OMONIMO — in quel caso scrivi null per quel campo.
+RISPONDI SEMPRE IN ITALIANO. Se trovi testi in spagnolo, inglese o altre lingue, traducili in italiano. JSON:
 {"esperienze_precedenti":"aziende/ruoli precedenti se noti","formazione":"titoli di studio","competenze":"competenze professionali principali","anni_esperienza":"anni di esperienza stimati","colleghi_noti":"nomi di colleghi/soci/collaboratori noti nella stessa azienda","legami_familiari":"SOLO legami di SANGUE o matrimonio: coniuge/compagno/a, figli, genitori, fratelli, sorelle, zii, cugini — con NOME se disponibile. NON inserire colleghi, collaboratori, ruoli lavorativi o informazioni professionali qui.","stato_civile":"singolo/sposato/convivente se menzionato pubblicamente","figli":"numero o menzione di figli se pubblico","note":"altre info rilevanti"}`)
     for (const [k, v] of Object.entries(ext2)) {
       if (!isJunk(v) && !result[k]) result[k] = v
+    }
+    // Post-validate formazione: reject if in foreign language (Spanish/English/Portuguese)
+    if (result.formazione && typeof result.formazione === 'string') {
+      const formLow = result.formazione.toLowerCase()
+      const foreignIndicators = /\b(ingenier[íi]a|universidad|communication|university|bachelor|master of|degree|science|engineering|tecnolog[íi]as|informaci[óo]n|comunicaciones|administraci[óo]n|licenciatura|educaci[óo]n|escola|faculdade)\b/i
+      if (foreignIndicators.test(formLow)) {
+        console.log(`[PERSON-LOOKUP] Discarding foreign-language formazione: "${result.formazione}"`)
+        delete result.formazione
+      }
     }
     // Post-validate esperienze: if they mention unrelated companies but NOT ours, discard (omonimo data)
     if (company && result.esperienze_precedenti && typeof result.esperienze_precedenti === 'string') {
@@ -1762,23 +1830,107 @@ JSON:
   }
 
   // ── Search 3: Info assicurativa + stima capacità ──
+  // Build a RICH context from all collected company data for specific insurance analysis
   const role = result.ruolo || ''
   const tipoLavoro = result.tipo_lavoro || ''
   const seniority = result.seniority || ''
-  const text3 = await tavilySearch(`"${personName}" ${company} ${role} assicurazione rischi professionali polizza`)
-  if (text3.length > 50) {
-    const ext3 = await gptExtract(text3, `Analizza il profilo di "${personName}" (ruolo: ${role || 'non specificato'}, azienda: ${company || 'non specificata'}, tipo: ${tipoLavoro || 'non specificato'}, seniority: ${seniority || 'non specificata'}) dal punto di vista assicurativo e finanziario.
+  const da = result.dati_azienda || {}
+  const atecoCode = da.codice_ateco || da.ateco || ''
+  const atecoDesc = da.descrizione_ateco || ''
+  const fatturato = da.fatturato || ''
+  const dipendenti = da.dipendenti || ''
+  const hasVerifiedFatturato = !!fatturato && !/^(0|n\/?d|n\/?a|null|undefined|non disponibile|non specificato)$/i.test(String(fatturato).trim())
+  const hasVerifiedDipendenti = !!dipendenti && !/^(0|n\/?d|n\/?a|null|undefined|non disponibile|non specificato)$/i.test(String(dipendenti).trim())
+  const verifiedDipNum = hasVerifiedDipendenti ? parseInt(String(dipendenti).replace(/[^\d]/g, ''), 10) : null
+  const formaGiuridica = da.forma_giuridica || ''
+  const sedeLegale = da.sede_legale || result.indirizzo || ''
+  const settoreAz = da.settore || result.settore || ''
+  const companyContext = [
+    company ? `Azienda: "${company}"` : '',
+    atecoCode ? `ATECO: ${atecoCode}` : '',
+    atecoDesc ? `Attività: ${atecoDesc}` : '',
+    fatturato ? `Fatturato: €${fatturato}` : '',
+    dipendenti ? `Dipendenti: ${dipendenti}` : '',
+    formaGiuridica ? `Forma giuridica: ${formaGiuridica}` : '',
+    sedeLegale ? `Sede: ${sedeLegale}` : '',
+    settoreAz ? `Settore: ${settoreAz}` : '',
+  ].filter(Boolean).join(', ')
 
-Stima la capacità finanziaria basandoti su: ruolo, seniority, settore, dimensione azienda, tipo di lavoro.
+  const text3 = await tavilySearch(`"${personName}" ${company} ${role} assicurazione rischi professionali polizza ${atecoDesc || settoreAz || ''}`)
+  if (text3.length > 50) {
+    const ext3 = await gptExtract(text3, `Sei un consulente assicurativo esperto italiano. Analizza il profilo di "${personName}" e genera raccomandazioni SPECIFICHE e CONCRETE basate sui DATI REALI dell'azienda.
+
+DATI REALI DELL'AZIENDA:
+${companyContext || 'Dati aziendali non disponibili'}
+Ruolo persona: ${role || 'titolare/amministratore'}
+Tipo lavoro: ${tipoLavoro || 'non specificato'}
+Seniority: ${seniority || 'non specificata'}
+
+REGOLE FONDAMENTALI:
+- Le polizze consigliate devono essere SPECIFICHE per il codice ATECO e il settore REALE dell'azienda
+- I rischi professionali devono derivare dall'attività REALE (es. per ATECO 63.22 = trasporti → rischi logistici, responsabilità vettoriale; per ATECO 62.01 = software → rischi cyber, PI, danni a terzi)
+- Le note per il broker devono contenere FATTI CONCRETI e ACTIONABLE basati SOLO sui dati reali disponibili.
+- VIETATO inventare o stimare fatturato/dipendenti. Se fatturato non è nei DATI REALI, scrivi "fatturato non verificato" e NON inserire importi. Se dipendenti non è nei DATI REALI, scrivi "dipendenti non verificati" e NON inserire numeri.
+- Se nei DATI REALI c'è "Dipendenti: 1", NON scrivere "3-5 dipendenti", "organico di 3", "piccolo team", ecc.
+- NON scrivere frasi generiche tipo "è importante considerare la dimensione dell'azienda". Scrivi cose SPECIFICHE.
+- La stima_capacita_risparmio deve basarsi su fatturato reale e ruolo, NON essere generica
+- Usa priorita "obbligatoria" SOLO per coperture obbligatorie per legge verificabili (es. INAIL se ci sono dipendenti, RC professionale solo per professioni regolamentate). Per RCT/O, infortuni privati, cyber, tutela legale usa "critica" o "raccomandata".
 
 JSON:
-{"rischi_professionali":["rischio 1","rischio 2"],"polizze_consigliate":[{"polizza":"nome polizza","priorita":"obbligatoria/critica/raccomandata","motivo":"motivazione"}],"note_broker":"info utili per un broker assicurativo","stima_capacita_risparmio":"bassa / media / medio-alta / alta / molto alta (basata su ruolo e seniority)","ambiti_protection":["vita","salute","infortuni","RC professionale","casa","auto","previdenza","investimenti"],"priorita_commerciale":"freddo / tiepido / caldo / molto caldo (quanto è probabile che abbia bisogno di assicurazione)"}`)
+{"rischi_professionali":["rischio specifico 1 basato su ATECO/settore reale","rischio specifico 2"],"polizze_consigliate":[{"polizza":"nome polizza SPECIFICA","priorita":"obbligatoria/critica/raccomandata","motivo":"motivazione CONCRETA con riferimento ai dati reali dell'azienda"}],"note_broker":"analisi DETTAGLIATA e CONCRETA per il broker: include riferimenti a fatturato, dipendenti, settore, rischi specifici, opportunità di cross-selling, punti di attenzione. Minimo 3-4 frasi specifiche.","stima_capacita_risparmio":"bassa / media / medio-alta / alta / molto alta (GIUSTIFICA con dati reali: es. 'media — fatturato €500k, settore IT, 5 dipendenti')","ambiti_protection":["vita","salute","infortuni","RC professionale","casa","auto","previdenza","investimenti"],"priorita_commerciale":"freddo / tiepido / caldo / molto caldo (GIUSTIFICA: es. 'caldo — SRL con 10 dipendenti senza copertura infortuni')"}`)
     for (const [k, v] of Object.entries(ext3)) {
       if (v && v !== 'null' && !result[k]) {
         result[k] = v
       }
     }
-    console.log(`[PERSON-LOOKUP] Search 3 done`)
+    const unverifiedFinancialRx = /fatturato|ricav|volume\s+d['’]?affari|€|\b\d+\s*(k|mila|mln|milion)/i
+    const employeeNumberRx = /\b([2-9]|[1-9]\d+)\s*(dipendent|addett|collaborator|persone|unità|risorse)|\b3\s*-\s*5\b/i
+    if (typeof result.note_broker === 'string') {
+      const note = result.note_broker
+      const inventedFatturato = !hasVerifiedFatturato && unverifiedFinancialRx.test(note)
+      const inventedDipendenti = (!hasVerifiedDipendenti && /dipendent|addett|organico|personale|collaborator/i.test(note))
+        || (verifiedDipNum === 1 && employeeNumberRx.test(note))
+      if (inventedFatturato || inventedDipendenti || /è importante considerare|personalizzare le polizze/i.test(note)) {
+        const facts = [
+          `azienda ${result.azienda || company || 'non specificata'}`,
+          atecoDesc ? `attività: ${atecoDesc}` : settoreAz ? `settore: ${settoreAz}` : '',
+          hasVerifiedFatturato ? `fatturato verificato: ${fatturato}` : 'fatturato non verificato',
+          hasVerifiedDipendenti ? `dipendenti verificati: ${dipendenti}` : 'dipendenti non verificati',
+          sedeLegale ? `sede: ${sedeLegale}` : '',
+        ].filter(Boolean).join('; ')
+        result.note_broker = `Analisi prudente basata solo su dati verificati: ${facts}. Per il broker: verificare in call le coperture RCT/O, infortuni/INAIL se presenti dipendenti, tutela legale e coperture tecniche coerenti con l'attività. Non usare stime di fatturato o organico finché non sono confermate da visura/bilancio.`
+        console.log(`[PERSON-LOOKUP] Rewrote broker note to remove invented financial/employee data`)
+      }
+    }
+    if (Array.isArray(result.polizze_consigliate)) {
+      result.polizze_consigliate = result.polizze_consigliate.map((p: any) => {
+        if (!p || typeof p !== 'object') return p
+        const pol = String(p.polizza || '').toLowerCase()
+        const motivo = String(p.motivo || '')
+        if (p.priorita === 'obbligatoria' && !/inail|rc auto|rca|responsabilità civile professionale obbligatoria|rc professionale obbligatoria/i.test(pol)) {
+          p.priorita = 'critica'
+        }
+        if (/responsabilità civile professionale|rc professionale/i.test(pol) && !/avvocat|commercialist|medic|ingegner|architett|geometr|intermediar|consulent/i.test(`${role} ${settoreAz} ${atecoDesc}`.toLowerCase())) {
+          p.polizza = 'Responsabilità Civile Terzi/Prestatori (RCT/O)'
+          p.priorita = p.priorita === 'obbligatoria' ? 'critica' : p.priorita
+        }
+        if (!hasVerifiedFatturato && unverifiedFinancialRx.test(motivo)) {
+          p.motivo = 'Raccomandazione basata su attività/settore verificato; fatturato non verificato, da confermare prima di dimensionare massimali e premio.'
+        }
+        if ((verifiedDipNum === 1 && employeeNumberRx.test(motivo)) || (!hasVerifiedDipendenti && /dipendent|addett|organico/i.test(motivo))) {
+          p.motivo = hasVerifiedDipendenti
+            ? `Raccomandazione coerente con attività e presenza dipendenti verificata (${dipendenti}); verificare mansioni e coperture INAIL/infortuni.`
+            : 'Raccomandazione da verificare: numero dipendenti non disponibile, necessario confermare organico prima della proposta.'
+        }
+        return p
+      }).filter((p: any) => p && typeof p === 'object' && p.polizza && p.motivo)
+    }
+    if (Array.isArray(result.rischi_professionali)) {
+      result.rischi_professionali = result.rischi_professionali
+        .map((r: any) => String(r || '').trim())
+        .filter((r: string) => r.length >= 8 && !/errore professionale|danno economico al cliente|rischio\s*\d/i.test(r))
+    }
+    console.log(`[PERSON-LOOKUP] Search 3 done — rischi: ${Array.isArray(ext3.rischi_professionali) ? ext3.rischi_professionali.length : 0}, polizze: ${Array.isArray(ext3.polizze_consigliate) ? ext3.polizze_consigliate.length : 0}`)
   }
 
   // ── Search 4: Proprietà immobiliari + patrimonio ──
@@ -1838,17 +1990,71 @@ JSON:
 
   // ── Search 5: Altre aziende + cariche societarie ──
   {
-    const q5 = `"${personName}" amministratore socio titolare cariche societarie visura camerale aziende`
+    const q5 = `"${personName}" ${city} amministratore socio titolare cariche societarie visura camerale aziende registroimprese.it OR ufficiocamerale.it`
     const text5 = await tavilySearch(q5)
     if (text5.length > 50) {
-      const ext5 = await gptExtract(text5, `Cerca TUTTE le cariche societarie e aziende collegate a "${personName}". 
-IMPORTANTE: restituisci SOLO dati REALI trovati nel testo. NON inventare aziende.
+      const ext5 = await gptExtract(text5, `Cerca TUTTE le cariche societarie e aziende collegate a "${personName}"${city ? ` di ${city}` : ''}.
+IMPORTANTE: 
+- Restituisci SOLO aziende che trovi LETTERALMENTE nel testo con nome ESATTO.
+- NON inventare aziende o cariche. Se non trovi nulla, restituisci un array vuoto.
+- La persona deve risultare come titolare, amministratore, socio o avere una carica ESPLICITA.
+- Se trovi solo il nome della persona senza aziende specifiche, restituisci array vuoto.
 JSON:
-{"cariche_societarie":[{"azienda":"nome azienda","ruolo":"ruolo/carica","stato":"attiva/cessata","partita_iva":"P.IVA se disponibile"}],"numero_aziende_attive":"quante aziende attive ha","partecipazioni":"partecipazioni societarie note","storico_imprenditoriale":"breve cronologia imprenditoriale se disponibile"}`)
+{"cariche_societarie":[{"azienda":"ragione sociale ESATTA trovata nel testo","ruolo":"ruolo/carica ESATTA (es. Amministratore Unico, Socio, Titolare)","stato":"attiva/cessata","partita_iva":"P.IVA se disponibile nel testo"}],"numero_aziende_attive":"quante aziende attive ha (SOLO se esplicitamente indicato)","partecipazioni":"partecipazioni societarie ESPLICITAMENTE citate","storico_imprenditoriale":"cronologia SOLO se esplicitamente presente nel testo"}`)
+      // Post-validate cariche societarie: filter out hallucinated companies
+      if (Array.isArray(ext5.cariche_societarie)) {
+        const nameWords5 = personName.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3)
+        ext5.cariche_societarie = ext5.cariche_societarie.filter((c: any) => {
+          if (!c?.azienda || typeof c.azienda !== 'string') return false
+          const azLow = c.azienda.toLowerCase()
+          // Reject if azienda name is too short or generic
+          if (azLow.length < 3) return false
+          // Reject obvious GPT hallucinations: generic words, placeholder patterns
+          if (/^(azienda|società|impresa|ditta|studio|attività)\s*(n\.\s*\d+|generica|non\s*specif)/i.test(c.azienda)) return false
+          // Reject if the "azienda" is actually the person's own name (not useful info)
+          if (nameWords5.every((w: string) => azLow.includes(w)) && azLow.split(/\s+/).length <= 3) return false
+          // Reject if ruolo is junk
+          if (c.ruolo && isJunk(c.ruolo)) c.ruolo = null
+          // Must actually exist in the Tavily search text
+          const azTokens = azLow.replace(/[^a-zà-ù0-9\s]/gi, '').split(/\s+/).filter((t: string) => t.length >= 4)
+          const text5Low = text5.toLowerCase()
+          const foundInText = azTokens.length > 0 && azTokens.some((t: string) => text5Low.includes(t))
+          if (!foundInText) {
+            console.log(`[PERSON-LOOKUP] REJECTED hallucinated carica: "${c.azienda}" — not found in search results`)
+            return false
+          }
+          return true
+        })
+        // If we have the known company, ensure it's in the list
+        if (company && ext5.cariche_societarie.length >= 0) {
+          const knownCompLow = company.toLowerCase()
+          const alreadyHasKnown = ext5.cariche_societarie.some((c: any) => {
+            const cLow = String(c.azienda || '').toLowerCase()
+            return cLow.includes(knownCompLow) || knownCompLow.includes(cLow)
+          })
+          if (!alreadyHasKnown) {
+            ext5.cariche_societarie.unshift({
+              azienda: company,
+              ruolo: role || 'Titolare/Amministratore',
+              stato: 'attiva',
+              partita_iva: result.partita_iva || null,
+            })
+          }
+        }
+      }
       for (const [k, v] of Object.entries(ext5)) {
         if (!isJunk(v) && !result[k]) result[k] = v
       }
-      console.log(`[PERSON-LOOKUP] Search 5 cariche done`)
+      console.log(`[PERSON-LOOKUP] Search 5 cariche done — ${Array.isArray(ext5.cariche_societarie) ? ext5.cariche_societarie.length : 0} cariche validate`)
+    } else if (company) {
+      // No Tavily results — at least show the known company
+      result.cariche_societarie = [{
+        azienda: company,
+        ruolo: role || 'Titolare/Amministratore',
+        stato: 'attiva',
+        partita_iva: result.partita_iva || null,
+      }]
+      result.numero_aziende_attive = '1'
     }
   }
 
