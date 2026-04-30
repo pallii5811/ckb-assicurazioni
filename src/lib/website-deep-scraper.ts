@@ -120,8 +120,41 @@ function isPecEmail(email: string): boolean {
   return domain.includes('pec.') || domain.includes('.pec') || domain.endsWith('legalmail.it') || domain.endsWith('pecimprese.it') || domain.endsWith('arubapec.it') || domain.endsWith('pec-email.it') || domain.endsWith('postecert.it')
 }
 
+/**
+ * Decode Cloudflare's email obfuscation. Cloudflare wraps emails like
+ * `<a class="__cf_email__" data-cfemail="abcdef0123">[email&nbsp;protected]</a>`
+ * to block scrapers. The hex string is XOR-encoded with the first byte as key.
+ * Many Italian SME sites have Cloudflare email-protection enabled by default.
+ */
+function decodeCloudflareEmails(html: string): string[] {
+  const decoded: string[] = []
+  // Match data-cfemail="..." attributes (also support data-cfemail='...' and "&quot;)
+  const re = /data-cfemail=["']([0-9a-fA-F]+)["']/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html)) !== null) {
+    const enc = m[1]
+    if (enc.length < 4 || enc.length % 2 !== 0) continue
+    try {
+      const r = parseInt(enc.substr(0, 2), 16)
+      let email = ''
+      for (let i = 2; i < enc.length; i += 2) {
+        const c = parseInt(enc.substr(i, 2), 16) ^ r
+        email += String.fromCharCode(c)
+      }
+      // Validate it looks like an email
+      if (/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email)) {
+        decoded.push(email)
+      }
+    } catch { /* ignore */ }
+  }
+  return decoded
+}
+
 function extractEmails(html: string, page: string): WebsiteScrapedData['emails'] {
-  const matches = html.match(EMAIL_RE) || []
+  // ★ Decode Cloudflare-protected emails first (data-cfemail="..."), then merge with regex matches.
+  // Without this, sites behind Cloudflare email-protection (very common in Italy) return 0 emails.
+  const cfEmails = decodeCloudflareEmails(html)
+  const matches: string[] = [...(html.match(EMAIL_RE) || []), ...cfEmails]
   const seen = new Set<string>()
   const results: WebsiteScrapedData['emails'] = []
 

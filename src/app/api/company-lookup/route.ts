@@ -893,10 +893,23 @@ async function findCompanyReportsByName(companyName: string, cityHint?: string):
       if (missing.length > 0) continue
       const cityLow = cityHint ? normalizeText(cityHint.split(',')[0]) : ''
       if (cityLow && !textNorm.includes(cityLow)) continue
-      const pivaM = text.match(/(?:P\.?\s*IVA|Partita\s+IVA|P\.?\s*Iva)[:\s]*(?:IT)?\s*(\d{11})/i)
-      const piva = pivaM?.[1]
+
+      // ★ PREFER URL-EXTRACTED P.IVA (anti-omonimia):
+      // companyreports.it / ufficiocamerale.it use slug URLs ending with the P.IVA.
+      // Es: https://www.companyreports.it/biotecnica-di-magagnini-...-02534560426
+      // Estrarre dalla URL è inequivocabile, mentre regex sul testo può catturare la
+      // P.IVA SBAGLIATA quando Tavily restituisce una pagina con più aziende elencate.
+      let piva: string | undefined
+      const url = String(r.url || '')
+      const urlPivaM = url.match(/[-\/_](\d{11})(?:[\/?#]|$)/)
+      if (urlPivaM) piva = urlPivaM[1]
+      // Fallback: regex sul testo
+      if (!piva) {
+        const pivaM = text.match(/(?:P\.?\s*IVA|Partita\s+IVA|P\.?\s*Iva)[:\s]*(?:IT)?\s*(\d{11})/i)
+        piva = pivaM?.[1]
+      }
       if (!piva) continue
-      console.log(`[COMPANY-LOOKUP] findCompanyReportsByName: matched P.IVA ${piva} for "${companyName}"`)
+      console.log(`[COMPANY-LOOKUP] findCompanyReportsByName: matched P.IVA ${piva} for "${companyName}" (from ${urlPivaM ? 'URL' : 'text'})`)
       const crData = await scrapeCompanyReports(piva)
       if (crData) {
         crData.partita_iva = crData.partita_iva || piva
@@ -1793,45 +1806,74 @@ export async function POST(req: NextRequest) {
   // Strategy 2: Tavily search for company website (if still no site)
   if (!result.sito && process.env.TAVILY_API_KEY) {
     const compNameForSite = (result.ragione_sociale || query) as string
-    console.log(`[COMPANY-LOOKUP] Step 2c: No website found — Tavily search for "${compNameForSite}" sito`)
-    try {
-      const siteRes = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: `"${compNameForSite}" sito ufficiale`, search_depth: 'basic', max_results: 3 }),
-        signal: AbortSignal.timeout(8000),
-      })
-      if (siteRes.ok) {
-        const siteData = await siteRes.json()
-        const results = siteData.results || []
-        // STRONG filter: hostname must contain at least one word (≥4 chars) from the company name
-        // This prevents random sites like 'portiamovalore.uniba.it' being picked for 'PIKSEL S.R.L'
-        const compWords = String(compNameForSite).toLowerCase()
-          .replace(/[^a-z0-9\s]/gi, ' ')
-          .split(/\s+/)
-          .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|group|italia|italy)$/i.test(w))
-        const EXCLUDE_RE = /google|facebook|instagram|linkedin|twitter|paginegialle|yelp|tripadvisor|wikipedia|youtube|atoka|reportaziende|companyreports|ufficiocamerale|registroimprese|dnb|kompass|infocamere|cerved|fattureitalia|tuttitalia|infoimprese|breezy|greenhouse|lever\.co|workable|jobvite|bamboohr|workday|myworkdayjobs|recruitee|smartrecruiters|teamtailor|personio|zohorecruit|hireology|jazzhr|applytojob|indeed|glassdoor|infojobs|subito|immobiliare|idealista|medium\.com|substack|github\.io|netlify\.app|vercel\.app|uniba|unibo|unimi|unipd|unicatt|univ-|university|edu\./
-        for (const r of results) {
+    const cityForSite = (typeof result.citta === 'string' && result.citta) || queryCityHint || ''
+    const pivaForSite = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+
+    // Hostnames that we never want to pick as the company website
+    const EXCLUDE_RE = /google|facebook|instagram|linkedin|twitter|paginegialle|yelp|tripadvisor|wikipedia|youtube|atoka|reportaziende|companyreports|ufficiocamerale|registroimprese|dnb|kompass|infocamere|cerved|fattureitalia|tuttitalia|infoimprese|breezy|greenhouse|lever\.co|workable|jobvite|bamboohr|workday|myworkdayjobs|recruitee|smartrecruiters|teamtailor|personio|zohorecruit|hireology|jazzhr|applytojob|indeed|glassdoor|infojobs|subito|immobiliare|idealista|medium\.com|substack|github\.io|netlify\.app|vercel\.app|uniba|unibo|unimi|unipd|unicatt|univ-|university|edu\./
+
+    // Words from the company name that the hostname must contain (≥4 chars, excluding legal-form suffixes)
+    const compWords = String(compNameForSite).toLowerCase()
+      .replace(/[^a-z0-9\s]/gi, ' ')
+      .split(/\s+/)
+      .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|group|italia|italy|associati|associates|studio|consulting|consulenza)$/i.test(w))
+
+    // Helper: try a Tavily query, return first hostname that passes filters
+    const tryTavily = async (tQuery: string, requireNameMatch: boolean): Promise<string | null> => {
+      try {
+        const tRes = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: tQuery, search_depth: 'basic', max_results: 5 }),
+          signal: AbortSignal.timeout(12000),
+        })
+        if (!tRes.ok) return null
+        const tData = await tRes.json()
+        for (const r of (tData.results || [])) {
           if (!r.url) continue
           try {
             const h = new URL(r.url).hostname.replace(/^www\./, '').toLowerCase()
             if (EXCLUDE_RE.test(h)) continue
-            // Require hostname to contain at least one company-name word
-            if (compWords.length > 0 && !compWords.some((w: string) => h.includes(w))) {
+            // For name-based query enforce hostname-name match; for P.IVA query the URL itself
+            // is already strong evidence so we relax the requirement.
+            if (requireNameMatch && compWords.length > 0 && !compWords.some((w: string) => h.includes(w))) {
               console.log(`[COMPANY-LOOKUP] Step 2c: REJECT "${h}" — does not contain any of [${compWords.join(',')}]`)
               continue
             }
-            result.sito = r.url.split('/').slice(0, 3).join('/')
-            console.log(`[COMPANY-LOOKUP] Step 2c: Tavily found website: ${result.sito}`)
-            break
+            return r.url.split('/').slice(0, 3).join('/')
           } catch { /* skip */ }
         }
+      } catch { /* Tavily failed */ }
+      return null
+    }
+
+    // 2.1 — Name-based search (city hint added to disambiguate omonimie)
+    const nameQuery = cityForSite ? `"${compNameForSite}" ${cityForSite} sito ufficiale` : `"${compNameForSite}" sito ufficiale`
+    console.log(`[COMPANY-LOOKUP] Step 2c: Tavily search by name "${nameQuery}"`)
+    const fromName = await tryTavily(nameQuery, true)
+    if (fromName) {
+      result.sito = fromName
+      console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(name) found website: ${result.sito}`)
+    }
+
+    // 2.2 — P.IVA-based search (the website's footer almost always lists the P.IVA → very reliable)
+    if (!result.sito && pivaForSite.length === 11) {
+      const pivaQuery = `"${pivaForSite}" sito ufficiale azienda contatti`
+      console.log(`[COMPANY-LOOKUP] Step 2c: Tavily fallback by P.IVA "${pivaForSite}"`)
+      const fromPiva = await tryTavily(pivaQuery, false)
+      if (fromPiva) {
+        result.sito = fromPiva
+        console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(P.IVA) found website: ${result.sito}`)
       }
-    } catch { /* Tavily failed */ }
+    }
   }
-  if (result.sito && (!result.partita_iva || !result.pec || !result.telefono || !result.cellulare || !result.email)) {
-    const missingFields = [!result.partita_iva && 'P.IVA', !result.pec && 'PEC', !result.telefono && 'telefono fisso', !result.cellulare && 'cellulare', !result.email && 'email'].filter(Boolean).join(', ')
-    console.log(`[COMPANY-LOOKUP] Step 2c: Missing ${missingFields} — using scrapeWebsiteDeep on ${result.sito}`)
+  // ★ Step 2c: ALWAYS run scrapeWebsiteDeep when we have a sito.
+  // Reason: even if all base fields are filled (e.g. lead-registry hallucinated them), the website
+  // can still expose ADDITIONAL phones/emails for `tutti_telefoni`/`tutte_email` arrays, AND the
+  // P.IVA in the footer is the most authoritative source (overrides lead-registry omonimia).
+  if (result.sito) {
+    const missingFields = [!result.partita_iva && 'P.IVA', !result.pec && 'PEC', !result.telefono && 'telefono fisso', !result.cellulare && 'cellulare', !result.email && 'email'].filter(Boolean).join(', ') || 'none'
+    console.log(`[COMPANY-LOOKUP] Step 2c: Missing ${missingFields} — running scrapeWebsiteDeep on ${result.sito} (always-on)`)
     try {
       const siteUrl = String(result.sito).startsWith('http') ? String(result.sito) : `https://${result.sito}`
       // ★ FIX bug Carpenteria Corona: usa lo stesso scraper deep usato in /api/analyze-site,
@@ -1840,10 +1882,33 @@ export async function POST(req: NextRequest) {
       // email aziendali da PEC, ecc.
       const deep = await scrapeWebsiteDeep(siteUrl)
       console.log(`[COMPANY-LOOKUP] Step 2c: scrapeWebsiteDeep done (${deep.pagesScraped} pages, ${deep.emails.length} emails, ${deep.phones.length} phones)`)
-      // P.IVA dal sito (footer) se non l'avevamo
-      if (!result.partita_iva && deep.partitaIva) {
-        result.partita_iva = deep.partitaIva
-        console.log(`[COMPANY-LOOKUP] Step 2c: P.IVA from website: ${deep.partitaIva}`)
+      // ★ ANTI-OMONIMIA P.IVA: la P.IVA dichiarata nel footer del sito ufficiale è la fonte più
+      // autoritativa (l'azienda dichiara la propria). Se differisce dalla P.IVA che avevamo
+      // (proveniente da lead-registry o altre fonti ricerca-per-nome), questa è quasi sempre
+      // un'omonimia e va sovrascritta. Bug visto su BIOTECNICA Castelfidardo: lead-registry
+      // ritornava la P.IVA di un'altra Biotecnica omonima; il footer del sito aveva quella corretta.
+      const sitePiva = (deep.partitaIva || '').replace(/\D/g, '')
+      const currentPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+      if (sitePiva.length === 11) {
+        if (!currentPiva) {
+          result.partita_iva = deep.partitaIva
+          console.log(`[COMPANY-LOOKUP] Step 2c: P.IVA from website: ${deep.partitaIva}`)
+        } else if (currentPiva !== sitePiva) {
+          console.log(`[COMPANY-LOOKUP] Step 2c: ⚠️ P.IVA OVERRIDE — current=${currentPiva} site_footer=${sitePiva} (trusting website footer as authoritative)`)
+          result.partita_iva = deep.partitaIva
+          ;(result as any).partita_iva_fonte = 'Sito ufficiale azienda (footer)'
+          // Clear stale financial data so Step 2d/CompanyReports re-fetches with correct P.IVA
+          delete result.fatturato
+          delete result.fatturato_anno
+          delete result.dipendenti
+          delete result.utile_netto
+          delete result.utile_netto_anno
+          delete result.capitale_sociale
+          // Drop fonti tied to wrong P.IVA so they don't get listed
+          for (let i = fonti.length - 1; i >= 0; i--) {
+            if (/CompanyReports|FatturatoItalia|OpenAPI|lead-registry/i.test(fonti[i])) fonti.splice(i, 1)
+          }
+        }
       }
       // PEC: prima email con type='pec'
       if (!result.pec) {
@@ -1906,6 +1971,78 @@ export async function POST(req: NextRequest) {
       if (!result.linkedin && deep.socialLinks.linkedin) result.linkedin = deep.socialLinks.linkedin
       if (!result.facebook && deep.socialLinks.facebook) result.facebook = deep.socialLinks.facebook
       if (!result.instagram && deep.socialLinks.instagram) result.instagram = deep.socialLinks.instagram
+
+      // ★ FALLBACK PER SITI JS-RENDERED (Flazio, Wix, Squarespace, Webflow, ecc.):
+      // scrapeWebsiteDeep usa fetch HTTP che vede solo HTML statico. Per i siti che
+      // renderizzano contenuti via JavaScript (es. biotecnicaassociati.com su Flazio),
+      // l'HTML statico è praticamente vuoto → 0 email/telefoni.
+      // Soluzione: chiama il backend Hetzner /audit-url che usa Playwright headless
+      // con rendering JS completo (lo stesso scraper usato dal worker batch in
+      // Categoria + Città — per questo lì funziona sempre).
+      if (deep.emails.length === 0 && deep.phones.length === 0) {
+        console.log(`[COMPANY-LOOKUP] Step 2c: 0 contatti dal fetch statico — fallback Playwright via Hetzner /audit-url (JS render)`)
+        try {
+          const auditRes = await fetch(`${backendUrl}/audit-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: siteUrl }),
+            signal: AbortSignal.timeout(35000), // /audit-url può prendere ~20s
+          })
+          if (auditRes.ok) {
+            const audit = await auditRes.json() as any
+            console.log(`[COMPANY-LOOKUP] Step 2c: /audit-url returned email=${audit?.email || 'none'} tel=${audit?.telefono || 'none'}`)
+            // Email
+            const auditEmail = typeof audit?.email === 'string' ? audit.email.trim().toLowerCase() : ''
+            if (auditEmail && /^[a-z0-9._%+-]+@[a-z0-9.\-]+\.[a-z]{2,}$/i.test(auditEmail)) {
+              if (!result.email) {
+                result.email = auditEmail
+                ;(result as any).email_fonte = 'Sito ufficiale (Playwright JS render)'
+                console.log(`[COMPANY-LOOKUP] Step 2c: Email from /audit-url: ${auditEmail}`)
+              }
+              // Aggiungi anche all'array tutte_email se non già presente
+              const tutteEmail = ((result as any).tutte_email || []) as Array<{ email: string; tipo: string; pagina: string }>
+              if (!tutteEmail.find(e => e.email === auditEmail)) {
+                const isGeneric = /^(info|contatti|contact|admin|office|segreteria|reception|booking|sales|vendite|support|assistenza|help|marketing|hr|noreply|webmaster|newsletter|press|media)/i.test(auditEmail)
+                tutteEmail.push({ email: auditEmail, tipo: isGeneric ? 'generic' : 'personal', pagina: '/' })
+                ;(result as any).tutte_email = tutteEmail
+              }
+            }
+            // Telefono (può essere fisso o cellulare — distinguiamo dal prefisso)
+            const auditTel = typeof audit?.telefono === 'string' ? audit.telefono.trim() : ''
+            if (auditTel) {
+              const digits = auditTel.replace(/\D/g, '').replace(/^(39|0039)/, '')
+              const isMobile = digits.startsWith('3') && digits.length >= 9
+              if (isMobile) {
+                if (!result.cellulare) {
+                  result.cellulare = auditTel
+                  ;(result as any).cellulare_fonte = 'Sito ufficiale (Playwright JS render)'
+                  console.log(`[COMPANY-LOOKUP] Step 2c: Cellulare from /audit-url: ${auditTel}`)
+                }
+                const tuttiCel = ((result as any).tutti_cellulari || []) as Array<{ numero: string; fonte: string; pagina: string }>
+                if (!tuttiCel.find(t => t.numero.replace(/\D/g, '').slice(-9) === digits.slice(-9))) {
+                  tuttiCel.push({ numero: auditTel, fonte: 'Sito ufficiale (Playwright JS render)', pagina: '/' })
+                  ;(result as any).tutti_cellulari = tuttiCel
+                }
+              } else {
+                if (!result.telefono) {
+                  result.telefono = auditTel
+                  result.telefono_fonte = 'Sito ufficiale (Playwright JS render)'
+                  console.log(`[COMPANY-LOOKUP] Step 2c: Telefono fisso from /audit-url: ${auditTel}`)
+                }
+                const tuttiTel = ((result as any).tutti_telefoni || []) as Array<{ numero: string; fonte: string; pagina: string }>
+                if (!tuttiTel.find(t => t.numero.replace(/\D/g, '').slice(-9) === digits.slice(-9))) {
+                  tuttiTel.push({ numero: auditTel, fonte: 'Sito ufficiale (Playwright JS render)', pagina: '/' })
+                  ;(result as any).tutti_telefoni = tuttiTel
+                }
+              }
+            }
+          } else {
+            console.log(`[COMPANY-LOOKUP] Step 2c: /audit-url HTTP ${auditRes.status}`)
+          }
+        } catch (e: any) {
+          console.log(`[COMPANY-LOOKUP] Step 2c: /audit-url failed — ${e?.message || e}`)
+        }
+      }
     } catch (e: any) {
       console.log(`[COMPANY-LOOKUP] Step 2c: scrapeWebsiteDeep failed — ${e?.message || e}`)
     }
@@ -5089,10 +5226,20 @@ JSON:
     {
       const ragSrcW = (result.ragione_sociale || result.nome_commerciale || '') as string
       const cleanedRagW = ragSrcW.toLowerCase()
-        .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|consorzio|cooperativa|gmbh|ltd|inc|corp|gruppo|group|holding|italia|italy)\b\.?/gi, '')
+        .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|consorzio|cooperativa|gmbh|ltd|inc|corp|gruppo|group|holding|italia|italy|societa|società|nome|collettivo|tra|professionisti|associati|associates|studio)\b\.?/gi, '')
         .replace(/[^a-z0-9]/g, '')
+      // ★ ANTI-FALSE-NEGATIVE: estraiamo anche i TOKEN significativi della ragione sociale (≥5 char),
+      // perché i nomi lunghi tipo "Biotecnica Di Magagnini Mattia E Malatini Silvia Societa' In
+      // Nome Collettivo Tra Professionisti" non possono mai essere un substring del dominio
+      // (che è sempre più corto). Basta che il dominio contenga UNO dei token significativi
+      // (es. "biotecnica" → biotecnicaassociati.com → ACCEPT).
+      const significantTokens = ragSrcW.toLowerCase()
+        .replace(/['`\u2019\u02bc]/g, '')
+        .split(/[^a-z0-9]+/)
+        .filter(t => t.length >= 5 && !/^(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|consorzio|cooperativa|gmbh|societa|società|nome|collettivo|tra|professionisti|associati|associates|studio|italia|italy|gruppo|group|holding|company|corp|incorporated|limited|mattia|silvia|magagnini|malatini|marco|mario|luigi|paolo|giuseppe|antonio|francesco)$/i.test(t))
+
       // Se la ragione è troppo corta (<4) o non disponibile, salto il gate (rischio falsi positivi).
-      if (cleanedRagW.length >= 4) {
+      if (cleanedRagW.length >= 4 || significantTokens.length > 0) {
         const tokenize = (s: string) => s.toLowerCase()
           .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|consorzio|cooperativa|italia|italy|group|gruppo|holding)\b\.?/gi, '')
           .replace(/[^a-z0-9]/g, '')
@@ -5103,6 +5250,12 @@ JSON:
           if (!cand) return false
           const c = tokenize(cand)
           if (!c || c.length < 3) return false
+          // ★ TOKEN MATCH (primary check): se il candidato contiene un token significativo
+          // del nome aziendale (≥5 char), è accettato. Funziona quando ragione è lunga es.
+          // "biotecnica" è in "biotecnicaassociati.com" → ACCEPT.
+          for (const tok of significantTokens) {
+            if (c.includes(tok)) return true
+          }
           // Try both the raw tokenized candidate AND a version with trailing legal suffix removed.
           const cStripped = stripTrailingLegal(c)
           const candidates = cStripped !== c && cStripped.length >= 3 ? [c, cStripped] : [c]
