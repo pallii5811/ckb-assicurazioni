@@ -1782,6 +1782,8 @@ export async function POST(req: NextRequest) {
       const domLow = emailDomain.toLowerCase()
       const isPec = PROVIDER_PEC_DOMAINS.has(domLow)
         || /^(pec|legalmail|pecimprese|pecmail|postacert|certmail)\./i.test(emailDomain)
+        || /\.(pec|legalmail|pecimprese|arubapec|postecert|sicurezzapostale|registerpec|mypec|actaliscertymail|casellapec|namirial|infocert)\./i.test(emailDomain)
+        || /\.(pec\.it|legalmail\.it|arubapec\.it|pecimprese\.it)$/i.test(emailDomain)
       if (!isGeneric && !isPec) {
         // ANTI-MISMATCH: only derive website if the email domain is plausibly related to the company name.
         // E.g. "Hintown Brera's Gem" with email "info@offersitaly.com" — "offersitaly" has nothing to do
@@ -4160,10 +4162,14 @@ JSON:
     if (!result.email) result.email = result.pec
     delete result.pec
   }
-  // Also: if result.email has a PEC domain, move it to pec
-  if (result.email && typeof result.email === 'string' && PEC_DOMAIN_RX.test(result.email) && !result.pec) {
-    console.log(`[COMPANY-LOOKUP] Step 6a: email "${result.email}" is a PEC domain — moving to PEC`)
-    result.pec = result.email
+  // Also: if result.email has a PEC domain, move it to pec (or delete if pec already set)
+  if (result.email && typeof result.email === 'string' && PEC_DOMAIN_RX.test(result.email)) {
+    if (!result.pec) {
+      console.log(`[COMPANY-LOOKUP] Step 6a: email "${result.email}" is a PEC domain — moving to PEC`)
+      result.pec = result.email
+    } else {
+      console.log(`[COMPANY-LOOKUP] Step 6a: email "${result.email}" is a PEC domain and PEC already set — removing duplicate`)
+    }
     delete result.email
   }
 
@@ -4350,10 +4356,14 @@ JSON:
     if (!result.email) result.email = result.pec
     delete result.pec
   }
-  // Final email→PEC swap: if email has PEC domain and pec is empty, move it
-  if (result.email && typeof result.email === 'string' && PEC_DOMAIN_FINAL_RX.test(result.email) && !result.pec) {
-    console.log(`[COMPANY-LOOKUP] Step 6d: FINAL SWAP — email "${result.email}" is PEC domain, moving to PEC`)
-    result.pec = result.email
+  // Final email→PEC swap: if email has PEC domain, move/remove it
+  if (result.email && typeof result.email === 'string' && PEC_DOMAIN_FINAL_RX.test(result.email)) {
+    if (!result.pec) {
+      console.log(`[COMPANY-LOOKUP] Step 6d: FINAL SWAP — email "${result.email}" is PEC domain, moving to PEC`)
+      result.pec = result.email
+    } else {
+      console.log(`[COMPANY-LOOKUP] Step 6d: FINAL SWAP — email "${result.email}" is PEC domain and PEC already set, removing`)
+    }
     delete result.email
   }
 
@@ -4380,6 +4390,8 @@ JSON:
       ])
       const isPecEmailDomain = PROVIDER_PEC_DOMAINS_6E.has((emailDomain || '').toLowerCase())
         || /(?:^pec\.|^legalmail\.|^pecimprese\.|^arubapec\.|^postecert\.|^casellapec\.|^certmail\.)/i.test(emailDomain || '')
+        || /\.(pec|legalmail|pecimprese|arubapec|postecert|sicurezzapostale|registerpec|mypec|actaliscertymail|casellapec|namirial|infocert)\./i.test(emailDomain || '')
+        || /\.(pec\.it|legalmail\.it|arubapec\.it|pecimprese\.it)$/i.test(emailDomain || '')
       if (emailDomain && currentDomain !== emailDomain && !isGenericEmailDomain && !isPecEmailDomain && compactName.length >= 5 && (emailDomainKey.includes(compactName) || compactName.includes(emailDomainKey))) {
         console.log(`[COMPANY-LOOKUP] Step 6e: replacing website "${result.sito}" with email-domain website "https://${emailDomain}"`)
         result.sito = `https://${emailDomain}`
@@ -4388,6 +4400,12 @@ JSON:
   }
   if (result.sito && typeof result.sito === 'string') {
     const sitoStr = String(result.sito).trim()
+    // PEC domain gate — NEVER accept a PEC provider subdomain as a website
+    const PEC_SITE_RX = /\.(pec|legalmail|pecimprese|arubapec|postecert|sicurezzapostale|registerpec|mypec|actaliscertymail|casellapec|namirial|infocert)\./i
+    if (PEC_SITE_RX.test(sitoStr) || /^https?:\/\/[^/]*\.(pec\.it|legalmail\.it|arubapec\.it|pecimprese\.it)\/?$/i.test(sitoStr)) {
+      console.log(`[COMPANY-LOOKUP] Step 6e: REMOVED PEC-domain website "${sitoStr}"`)
+      delete result.sito
+    }
     // Known parked/domain-for-sale patterns
     const PARKED_DOMAINS = /(?:sedoparking|godaddy|namecheap|afternic|dan\.com|flippa|hugedomains|buydomains|domainhasprice|parkingcrew|parking\.)/i
     if (PARKED_DOMAINS.test(sitoStr)) {
@@ -5366,6 +5384,8 @@ JSON:
       if (emDom && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(emDom)) {
         const isGen = /^(gmail|yahoo|hotmail|outlook|libero|virgilio|tiscali|alice|aruba|live|icloud|protonmail|tin|me)\./i.test(emDom)
           || /^(pec|legalmail|pecimprese|pecmail|postacert|casellapec)\./i.test(emDom)
+          || /\.(pec|legalmail|pecimprese|arubapec|postecert|sicurezzapostale|registerpec|mypec|actaliscertymail|casellapec|namirial|infocert)\./i.test(emDom)
+          || /\.(pec\.it|legalmail\.it|arubapec\.it|pecimprese\.it)$/i.test(emDom)
           || ['pec.it', 'libero.it', 'alice.it', 'gmail.com', 'yahoo.it', 'hotmail.it', 'outlook.it', 'tin.it', 'aruba.it'].includes(emDom)
         if (!isGen) {
           const clean = emDom.replace(/^(?:mail|www|pec|smtp|webmail|posta)\./, '')
@@ -5394,7 +5414,10 @@ JSON:
       ])
       // Anche generic email providers (raro ma possibile per cooperative/freelance)
       const isGenericProvider = /^(gmail|yahoo|hotmail|outlook|libero|virgilio|tiscali|alice|aruba|live|icloud|protonmail|tin)\./i.test(pecDom)
-      const isPecGen = PROVIDER_PEC_DOMAINS_FINAL.has(pecDom) || isGenericProvider
+      // Detect subdomains of PEC providers: artusiocostruzioni.legalmail.it, studio.pec.it, etc.
+      const isPecSubdomain = /\.(pec|legalmail|pecimprese|arubapec|postecert|sicurezzapostale|registerpec|mypec|actaliscertymail|casellapec|namirial|infocert)\./i.test(pecDom)
+        || /\.(pec\.it|legalmail\.it|arubapec\.it|pecimprese\.it)$/i.test(pecDom)
+      const isPecGen = PROVIDER_PEC_DOMAINS_FINAL.has(pecDom) || isGenericProvider || isPecSubdomain
       if (pecDom && !isPecGen && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(pecDom)) {
         result.sito = `https://${pecDom}`
         console.log(`[COMPANY-LOOKUP] FINAL: derived sito "${result.sito}" from PEC dominio "${pecDom}"`)

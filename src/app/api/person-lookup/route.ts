@@ -3,6 +3,7 @@ import {
   type PersonIdentity, type Evidence as IGEvidence,
   isPersonMatch,
 } from '@/lib/identity-gate'
+import { scrapeWebsiteDeep } from '@/lib/website-deep-scraper'
 
 export const maxDuration = 300
 
@@ -48,8 +49,20 @@ async function handlePersonLookup(req: NextRequest) {
       body: JSON.stringify({
         model: 'gpt-4o-mini', temperature: 0,
         messages: [
-          { role: 'system', content: 'Separa il nome della persona dagli altri dettagli nella query. Rispondi SOLO con JSON.' },
-          { role: 'user', content: `Dalla query "${query}", estrai le informazioni. JSON:\n{"persona":"nome e cognome","azienda":"nome azienda o vuoto se non specificata","professione":"professione/ruolo se specificato (es. wedding planner, avvocato, architetto)","citta":"città se specificata"}` },
+          { role: 'system', content: 'Separa il nome della persona dagli altri dettagli nella query. Rispondi SOLO con JSON valido, senza testo extra.' },
+          { role: 'user', content: `Dalla query "${query}", estrai TUTTE le informazioni presenti. Il nome dell'azienda può essere ANCHE un brand atipico (può iniziare con numeri, non avere forma giuridica, essere un singolo token). Riconosci come "azienda" qualsiasi token che NON sia il nome della persona, NON sia una professione, NON sia una città.
+
+Esempi:
+- "Mario Rossi" → {"persona":"Mario Rossi","azienda":"","professione":"","citta":""}
+- "Mario Rossi 4planstudio Cuneo" → {"persona":"Mario Rossi","azienda":"4planstudio","professione":"","citta":"Cuneo"}
+- "Anna Bianchi Pirelli S.p.A. Milano" → {"persona":"Anna Bianchi","azienda":"Pirelli S.p.A.","professione":"","citta":"Milano"}
+- "Luca Verdi avvocato Roma" → {"persona":"Luca Verdi","azienda":"","professione":"avvocato","citta":"Roma"}
+- "Alberto Pacellini 4planstudio cuneo" → {"persona":"Alberto Pacellini","azienda":"4planstudio","professione":"","citta":"cuneo"}
+- "Giulia Neri Studio Bianchi avvocato Torino" → {"persona":"Giulia Neri","azienda":"Studio Bianchi","professione":"avvocato","citta":"Torino"}
+- "Andrea Conti Tech Solutions srl Bologna" → {"persona":"Andrea Conti","azienda":"Tech Solutions srl","professione":"","citta":"Bologna"}
+
+Ora estrai per la query "${query}". JSON:
+{"persona":"nome e cognome","azienda":"nome azienda o brand (anche se atipico tipo numeri/single-token), vuoto se non c'è","professione":"professione/ruolo se specificato","citta":"città se specificata"}` },
         ],
       }),
       signal: AbortSignal.timeout(8000),
@@ -100,6 +113,22 @@ async function handlePersonLookup(req: NextRequest) {
         queryCityHint = cityM[1].trim()
         queryPersonName = query.replace(CITIES_RX, '').trim()
         console.log(`[PERSON-LOOKUP] REGEX FALLBACK (city only): persona="${queryPersonName}", città="${queryCityHint}"`)
+      }
+    }
+  }
+
+  if (!queryCompanyHint && queryCityHint) {
+    const cityRx = new RegExp(`${queryCityHint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')
+    const beforeCity = query.replace(cityRx, '').trim()
+    const beforeTokens = beforeCity.split(/\s+/).filter(Boolean)
+    const knownProfessions = /^(architetto|architetta|avvocato|avvocata|ingegnere|ingegnera|geometra|commercialista|consulente|medico|dottore|dentista|psicologo|fisioterapista|agronomo|notaio)$/i
+    if (beforeTokens.length >= 3 && !beforeTokens.slice(2).some((t: string) => knownProfessions.test(t))) {
+      const possibleCompany = beforeTokens.slice(2).join(' ').trim()
+      const strongCompanySignal = beforeTokens.length >= 4 || /\d/.test(possibleCompany) || /\b(s\.?r\.?l|s\.?p\.?a|studio|group|holding|assicurazioni|consulting|partners?)\b/i.test(possibleCompany)
+      if (strongCompanySignal && possibleCompany.length >= 3) {
+        queryPersonName = beforeTokens.slice(0, 2).join(' ')
+        queryCompanyHint = possibleCompany
+        console.log(`[PERSON-LOOKUP] DETERMINISTIC FALLBACK: persona="${queryPersonName}", azienda="${queryCompanyHint}", città="${queryCityHint}"`)
       }
     }
   }
@@ -174,6 +203,186 @@ async function handlePersonLookup(req: NextRequest) {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
       return {}
     } catch { return {} }
+  }
+
+  // ── Helper: HTTP HEAD/GET to verify a domain actually responds ──
+  // Used to reject hallucinated domains (e.g. "pacelliniarchitetti.it" that doesn't exist)
+  async function isReachableDomain(domain: string): Promise<boolean> {
+    if (!domain || typeof domain !== 'string') return false
+    const url = domain.startsWith('http') ? domain : `https://${domain.replace(/^www\./, '')}`
+    try {
+      const r = await fetch(url, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; lead-validator/1.0)' },
+        signal: AbortSignal.timeout(4000),
+        redirect: 'follow',
+      })
+      if (r.status >= 200 && r.status < 400) return true
+      // Some servers reject HEAD (405) or block it (403): retry with GET
+      if (r.status === 405 || r.status === 403 || r.status === 401) {
+        const g = await fetch(url, {
+          method: 'GET',
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          signal: AbortSignal.timeout(5000),
+          redirect: 'follow',
+        })
+        return g.status >= 200 && g.status < 400
+      }
+      return false
+    } catch { return false }
+  }
+
+  function normalizeHost(value: string): string {
+    if (!value || typeof value !== 'string') return ''
+    try {
+      return new URL(value.startsWith('http') ? value : `https://${value}`).hostname.toLowerCase().replace(/^www\./, '')
+    } catch {
+      return value.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+    }
+  }
+
+  function rootDomain(value: string): string {
+    const host = normalizeHost(value)
+    const parts = host.split('.').filter(Boolean)
+    if (parts.length <= 2) return host
+    return parts.slice(-2).join('.')
+  }
+
+  function companyTokens(value: string): string[] {
+    return value.toLowerCase()
+      .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|srl|srls|spa|sas|snc|societa|società|studio|associazione|di|e)\b/gi, ' ')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w: string) => w.length >= 3)
+  }
+
+  function hostMatchesCompany(hostOrUrl: string, companyName: string): boolean {
+    const host = normalizeHost(hostOrUrl).replace(/[^a-z0-9]/g, '')
+    const tokens = companyTokens(companyName)
+    const joined = tokens.join('')
+    return !!host && ((joined.length >= 3 && host.includes(joined)) || tokens.some((t: string) => host.includes(t)))
+  }
+
+  function sameRootDomain(a: string, b: string): boolean {
+    const ra = rootDomain(a)
+    const rb = rootDomain(b)
+    return !!ra && !!rb && ra === rb
+  }
+
+  function emailMatchesSite(email: string, site: string): boolean {
+    const dom = String(email || '').split('@')[1]?.toLowerCase() || ''
+    return !!dom && sameRootDomain(dom, site)
+  }
+
+  // ── Helper: derive company domain candidates from LinkedIn URL slug ──
+  // e.g. "linkedin.com/in/alberto-pacellini-4planstudio" → ["4planstudio.it","4planstudio.com",...]
+  // Strips the person's name parts from the slug; remaining tokens are the brand.
+  function deriveDomainsFromLinkedIn(linkedinUrl: string, personName: string): string[] {
+    if (!linkedinUrl || typeof linkedinUrl !== 'string') return []
+    const slugM = linkedinUrl.match(/linkedin\.com\/in\/([a-z0-9_-]+)/i)
+    if (!slugM) return []
+    const slug = slugM[1].toLowerCase()
+    const personParts = (personName || '').toLowerCase().split(/\s+/).filter(p => p.length >= 3)
+    const slugParts = slug.split('-').filter(p => p.length >= 3 && !personParts.includes(p) && !/^\d+$/.test(p))
+    if (slugParts.length === 0) return []
+    // Try variations: joined ("4planstudio") and hyphenated ("4-plan-studio")
+    const brandJoined = slugParts.join('')
+    const brandHyphen = slugParts.join('-')
+    const tlds = ['.it', '.com', '.eu', '.net']
+    const candidates: string[] = []
+    for (const tld of tlds) {
+      candidates.push(`${brandJoined}${tld}`)
+      if (brandHyphen !== brandJoined) candidates.push(`${brandHyphen}${tld}`)
+    }
+    return candidates
+  }
+
+  // ── Helper: scrape /team /chi-siamo /staff for SPECIFIC person's contacts ──
+  // Finds the person's name in HTML and extracts phone/email from the surrounding window.
+  // This is much more reliable than picking the first "info@" email of the site.
+  async function scrapeWebsiteForPersonContacts(
+    siteUrl: string,
+    personName: string,
+  ): Promise<{ telefono?: string; email?: string; foundOn?: string }> {
+    if (!siteUrl || !personName) return {}
+    let baseUrl: URL | null = null
+    try { baseUrl = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`) } catch { return {} }
+    const paths = ['/team', '/team/', '/il-team', '/lo-staff', '/staff', '/chi-siamo', '/chi-siamo/', '/about', '/about-us', '/persone', '/people', '/contatti', '/contatti/', '/']
+    const nameParts = personName.toLowerCase().split(/\s+/).filter(p => p.length >= 3)
+    if (nameParts.length === 0) return {}
+    const out: { telefono?: string; email?: string; foundOn?: string } = {}
+    for (const path of paths) {
+      if (out.telefono && out.email) break
+      let url: string
+      try { url = new URL(path, baseUrl).toString() } catch { continue }
+      try {
+        const r = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+            Accept: 'text/html',
+            'Accept-Language': 'it-IT,it;q=0.9',
+          },
+          signal: AbortSignal.timeout(7000),
+          redirect: 'follow',
+        })
+        if (!r.ok) continue
+        const html = await r.text()
+        // Flatten HTML, preserving tel:/mailto: hrefs as plain text
+        const flat = html
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+          .replace(/<a[^>]+href=["'](mailto:|tel:)([^"']+)["'][^>]*>([^<]*)<\/a>/gi, (_m, kind, val, txt) => ` ${kind}${val} ${txt} `)
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/&amp;/gi, '&')
+          .replace(/[ \t]+/g, ' ')
+        const lower = flat.toLowerCase()
+        if (!nameParts.every(p => lower.includes(p))) continue
+        // Find the window around the name (try both orderings: "Mario Rossi" and "Rossi Mario")
+        const orderings = [nameParts.join(' '), nameParts.slice().reverse().join(' ')]
+        let windowText = ''
+        for (const ord of orderings) {
+          const idx = lower.indexOf(ord)
+          if (idx >= 0) {
+            const start = Math.max(0, idx - 80)
+            const end = Math.min(flat.length, idx + ord.length + 500)
+            windowText = flat.slice(start, end)
+            break
+          }
+        }
+        if (!windowText) continue
+        // Phone: prefer tel: href, then free-text Italian phone (mobile 3xx or landline 0xx)
+        if (!out.telefono) {
+          const telHref = windowText.match(/tel:(\+?[\d\s().\-]{7,})/i)
+          const phoneM = telHref ? telHref[1] : (windowText.match(/(?:\+39\s*)?(?:0\d{1,3}[\s.\-]?\d{5,9}|3\d{2}[\s.\-]?\d{6,7})/) || [])[0]
+          if (phoneM) {
+            const norm = String(phoneM).replace(/\s+/g, ' ').trim()
+            const digits = norm.replace(/\D/g, '').replace(/^(39|0039)/, '')
+            if ((digits.startsWith('0') || digits.startsWith('3')) && digits.length >= 9 && digits.length <= 11) {
+              out.telefono = norm
+              out.foundOn = url
+            }
+          }
+        }
+        // Email: prefer mailto: href, then free-text email; skip generic info@ if a personalized one exists
+        if (!out.email) {
+          const mailHref = windowText.match(/mailto:([^\s"'<>]+@[^\s"'<>]+)/i)
+          const allEmails = windowText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []
+          const personalized = allEmails.find(e => {
+            const local = e.split('@')[0].toLowerCase()
+            return nameParts.some(p => local.includes(p))
+          })
+          const chosen = mailHref?.[1] || personalized || allEmails[0]
+          if (chosen && !/\.(?:png|jpg|jpeg|gif|svg|webp)$/i.test(chosen)) {
+            out.email = chosen.toLowerCase()
+            if (!out.foundOn) out.foundOn = url
+          }
+        }
+      } catch { /* try next path */ }
+    }
+    return out
   }
 
   const result: Record<string, any> = { nome_cercato: query, fonti: [] }
@@ -305,6 +514,98 @@ async function handlePersonLookup(req: NextRequest) {
     }
   }
 
+  // ── Pre-1e (NEW): lock sito_web from explicit COMPANY HINT in user query ──
+  // When user types "Mario Rossi Pirelli Milano" or "Alberto Pacellini 4planstudio Cuneo",
+  // we look up the COMPANY directly via lead-registry → Maps (free, no OpenAPI consumption)
+  // and lock sito_web BEFORE the libero-professionista branch can overwrite it with a wrong site.
+  // Validates HTTP reachability to reject hallucinated domains.
+  // Generic: works for any referent type (employees, co-founders, consultants, freelancers).
+  if (queryCompanyHint && queryCompanyHint.length >= 3 && !result.sito_web) {
+    const originPre1e = req.headers.get('host') ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}` : 'http://localhost:3000'
+    const cityForPre1e = queryCityHint || result.citta || ''
+    console.log(`[PERSON-LOOKUP] Pre-1e: trying lead-registry by COMPANY HINT "${queryCompanyHint}" @ "${cityForPre1e}"`)
+    try {
+      const regResPre1e = await fetch(`${originPre1e}/api/lead-registry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead: { nome: queryCompanyHint, azienda: queryCompanyHint, citta: cityForPre1e, sito: '', indirizzo: '', categoria: '' },
+          _skipPersonEnrichment: true,
+        }),
+        signal: AbortSignal.timeout(45000),
+      })
+      if (regResPre1e.ok) {
+        const regDataPre1e = await regResPre1e.json()
+        if (regDataPre1e?.found) {
+          // Validate that the returned company actually matches the hint (avoid omonimi)
+          const regNamePre = String(regDataPre1e.ragione_sociale || '').toLowerCase().replace(/[^a-z0-9\s]/g, '')
+          const hintWords = queryCompanyHint.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 3)
+          const matchesCompany = hintWords.length > 0 && hintWords.every((w: string) => regNamePre.includes(w))
+          if (matchesCompany && regDataPre1e.sito) {
+            const reachablePre = await isReachableDomain(String(regDataPre1e.sito))
+            if (reachablePre) {
+              result.sito_web = regDataPre1e.sito
+              if (!result.fonti.includes('Google Maps (azienda da query)')) result.fonti.push('Google Maps (azienda da query)')
+              console.log(`[PERSON-LOOKUP] Pre-1e: ✓ sito_web LOCKED from company hint: ${result.sito_web}`)
+            } else {
+              console.log(`[PERSON-LOOKUP] Pre-1e: ⚠️ company-hint site "${regDataPre1e.sito}" not reachable — skipping`)
+            }
+          } else if (regDataPre1e.sito) {
+            console.log(`[PERSON-LOOKUP] Pre-1e: company name mismatch — got "${regNamePre}", expected "${queryCompanyHint}" — skipping site`)
+          }
+        }
+      }
+    } catch (e: any) {
+      console.log(`[PERSON-LOOKUP] Pre-1e failed: ${e?.message || e} — continuing with normal flow`)
+    }
+  }
+
+  // ── Pre-1e STEP 2 (NEW): direct brand-domain trial when company hint is present ──
+  // If lead-registry didn't find the right site (or returned a generic association site like
+  // confartigianato.it for an architect), try the brand directly: "4planstudio" → 4planstudio.it/.com/.eu
+  // via HTTP HEAD. Much faster + more reliable than aggregator sites.
+  if (queryCompanyHint && queryCompanyHint.length >= 3 && !result.sito_web) {
+    const brandClean = queryCompanyHint.toLowerCase()
+      .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|soc|coop|scarl|scrl)\b\.?/gi, '')
+      .replace(/[^a-z0-9]/g, '')
+      .trim()
+    if (brandClean.length >= 3) {
+      const candidates = [`${brandClean}.it`, `${brandClean}.com`, `${brandClean}.eu`, `${brandClean}.net`, `studio${brandClean}.it`, `${brandClean}studio.it`]
+      console.log(`[PERSON-LOOKUP] Pre-1e STEP 2: trying brand domain candidates from hint "${queryCompanyHint}": ${candidates.join(', ')}`)
+      for (const cand of candidates) {
+        if (await isReachableDomain(cand)) {
+          result.sito_web = cand
+          if (!result.fonti.includes('Brand domain (derivato da query)')) result.fonti.push('Brand domain (derivato da query)')
+          console.log(`[PERSON-LOOKUP] Pre-1e STEP 2: ✓ brand domain found via direct probe: ${cand}`)
+          break
+        }
+      }
+    }
+  }
+
+  // ── Pre-1e STEP 3 (NEW): domain RELEVANCE validation ──
+  // Reject sito_web that doesn't contain the company brand OR the person's surname in the domain.
+  // Catches false positives like confartigianato.it (the trade association site, not the person's
+  // real workplace). The rule is permissive: keep if EITHER (a) domain contains a brand token of
+  // queryCompanyHint, OR (b) domain contains the person's surname, OR (c) per-name scraping below
+  // will confirm by finding the person's name on the page.
+  // We only flag sites here; the actual "reject" happens after per-name scraping in Pre-1f STEP C
+  // (if the site has the name, it's legit; if not, the contact data is rejected).
+  if (result.sito_web && queryCompanyHint) {
+    const domain = String(result.sito_web).replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase()
+    const brandTokens = queryCompanyHint.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w: string) => w.length >= 3 && !/^(srl|srls|spa|sas|snc|soc|coop)$/i.test(w))
+    const surname = personName.split(/\s+/).slice(-1)[0]?.toLowerCase() || ''
+    const domainHasBrand = brandTokens.some((t: string) => domain.includes(t))
+    const domainHasSurname = surname.length >= 4 && domain.includes(surname)
+    if (!domainHasBrand && !domainHasSurname) {
+      // Mark as suspicious — the per-name scraping in Pre-1f STEP C will be the gate
+      result._sito_web_suspicious = true
+      console.log(`[PERSON-LOOKUP] Pre-1e STEP 3: ⚠️ sito_web "${domain}" doesn't contain brand "${queryCompanyHint}" nor surname "${surname}" — marked suspicious, will require per-name confirmation`)
+    } else {
+      console.log(`[PERSON-LOOKUP] Pre-1e STEP 3: sito_web "${domain}" relevance ✓ (brand=${domainHasBrand}, surname=${domainHasSurname})`)
+    }
+  }
+
   // ── Search 1e (PRIORITY for liberi professionisti): lead-registry con nome persona come "business" ──
   // Per architetti, consulenti, avvocati, ecc. il loro nome È la loro attività su Maps.
   // Usa lo stesso /api/lead-registry di "Dettaglio Lead" (che funziona e scrapa Maps + sito web).
@@ -347,6 +648,14 @@ async function handlePersonLookup(req: NextRequest) {
             const nameParts = personName.toLowerCase().split(/\s+/).filter((p: string) => p.length >= 3)
             const isLocalPersonMatch = nameParts.every((p: string) => regName.includes(p))
             if (isLocalPersonMatch) {
+              if (queryCompanyHint) {
+                console.log(`[PERSON-LOOKUP] Search 1e: explicit company query "${queryCompanyHint}" — NOT importing phone/email/P.IVA/PEC from person-as-business result "${regData.ragione_sociale}"`)
+                if (regData.linkedin && !result.linkedin && String(regData.linkedin).includes('linkedin.com/in')) result.linkedin = regData.linkedin
+                if (regData.instagram && !result.instagram && String(regData.instagram).includes('instagram.com')) result.instagram = regData.instagram
+                if (regData.facebook && !result.facebook && String(regData.facebook).includes('facebook.com')) result.facebook = regData.facebook
+                if (!result.fonti.includes('Google Maps (personale - solo social verificati)')) result.fonti.push('Google Maps (personale - solo social verificati)')
+                continue
+              }
               // ONLY write person-specific contact fields to avoid polluting dati_azienda lookup
               if (regData.telefono) {
                 result.telefono = regData.telefono
@@ -377,7 +686,18 @@ async function handlePersonLookup(req: NextRequest) {
                     console.log(`[PERSON-LOOKUP] Search 1e: OVERRIDE azienda (libero professionista) "${oldAzienda}" → "${cleanedRS}"`)
                   }
                 }
-                if (regData.sito) result.sito_web = regData.sito
+                if (regData.sito && !result.sito_web) {
+                  // ★ Validate HTTP reachability before accepting — rejects hallucinated domains
+                  // ★ Don't overwrite sito_web if already set by Pre-1e (company hint) or LinkedIn fallback
+                  const reachable = await isReachableDomain(regData.sito)
+                  if (reachable) {
+                    result.sito_web = regData.sito
+                  } else {
+                    console.log(`[PERSON-LOOKUP] Search 1e: ⚠️ REJECTED unreachable site "${regData.sito}" from lead-registry (likely hallucinated)`)
+                  }
+                } else if (regData.sito && result.sito_web) {
+                  console.log(`[PERSON-LOOKUP] Search 1e: skipped sito_web override (already set: "${result.sito_web}")`)
+                }
                 if (regData.indirizzo && !/https?:\/\//i.test(regData.indirizzo)) result.indirizzo = regData.indirizzo
                 if (regData.citta && !result.citta) result.citta = regData.citta
                 if (regData.partita_iva && String(regData.partita_iva).replace(/\D/g, '').length === 11) {
@@ -431,7 +751,7 @@ async function handlePersonLookup(req: NextRequest) {
   // ── Search 1b: Contatti + dati camerali via Tavily (solo se Maps personale non ha trovato) ──
   {
     const profCtx1b = queryProfessionHint ? ` ${queryProfessionHint}` : ''
-    const q1b = `"${personName}" ${company}${profCtx1b} ${city} telefono cellulare email contatti reteimprese.it OR paginegialle.it`
+    const q1b = `"${personName}" ${company}${profCtx1b} ${city} telefono cellulare email contatti site:reteimprese.it OR site:paginebianche.it OR site:paginegialle.it`
     const text1b = await tavilySearch(q1b)
     if (text1b.length > 50) {
       const ext1b = await gptExtract(text1b, `Trova i contatti DIRETTI della persona "${personName}"${company ? ` che lavora presso ${company}` : ''}. IMPORTANTE: restituisci SOLO contatti che appartengono a QUESTA persona, NON numeri generici di azienda o centralini. JSON:
@@ -452,7 +772,7 @@ async function handlePersonLookup(req: NextRequest) {
   }
 
   // ── Search 1b2: Dati camerali via Tavily (ufficiocamerale.it, registroimprese.it) ──
-  if (!result.partita_iva || !result.pec) {
+  if ((!result.partita_iva || !result.pec) && !queryCompanyHint) {
     const reverseName = personName.split(' ').reverse().join(' ')
     // Cerca specificamente su siti camerali
     const profCtx1b2 = queryProfessionHint ? ` ${queryProfessionHint}` : ''
@@ -561,7 +881,7 @@ JSON:
 
   // ── Search 1b3: P.IVA fallback — se 1b2 non ha trovato P.IVA, prova con nome azienda ──
   // STRICT validation: the found ragione_sociale must contain the person's name
-  if (!result.partita_iva && company) {
+  if (!result.partita_iva && company && !queryCompanyHint) {
     console.log(`[PERSON-LOOKUP] Search 1b3: P.IVA still missing, trying company name "${company}" on camerale...`)
     const q1b3 = `"${company}" partita IVA "${personName}" ufficiocamerale.it`
     const text1b3 = await tavilySearch(q1b3, true, personName, true)
@@ -673,7 +993,7 @@ JSON:
 
   // ── Search 1d: OpenAPI.it — ULTIMO FALLBACK, solo se mancano P.IVA e PEC ──
   const openapiToken = process.env.OPENAPI_IT_TOKEN
-  if (openapiToken && !result.partita_iva && !result.pec) {
+  if (openapiToken && !result.partita_iva && !result.pec && !queryCompanyHint) {
     const reverseName = personName.split(' ').reverse().join(' ').toUpperCase()
     const normalName = personName.toUpperCase()
     for (const nameVar of [reverseName, normalName]) {
@@ -723,7 +1043,7 @@ JSON:
     for (const [re, prof] of profDetect) if (re.test(r)) return prof
     return ''
   })()
-  if (!result.partita_iva && detectedProfession) {
+  if (!result.partita_iva && detectedProfession && !queryCompanyHint) {
     const reverseName1d2 = personName.split(' ').reverse().join(' ')
     const cityCtx1d2 = city ? ` ${city}` : ''
     const profCtx1d2 = detectedProfession
@@ -760,6 +1080,137 @@ JSON:
       }
     }
     console.log(`[PERSON-LOOKUP] After Search 1d2 — P.IVA: "${result.partita_iva || 'N/A'}"`)
+  }
+
+  // ── Pre-1f STEP A: Validate result.sito_web via HTTP HEAD ──
+  // Rejects hallucinated/dead domains (e.g. "pacelliniarchitetti.it" that doesn't exist).
+  // Without this, Search 1f below would scrape a non-existent site or worse, an unrelated one.
+  if (result.sito_web) {
+    const reachable = await isReachableDomain(String(result.sito_web))
+    if (!reachable) {
+      console.log(`[PERSON-LOOKUP] ⚠️ Pre-1f STEP A: sito_web "${result.sito_web}" NOT reachable — REMOVING`)
+      delete result.sito_web
+    } else {
+      console.log(`[PERSON-LOOKUP] Pre-1f STEP A: sito_web "${result.sito_web}" verified reachable ✓`)
+    }
+  }
+
+  // ── Pre-1f STEP B: Derive sito_web from LinkedIn slug (fallback) ──
+  // When the LinkedIn URL contains a brand suffix (e.g. ".../in/alberto-pacellini-4planstudio"),
+  // try the brand as a domain candidate. Validates each via HTTP before accepting.
+  if (!result.sito_web && result.linkedin) {
+    const candidates = deriveDomainsFromLinkedIn(String(result.linkedin), personName)
+    if (candidates.length > 0) {
+      console.log(`[PERSON-LOOKUP] Pre-1f STEP B: trying LinkedIn-derived domains: ${candidates.join(', ')}`)
+      for (const cand of candidates) {
+        if (await isReachableDomain(cand)) {
+          result.sito_web = cand
+          if (!result.fonti.includes('LinkedIn (dominio derivato)')) result.fonti.push('LinkedIn (dominio derivato)')
+          console.log(`[PERSON-LOOKUP] Pre-1f STEP B: ✓ derived sito_web from LinkedIn slug: ${cand}`)
+          break
+        }
+      }
+    }
+  }
+
+  // ── Pre-1f STEP C: Per-name contact scraping on /team /chi-siamo /staff ──
+  // Extracts the phone/email tied to THIS specific person from the company's team page,
+  // BEFORE Search 1f picks up generic "info@" addresses. Critical for co-founders/employees
+  // whose personal contacts are listed on /team/ pages (e.g. alberto.pacellini@4planstudio.it).
+  // ALSO acts as the gate for "suspicious" sites flagged by Pre-1e STEP 3:
+  // if the domain doesn't match brand/surname AND per-name scraping confirms NOTHING,
+  // we drop sito_web entirely so Search 1f doesn't scrape a wrong-association site.
+  if (result.sito_web && (!result.telefono || !result.email || result._sito_web_suspicious || queryCompanyHint)) {
+    const siteUrl = String(result.sito_web).startsWith('http') ? String(result.sito_web) : `https://${String(result.sito_web).replace(/^www\./, '')}`
+    let personConfirmed = false
+    try {
+      const personContacts = await scrapeWebsiteForPersonContacts(siteUrl, personName)
+      if (personContacts.telefono || personContacts.email) personConfirmed = true
+      if (personContacts.telefono && (!result.telefono || queryCompanyHint)) {
+        result.telefono = personContacts.telefono
+        result.telefono_fonte = 'Sito web (pagina team/staff)'
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP C: ✓ telefono PERSONALE from ${personContacts.foundOn}: ${personContacts.telefono}`)
+      }
+      if (personContacts.email && (!result.email || queryCompanyHint || !emailMatchesSite(String(result.email), siteUrl))) {
+        result.email = personContacts.email
+        result.email_fonte = 'Sito web (pagina team/staff)'
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP C: ✓ email PERSONALE from ${personContacts.foundOn}: ${personContacts.email}`)
+      }
+      if ((personContacts.telefono || personContacts.email) && !result.fonti.includes('Sito web (per-name scraping)')) {
+        result.fonti.push('Sito web (per-name scraping)')
+      }
+    } catch (e: any) {
+      console.log(`[PERSON-LOOKUP] Pre-1f STEP C: per-name scraping failed: ${e?.message || e}`)
+    }
+    // ★ Suspicious-site gate: if the site was flagged unrelated AND per-name scraping
+    //   didn't find this person's contacts, drop it so Search 1f doesn't pollute results.
+    if (result._sito_web_suspicious && !personConfirmed) {
+      console.log(`[PERSON-LOOKUP] Pre-1f STEP C: ⚠️ DROPPING suspicious site "${result.sito_web}" — per-name scraping found NO match for "${personName}" (likely wrong-association site, not the person's real workplace)`)
+      delete result.sito_web
+    }
+    delete result._sito_web_suspicious
+  }
+
+  // ── Pre-1f STEP D: authoritative deep scrape of the OFFICIAL website ──
+  // When an explicit company is in the query, contacts from Maps/Tavily/person-as-business
+  // are not authoritative. The official website domain wins. This prevents wrong contacts
+  // such as confartigianato.it or unrelated companies from staying in the result.
+  if (result.sito_web) {
+    const siteUrlD = String(result.sito_web).startsWith('http') ? String(result.sito_web) : `https://${String(result.sito_web).replace(/^www\./, '')}`
+    try {
+      const deep = await scrapeWebsiteDeep(siteUrlD)
+      console.log(`[PERSON-LOOKUP] Pre-1f STEP D: scrapeWebsiteDeep(${siteUrlD}) pages=${deep.pagesScraped} emails=${deep.emails.length} phones=${deep.phones.length}`)
+      const siteRoot = rootDomain(siteUrlD)
+      const namePartsD = personName.toLowerCase().split(/\s+/).filter((p: string) => p.length >= 3)
+      const emailsOnSite = deep.emails.filter(e => emailMatchesSite(e.email, siteUrlD))
+      const personalEmail = emailsOnSite.find(e => {
+        const local = e.email.split('@')[0].toLowerCase()
+        return namePartsD.some((p: string) => local.includes(p))
+      })
+      const bestRegularEmail = personalEmail
+        || emailsOnSite.find(e => e.type === 'personal')
+        || emailsOnSite.find(e => e.type === 'generic')
+      const bestPec = emailsOnSite.find(e => e.type === 'pec')
+      const bestPhone = deep.phones.find(p => p.type === 'mobile') || deep.phones.find(p => p.type === 'landline') || deep.phones[0]
+      const currentEmailIsPersonSite = !!result.email && emailMatchesSite(String(result.email), siteUrlD) && /team|staff|personale|pagina team/i.test(String(result.email_fonte || ''))
+      const currentPhoneIsPersonSite = !!result.telefono && /team|staff|personale|pagina team/i.test(String(result.telefono_fonte || ''))
+
+      if (queryCompanyHint || (result.email && !emailMatchesSite(String(result.email), siteUrlD))) {
+        if (result.email && !emailMatchesSite(String(result.email), siteUrlD)) {
+          console.log(`[PERSON-LOOKUP] Pre-1f STEP D: removing email from wrong domain "${result.email}" (official site root=${siteRoot})`)
+          delete result.email
+          delete result.email_fonte
+        }
+      }
+      if (result.pec && !emailMatchesSite(String(result.pec), siteUrlD)) {
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP D: removing PEC from wrong domain "${result.pec}" (official site root=${siteRoot})`)
+        delete result.pec
+      }
+      if (bestRegularEmail && !currentEmailIsPersonSite && (!result.email || queryCompanyHint || !emailMatchesSite(String(result.email), siteUrlD))) {
+        result.email = bestRegularEmail.email
+        result.email_fonte = personalEmail ? 'Sito ufficiale (email personale)' : 'Sito ufficiale'
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP D: ✓ email from official site: ${result.email}`)
+      }
+      if (bestPec && (!result.pec || queryCompanyHint)) {
+        result.pec = bestPec.email
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP D: ✓ PEC from official site: ${result.pec}`)
+      }
+      if (bestPhone && !currentPhoneIsPersonSite && (!result.telefono || queryCompanyHint || !/Sito ufficiale|team|staff/i.test(String(result.telefono_fonte || '')))) {
+        result.telefono = bestPhone.number
+        result.telefono_fonte = 'Sito ufficiale'
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP D: ✓ phone from official site: ${result.telefono}`)
+      }
+      if (deep.partitaIva && (!result.partita_iva || queryCompanyHint)) {
+        result.partita_iva = deep.partitaIva
+        console.log(`[PERSON-LOOKUP] Pre-1f STEP D: ✓ P.IVA from official site: ${result.partita_iva}`)
+      }
+      if (deep.socialLinks.instagram && !result.instagram) result.instagram = deep.socialLinks.instagram
+      if (deep.socialLinks.facebook && !result.facebook) result.facebook = deep.socialLinks.facebook
+      if (deep.socialLinks.linkedin && !result.linkedin_azienda) result.linkedin_azienda = deep.socialLinks.linkedin
+      if (!result.fonti.includes('Sito ufficiale (deep scrape)')) result.fonti.push('Sito ufficiale (deep scrape)')
+    } catch (e: any) {
+      console.log(`[PERSON-LOOKUP] Pre-1f STEP D: scrapeWebsiteDeep failed: ${e?.message || e}`)
+    }
   }
 
   // ── Search 1f: Scrape company website for contacts + data (same as company-lookup) ──
@@ -1753,7 +2204,7 @@ RISPONDI SEMPRE IN ITALIANO. Se trovi testi in spagnolo, inglese o altre lingue,
       if (textSite.length > 30) {
         // Extract URLs that could be the person/company site (not social, not directories)
         const urlMatches = [...textSite.matchAll(/https?:\/\/(?:www\.)?([a-zA-Z0-9.-]+\.[a-z]{2,})/gi)]
-        const skipDomains = /linkedin|facebook|instagram|twitter|youtube|tiktok|wikipedia|ufficiocamerale|registroimprese|reportaziend|paginegialle|infobel|google|bing|tavily/i
+        const skipDomains = /linkedin|facebook|instagram|twitter|youtube|tiktok|wikipedia|ufficiocamerale|registroimprese|reportaziend|paginegialle|paginebianche|infobel|google|bing|tavily/i
         for (const u of urlMatches) {
           if (!skipDomains.test(u[1])) { result.sito_web = u[0]; console.log(`[PERSON-LOOKUP] Search 2b: Found website via Tavily: ${u[0]}`); break }
         }
@@ -2304,6 +2755,31 @@ JSON:
     console.log(`[PERSON-LOOKUP] FINAL: email "${result.email}" is a PEC domain — moving to PEC`)
     result.pec = result.email
     delete result.email
+  }
+  // ── Final official-site contact gate ──
+  // If the user gave an explicit company and we found the official site, contacts must either
+  // come from that site/domain or from the per-name/team scraper. Otherwise remove them.
+  if (queryCompanyHint && result.sito_web) {
+    const officialSite = String(result.sito_web)
+    if (result.email && typeof result.email === 'string' && !emailMatchesSite(result.email, officialSite)) {
+      console.log(`[PERSON-LOOKUP] FINAL SITE GATE: removed email "${result.email}" — domain doesn't match official site "${officialSite}"`)
+      delete result.email
+      delete result.email_fonte
+    }
+    if (result.pec && typeof result.pec === 'string' && !emailMatchesSite(result.pec, officialSite)) {
+      console.log(`[PERSON-LOOKUP] FINAL SITE GATE: removed PEC "${result.pec}" — domain doesn't match official site "${officialSite}"`)
+      delete result.pec
+    }
+    if (result.telefono && !/sito ufficiale|pagina team|team|staff/i.test(String(result.telefono_fonte || ''))) {
+      console.log(`[PERSON-LOOKUP] FINAL SITE GATE: removed phone "${result.telefono}" — source "${result.telefono_fonte || 'unknown'}" is not official-site verified`)
+      delete result.telefono
+      delete result.telefono_fonte
+    }
+    if (result.cellulare && !/sito ufficiale|pagina team|team|staff/i.test(String(result.cellulare_fonte || ''))) {
+      console.log(`[PERSON-LOOKUP] FINAL SITE GATE: removed mobile "${result.cellulare}" — not official-site verified`)
+      delete result.cellulare
+      delete result.cellulare_fonte
+    }
   }
   // ── Final social junk validation ──
   if (result.facebook && typeof result.facebook === 'string') {

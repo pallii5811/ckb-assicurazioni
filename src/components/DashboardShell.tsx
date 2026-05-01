@@ -26,6 +26,9 @@ import { createClient } from '@/utils/supabase/client'
 
 import { useDashboard } from '@/components/DashboardContext'
 
+import InsuranceProfileSection from '@/components/insurance/InsuranceProfileSection'
+import InsuranceIntelligenceSection from '@/components/insurance/InsuranceIntelligenceSection'
+
 
 
 function _sanitize(v: any): string {
@@ -303,6 +306,50 @@ function safeStr(v: any): string {
   return String(v)
 }
 
+/**
+ * Verifica se un numero è un CELLULARE italiano valido (per badge WhatsApp).
+ *
+ * Mobili italiani: prefisso 3 + cifra 2-9 (32X-39X) + 8 cifre = 10 cifre totali.
+ * NON sono cellulari: 30X, 31X (riservati a operatori e numerazioni speciali),
+ * né numeri che iniziano con 0 (fisso) o numerazioni speciali.
+ *
+ * Esempi:
+ *   "+39 348 1234567"   → true  (mobile valido)
+ *   "390112970547"      → false (= +39 011 297 0547, fisso Torino — bug visto su Carpenteria Corona)
+ *   "393348012345"      → true  (= +39 334 801 2345, mobile)
+ *   "011 772 7037"      → false (fisso Torino)
+ *   "800 123 456"       → false (numero verde)
+ */
+function isItalianMobile(rawPhone: string | null | undefined): boolean {
+  if (!rawPhone || typeof rawPhone !== 'string') return false
+  // Tieni solo cifre e + iniziale
+  const cleaned = rawPhone.replace(/[^\d+]/g, '')
+  // Strip + iniziale
+  const noPlus = cleaned.replace(/^\+/, '')
+  // Strip prefisso internazionale 39 o 0039 SOLO se la lunghezza totale è coerente
+  // (39 da solo + 10 cifre mobile = 12; 0039 + 10 mobile = 14)
+  let core = noPlus
+  if (noPlus.startsWith('0039') && noPlus.length === 14) core = noPlus.slice(4)
+  else if (noPlus.startsWith('39') && noPlus.length === 12) core = noPlus.slice(2)
+  // Mobile valido: 3 + cifra 2-9 + 8 cifre = 10 totali
+  return /^3[2-9]\d{8}$/.test(core)
+}
+
+/**
+ * Restituisce il numero WhatsApp in formato corretto (solo cifre, con prefisso 39).
+ * Ritorna null se il numero non è un cellulare valido.
+ */
+function whatsAppLink(rawPhone: string | null | undefined): string | null {
+  if (!isItalianMobile(rawPhone)) return null
+  const cleaned = String(rawPhone).replace(/[^\d+]/g, '').replace(/^\+/, '')
+  // Assicura che inizi con 39 (prefisso internazionale richiesto da wa.me)
+  if (cleaned.startsWith('0039') && cleaned.length === 14) return cleaned.slice(2) // 0039XXX → 39XXX
+  if (cleaned.startsWith('39') && cleaned.length === 12) return cleaned
+  // Pure 10 digits mobile → prepend 39
+  if (/^3[2-9]\d{8}$/.test(cleaned)) return `39${cleaned}`
+  return null
+}
+
 // Helper: check if a value is a real displayable value (not null/undefined/"null"/"N/D" etc)
 const NULL_DISPLAY = ['null', 'undefined', 'n/d', 'n/a', 'non disponibile', 'non specificato', '@null']
 function hasValue(v: any): boolean {
@@ -431,6 +478,43 @@ export default function DashboardShell() {
   const autoscrapePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const resultsCountRef = useRef(0)
   const resultsArrRef = useRef<unknown[]>([])
+
+  // ── Deep-link supporto per Insurance Prospezione ──
+  // Se l'URL contiene ?prefill_company=<piva|ragionesociale>, attiva la ricerca
+  // azienda e auto-esegue il lookup (utile quando arriva da /dashboard/insurance-prospezione).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const prefill = params.get('prefill_company')
+    if (!prefill) return
+
+    setSearchMode('azienda')
+    setCompanySearchQuery(prefill)
+    // Pulisco l'URL per evitare re-trigger su refresh
+    window.history.replaceState({}, '', window.location.pathname)
+
+    // Auto-trigger lookup dopo che lo state è stabile
+    ;(async () => {
+      setCompanySearchLoading(true)
+      setCompanySearchError(null)
+      setCompanySearchResult(null)
+      try {
+        const res = await fetch('/api/company-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: prefill }),
+        })
+        const data = await res.json()
+        if (data.error) setCompanySearchError(data.error)
+        else setCompanySearchResult(data)
+      } catch {
+        setCompanySearchError('Errore di connessione. Riprova.')
+      } finally {
+        setCompanySearchLoading(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const arr = Array.isArray(results) ? results : []
@@ -1542,10 +1626,11 @@ export default function DashboardShell() {
                     // Fetch dati aziendali in parallelo
                     const companyName = data.azienda
                     if (companyName) {
+                      const cityHint = data.citta || ''
                       fetch('/api/company-lookup', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ query: companyName }),
+                        body: JSON.stringify({ query: `${companyName} ${cityHint}`.trim() }),
                       })
                         .then(r => r.json())
                         .then(compData => {
@@ -1672,8 +1757,8 @@ export default function DashboardShell() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Telefono</p>
                       <div className="flex items-center gap-2">
                         <a href={`tel:${personSearchResult.telefono}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{personSearchResult.telefono}</a>
-                        {/^(\+39\s?)?3\d{2}/.test(personSearchResult.telefono.replace(/[\s\-()]/g, '')) && (
-                          <a href={`https://wa.me/${personSearchResult.telefono.replace(/[\s\-()]/g, '').replace(/^\+/, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
+                        {whatsAppLink(personSearchResult.telefono) && (
+                          <a href={`https://wa.me/${whatsAppLink(personSearchResult.telefono)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                             WhatsApp
                           </a>
@@ -2195,6 +2280,34 @@ export default function DashboardShell() {
                 </div>
               )}
 
+              {/* ── Profilo Assicurativo dell'azienda associata (espandibile, fetch lazy) ── */}
+              {(personSearchResult.partita_iva || personSearchResult.azienda) && (
+                <InsuranceProfileSection
+                  piva={personSearchResult.partita_iva || null}
+                  ragioneSociale={personSearchResult.azienda || null}
+                  citta={personSearchResult.sede_azienda || null}
+                />
+              )}
+
+              {/* ── Insurance Intelligence (trigger commerciali, network, capacità spesa, eventi) ── */}
+              {(personSearchResult.partita_iva || personSearchResult.azienda) && (
+                <InsuranceIntelligenceSection
+                  ragioneSociale={personSearchResult.azienda || ''}
+                  partitaIva={personSearchResult.partita_iva || undefined}
+                  citta={personSearchResult.sede_azienda || personSearchResult.citta || undefined}
+                  ateco={personSearchResult.codice_ateco || personSearchResult.ateco || undefined}
+                  ruolo={
+                    /amministratore|titolare|founder|ceo|owner|presidente/i.test(
+                      String(personSearchResult.ruolo || ''),
+                    )
+                      ? 'titolare'
+                      : 'dipendente'
+                  }
+                  titolareNome={personSearchResult.nome || personSearchResult.full_name || undefined}
+                  hasLinkedinPresence={!!(personSearchResult.linkedin_url || personSearchResult.linkedin)}
+                />
+              )}
+
               {/* Fonti */}
               {personSearchResult.fonti?.length > 0 && (
                 <p className="text-[10px] text-slate-400">Fonti: {personSearchResult.fonti.join(', ')}</p>
@@ -2308,8 +2421,8 @@ export default function DashboardShell() {
                       <p className="text-[10px] font-bold text-green-600 uppercase">Telefono Diretto</p>
                       <div className="flex items-center gap-2">
                         <a href={`tel:${employeeSearchResult.telefono}`} className="text-sm font-bold text-green-800 hover:underline">{employeeSearchResult.telefono}</a>
-                        {/^(\+39)?3\d/.test(employeeSearchResult.telefono.replace(/[\s\-()./]/g, '')) && (
-                          <a href={`https://wa.me/${employeeSearchResult.telefono.replace(/[\s\-()./+]/g, '')}`} target="_blank" rel="noreferrer" className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold">WA</a>
+                        {whatsAppLink(employeeSearchResult.telefono) && (
+                          <a href={`https://wa.me/${whatsAppLink(employeeSearchResult.telefono)}`} target="_blank" rel="noreferrer" className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold">WA</a>
                         )}
                       </div>
                     </div>
@@ -2549,8 +2662,8 @@ export default function DashboardShell() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Telefono</p>
                       <div className="flex items-center gap-2">
                         <a href={`tel:${companySearchResult.telefono}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{companySearchResult.telefono}</a>
-                        {/^(\+39\s?)?3\d{2}/.test(companySearchResult.telefono.replace(/[\s\-()]/g, '')) && (
-                          <a href={`https://wa.me/${companySearchResult.telefono.replace(/[\s\-()]/g, '').replace(/^\+/, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
+                        {whatsAppLink(companySearchResult.telefono) && (
+                          <a href={`https://wa.me/${whatsAppLink(companySearchResult.telefono)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                             WhatsApp
                           </a>
@@ -2563,19 +2676,71 @@ export default function DashboardShell() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Cellulare</p>
                       <div className="flex items-center gap-2">
                         <a href={`tel:${companySearchResult.cellulare}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{companySearchResult.cellulare}</a>
-                        <a href={`https://wa.me/${companySearchResult.cellulare.replace(/[\s\-()]/g, '').replace(/^\+/, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                          WhatsApp
-                        </a>
+                        {whatsAppLink(companySearchResult.cellulare) && (
+                          <a href={`https://wa.me/${whatsAppLink(companySearchResult.cellulare)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-colors">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            WhatsApp
+                          </a>
+                        )}
                       </div>
                     </div>
                   )}
-                  {companySearchResult.email && (
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
-                      <a href={`mailto:${companySearchResult.email}`} className="text-sm font-bold text-blue-700 hover:underline">{companySearchResult.email}</a>
-                    </div>
-                  )}
+                  {/* ★ EMAIL — mostra TUTTE le email trovate (carpenteriacorona@gmail.com, info@carpenteriacorona.it, coronacarpenteria2@gmail.com).
+                       Backend restituisce array `tutte_email` con tipo (personal/generic). Fallback a singolo `email` per retro-compat. */}
+                  {(() => {
+                    const tutte = (companySearchResult as any).tutte_email as Array<{ email: string; tipo: string; pagina: string }> | undefined
+                    const emails = tutte && tutte.length > 0
+                      ? tutte
+                      : (companySearchResult.email ? [{ email: companySearchResult.email, tipo: 'personal', pagina: '/' }] : [])
+                    if (emails.length === 0) return null
+                    return (
+                      <div className={`bg-slate-50 rounded-lg p-3 ${emails.length > 1 ? 'col-span-2' : ''}`}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">{emails.length > 1 ? `Email (${emails.length})` : 'Email'}</p>
+                        <div className="flex flex-col gap-1">
+                          {emails.map((e, idx) => (
+                            <div key={idx} className="flex items-center gap-2 flex-wrap">
+                              <a href={`mailto:${e.email}`} className="text-sm font-bold text-blue-700 hover:underline">{e.email}</a>
+                              {e.tipo === 'generic' && <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">generica</span>}
+                              {e.tipo === 'personal' && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">aziendale</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  {/* ★ NUMERI AGGIUNTIVI: numeri extra trovati sul sito (es. altre sedi) */}
+                  {(() => {
+                    const tuttiFissi = ((companySearchResult as any).tutti_telefoni || []) as Array<{ numero: string; fonte: string; pagina: string }>
+                    const tuttiCellulari = ((companySearchResult as any).tutti_cellulari || []) as Array<{ numero: string; fonte: string; pagina: string }>
+                    const norm = (n: string) => n.replace(/\D/g, '').slice(-9)
+                    const mainTel = companySearchResult.telefono ? norm(companySearchResult.telefono) : null
+                    const mainCel = companySearchResult.cellulare ? norm(companySearchResult.cellulare) : null
+                    const extraFissi = tuttiFissi.filter(p => norm(p.numero) !== mainTel && norm(p.numero) !== mainCel)
+                    const extraCel = tuttiCellulari.filter(p => norm(p.numero) !== mainTel && norm(p.numero) !== mainCel)
+                    if (extraFissi.length === 0 && extraCel.length === 0) return null
+                    return (
+                      <div className="bg-emerald-50 rounded-lg p-3 col-span-2 border border-emerald-200">
+                        <p className="text-[10px] font-bold text-emerald-700 uppercase">Altri Numeri ({extraFissi.length + extraCel.length})</p>
+                        <div className="flex flex-col gap-1 mt-1">
+                          {extraFissi.map((p, idx) => (
+                            <div key={`f${idx}`} className="flex items-center gap-2 flex-wrap">
+                              <a href={`tel:${p.numero}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{p.numero}</a>
+                              <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">fisso</span>
+                            </div>
+                          ))}
+                          {extraCel.map((p, idx) => (
+                            <div key={`c${idx}`} className="flex items-center gap-2 flex-wrap">
+                              <a href={`tel:${p.numero}`} className="text-sm font-bold text-slate-800 hover:text-blue-700">{p.numero}</a>
+                              <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">cellulare</span>
+                              {whatsAppLink(p.numero) && (
+                                <a href={`https://wa.me/${whatsAppLink(p.numero)}`} target="_blank" rel="noreferrer" className="text-[9px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold">WhatsApp</a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   {(companySearchResult.sito_web || companySearchResult.sito) && (
                     <div className="bg-slate-50 rounded-lg p-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Sito Web</p>
@@ -3080,6 +3245,27 @@ export default function DashboardShell() {
                   )}
                 </div>
               )}
+
+              {/* ── Profilo Assicurativo (sezione integrata, espandibile, fetch lazy) ── */}
+              <InsuranceProfileSection
+                piva={companySearchResult.partita_iva || null}
+                ragioneSociale={companySearchResult.ragione_sociale || companySearchResult.nome || null}
+                citta={companySearchResult.citta || null}
+              />
+
+              {/* ── Insurance Intelligence (trigger commerciali, network, capacità spesa, eventi) ── */}
+              <InsuranceIntelligenceSection
+                ragioneSociale={companySearchResult.ragione_sociale || companySearchResult.nome || ''}
+                partitaIva={companySearchResult.partita_iva || undefined}
+                citta={companySearchResult.citta || undefined}
+                ateco={companySearchResult.codice_ateco || companySearchResult.ateco || undefined}
+                fatturato={companySearchResult.fatturato || undefined}
+                dipendenti={companySearchResult.dipendenti || undefined}
+                dataCostituzione={companySearchResult.data_costituzione || undefined}
+                ruolo="titolare"
+                titolareNome={companySearchResult.titolare || undefined}
+                hasLinkedinPresence={!!(companySearchResult.linkedin_url || companySearchResult.linkedin)}
+              />
 
               {/* Fonti */}
               {companySearchResult.fonti?.length > 0 && (
