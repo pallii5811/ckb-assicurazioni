@@ -1,0 +1,166 @@
+===== BATCH5 START 03:07:20 =====
+
+===== [1/10] REPOWER VENDITA ITALIA SPA =====
+  COMPANY (143s)
+    P.IVA:    [NO()]
+    Sede:     [OK(indir)]
+    RagSoc:  Repower
+    Titolare:Fabio Bocchiola [Responsabile di Repower per lƒ??Italia]
+    Tel/Em:  Œ?ø02 581 4211 / info.it@repower.com
+    Sito:    http://www.repower.com/
+    Fatt/Dip: /  (ATECO )
+  -> PERSON: Fabio Bocchiola Repower
+    PERSON (294s): OK
+      Nome:     
+      Ruolo:    
+      Email:    info.it@repower.com
+      Tel/Cel:  02 5814211 / 
+      LinkedIn: https://www.linkedin.com/in/fabio-bocchiola-75749810
+      Azienda:  Repower Bocchiola Fabio [N/A]
+
+===== [2/10] REPUTATION MANAGER S.P.A. SOCIETA BENEFIT =====
+  COMPANY (154s)
+    P.IVA:   07569410967 [OK]
+    Sede:    Via Cesare Mangili, 2, Milano [OK]
+    RagSoc:  Reputation Manager S.p.A. - Ingegneria Reputazionale
+    Titolare:Andrea Barchiesi [Fondatore e CEO]
+    Tel/Em:  Œ?ø02 928501 / info@reputationmanager.it
+    Sito:    https://www.reputationmanager.it/
+    Fatt/Dip:4540291 / da 20 a 49 (ATECO 62.01.00)
+  -> PERSON: Andrea Barchiesi Reputation Manager S.p.A. - Ingegneria Reputazionale
+    PERSON FAIL (300s): Richiesta annullata: Timeout dell'operazione..
+
+===== [3/10] RES FREEDATA S.R.L. =====
+  COMPANY (132s)
+    P.IVA:   10102720967 [OK]
+    Sede:    Viale Piero E Alberto Pirelli, 6, Milano [OK]
+    RagSoc:  
+    Titolare:Gerry Cardinale [fondatore e Managing Partner di RedBird Capital]
+    Tel/Em:  Œ?ø0524 517611 / info@resdata.it
+    Sito:    https://resdata.it/
+    Fatt/Dip:1004739 / 16-19 (ATECO 73.20.00)
+  -> PERSON: Gerry Cardinale 
+    PERSON (82s): EMPTY
+      Nome:     
+      Ruolo:    
+      Email:    
+      Tel/Cel:   / 
+      LinkedIn: 
+      Azienda:   []
+
+===== [4/10] RES PUBLICA SRL =====
+  COMPANY (97s)
+    P.IVA:   06349250966 [OK]
+    Sede:    Corso Buenos Aires, 47, Milano [OK]
+    RagSoc:  Res Publica Srl
+    Titolare: []
+    Tel/Em:  08118658125 / info@respublicasrl.com
+    Sito:    https://www.respublicasrl.com
+    Fatt/Dip:244468 / 0 (ATECO 62.01.00)
+  -> PERSON: skipped (no titolare)
+
+===== [5/10] RES SYNESIS S.R.L. =====
+  COMPANY (112s)
+    P.IVA:   09445240964 [OK]
+    Sede:    Viale Piero E Alberto Pirelli, 6, Milano [OK]
+    RagSoc:  
+    Titolare:Gerry Cardinale [fondatore e Managing Partner di RedBird Capital]
+    Tel/Em:  02 21118569 / info@ekeria.com
+    Sito:    https://www.ekeria.com
+    Fatt/Dip: / 100-199 (ATECO 62.02.00)
+  -> PERSON: Gerry Cardinale 
+    PERSON (39s): EMPTY
+      Nome:     
+      Ruolo:    
+      Email:    
+      Tel/Cel:   / 
+      LinkedIn: 
+      Azienda:   []
+
+===== [6/10] RELCO SRL Milano =====
+  COMPANY (120s)
+    P.IVA:   12080570158 [NO(12080570158)]
+    Sede:    Via Delle Azalee, 6/A, Buccinasco [NO(Via Delle Azalee, 6/A, Buccinasco|Œ??Via delle Azalee, 6/A, 20090 Buccinasco MI)]
+    RagSoc:  
+    Titolare: []
+    Tel/Em:  Œ?ø02 9297 9103 / tecnico@relcogroup.com
+    Sito:    http://www.relcogroup.com/
+    Fatt/Dip:19902397 / 10-15 (ATECO 27.33.00)
+  -> PERSON: skipped (no titolare)
+
+===== [7/10] REMEMBER.MI SRL =====
+  COMPANY (125s)
+    P.IVA:    [NO()]
+    Sede:     [NO(|Œ??Via Francesco Cilea, 50, 20090 Trezzano sul Naviglio MI)]
+    RagSoc:  Souvenir Italia
+    Titolare: []
+    Tel/Em:  Œ?ø02 8489 5720 / commerciale@remembermi.it
+    Sito:    http://www.souveniritalia.com/
+    Fatt/Dip: /  (ATECO )
+  -> PERSON: skipped (no titolare)
+
+===== [8/10] REMTENE SRL =====
+  COMPANY (149s)
+    P.IVA:   08747890963 [OK]
+    Sede:    Corso Porta Vittoria (di), 58, Milano [NO(Corso Porta Vittoria (di), 58, Milano|Viale Coni Zugna, 7, Milano, Lombardia 20144, IT)]
+    RagSoc:  Remtene S.r.l.
+    Titolare:Arnaldo Ferrari Nasi [direttore]
+    Tel/Em:   / info@remtene.it
+    Sito:    https://www.remtene-sb.com
+    Fatt/Dip:355.250 / 3-5 (ATECO 73.20.00)
+  -> PERSON: Arnaldo Ferrari Nasi Remtene S.r.l.
+    PERSON (269s): OK
+      Nome:     
+      Ruolo:    
+      Email:    laurafrancini@remtene.it
+      Tel/Cel:  +392017121 / 
+      LinkedIn: https://www.linkedin.com/in/arnaldo-ferrari-nasi-vs-00146622
+      Azienda:  Remtene S.r.l. [17193391004]
+
+===== [9/10] RENOVIT PUBLIC SOLUTIONS S.P.A. =====
+  COMPANY (213s)
+    P.IVA:    [NO()]
+    Sede:     [OK(indir)]
+    RagSoc:  Renovit Spa
+    Titolare:Prioletti Marco Antonio [Proprietario]
+    Tel/Em:   / amministrazione.clienti@renovit.it
+    Sito:    https://www.renovit.it/it/home/
+    Fatt/Dip: /  (ATECO )
+  -> PERSON: Prioletti Marco Antonio Renovit Spa
+    PERSON FAIL (300s): Richiesta annullata: Timeout dell'operazione..
+
+===== [10/10] REP S.R.L. CENTRO DI RICERCA SUGLI ENTI PUBBLICI =====
+  COMPANY (124s)
+    P.IVA:   12420520962 [OK]
+    Sede:    Via Dante, 9, Milano [OK]
+    RagSoc:  
+    Titolare:Gerry Cardinale [fondatore e Managing Partner di RedBird Capital]
+    Tel/Em:  Œ?ø327 949 5382 / info@ekeria.com
+    Sito:    https://www.ekeria.com
+    Fatt/Dip:522180 / 10-15 (ATECO 72.20.00)
+  -> PERSON: Gerry Cardinale 
+    PERSON (42s): EMPTY
+      Nome:     
+      Ruolo:    
+      Email:    
+      Tel/Cel:   / 
+      LinkedIn: 
+      Azienda:   []
+
+===== SUMMARY =====
+
+Q                                                PivaOk          SedeOk                                                
+-                                                ------          ------                                                
+REPOWER VENDITA ITALIA SPA                       NO()            OK(indir)                                             
+REPUTATION MANAGER S.P.A. SOCIETA BENEFIT        OK              OK                                                    
+RES FREEDATA S.R.L.                              OK              OK                                                    
+RES PUBLICA SRL                                  OK              OK                                                    
+RES SYNESIS S.R.L.                               OK              OK                                                    
+RELCO SRL Milano                                 NO(12080570158) NO(Via Delle Azalee, 6/A, Buccinasco|Œ??Via delle A...
+REMEMBER.MI SRL                                  NO()            NO(|Œ??Via Francesco Cilea, 50, 20090 Trezzano sul ...
+REMTENE SRL                                      OK              NO(Corso Porta Vittoria (di), 58, Milano|Viale Coni...
+RENOVIT PUBLIC SOLUTIONS S.P.A.                  NO()            OK(indir)                                             
+REP S.R.L. CENTRO DI RICERCA SUGLI ENTI PUBBLICI OK              OK                                                    
+
+
+===== END 03:52:17 =====

@@ -1,0 +1,127 @@
+﻿Insurance Radar ÔÇö Test LIVE su aziende reali
+BASE: http://localhost:3000
+Tavily key: Ô£ù MANCANTE
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+BUILD UP SRL  ÔÇö  P.IVA 12543200013
+Settore atteso: costruzioni  |  Citt├á: Torino
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Lead-registry: Ô£à found
+    ÔÇó Ragione sociale: BUILD UP SRL
+    ÔÇó P.IVA risolta:   10319231212  ÔÜá NON match con quella fornita
+    ÔÇó ATECO:           43.39.01  (Attivit├á non specializzate di lavori edili (muratori))
+    ÔÇó Fatturato:       231.100┬áÔé¼  (anno 2024)
+    ÔÇó Dipendenti:      N.D.
+    ÔÇó Sede:            Via John Fitzgerald Kennedy, 425, 80100 Napoli
+
+  ­ƒôè PREMI ASSICURATIVI
+    ÔÇó Settore: Costruzioni
+    ÔÇó Stimato:       5778┬áÔé¼ ÔÇô 9244┬áÔé¼
+    ÔÇó Fair Market:   4911┬áÔé¼ ÔÇô 8782┬áÔé¼
+
+  ­ƒÆ╝ ASSET ASSICURABILI
+    ÔÇó Immobilizzazioni materiali: ÔÇö (non in bilancio o scartato dal sanitize)
+
+  ­ƒæÑ WORKFORCE
+    ÔÇó CCNL probabile: CCNL Edilizia Industria
+
+  ­ƒîì RISCHIO SISMICO
+    ÔÇó non risolto (indirizzo non parsato)
+
+  ÔÜá´©Å  WARNINGS DI QUALIT├Ç DATI
+    ÔÇó Premi assicurativi non disaggregati nel bilancio depositato (normale per PMI in regime abbreviato).
+
+  ­ƒÄ» TOP 3 OPPORTUNIT├Ç COMMERCIALI
+    ÔÇó Cauzioni ANAC (gare pubbliche): 2000┬áÔé¼ ÔÇô 25.000┬áÔé¼  [P4]
+
+  ÔÅ▒  durata: 56133ms
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+BUS COMPANY SRL  ÔÇö  P.IVA 00893890012
+Settore atteso: trasporti  |  Citt├á: Torino
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Lead-registry: Ô£à found
+    ÔÇó Ragione sociale: BUS COMPANY SRL
+    ÔÇó P.IVA risolta:   00893890012  Ô£ô match
+    ÔÇó ATECO:           28.15.00  (Fabbricazione di cuscinetti, ingranaggi e organi di trasmissione)
+    ÔÇó Fatturato:       54.625.057┬áÔé¼  (anno 2023)
+    ÔÇó Dipendenti:      ÔÇö
+    ÔÇó Sede:            Via Caboto 35, 10129 Torino
+
+  ­ƒôè PREMI ASSICURATIVI
+    ÔÇó Settore: Attivit├á manifatturiere
+    ÔÇó Stimato:       655.501┬áÔé¼ ÔÇô 1.311.001┬áÔé¼
+    ÔÇó Fair Market:   557.176┬áÔé¼ ÔÇô 1.245.451┬áÔé¼
+
+  ­ƒÆ╝ ASSET ASSICURABILI
+    ÔÇó Immobilizzazioni materiali: ÔÇö (non in bilancio o scartato dal sanitize)
+    ÔÇó Costo personale: 23.766.674┬áÔé¼
+
+  ­ƒæÑ WORKFORCE
+    ÔÇó Costo personale: 23.766.674┬áÔé¼
+    ÔÇó TFR maturato/anno: 1.680.304┬áÔé¼
+    ÔÇó CCNL probabile: CCNL Metalmeccanici Industria
+
+  ­ƒîì RISCHIO SISMICO
+    ÔÇó non risolto (indirizzo non parsato)
+
+  ÔÜá´©Å  WARNINGS DI QUALIT├Ç DATI
+    ÔÇó Premi assicurativi non disaggregati nel bilancio depositato (normale per PMI in regime abbreviato).
+
+  ­ƒÄ» TOP 3 OPPORTUNIT├Ç COMMERCIALI
+    ÔÇó Incendio / Globale Fabbricato Sede: 43.700┬áÔé¼ ÔÇô 136.563┬áÔé¼  [P3]
+    ÔÇó TFM Amministratori (Trattamento Fine Mandato): 4000┬áÔé¼ ÔÇô 15.000┬áÔé¼  [P3]
+
+  ÔÅ▒  durata: 50611ms
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+BUSINESS INFORMATION TECHNOLOGY 4K  ÔÇö  P.IVA 11619890012
+Settore atteso: IT/servizi  |  Citt├á: Torino
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  ÔØî lead-registry: The operation was aborted due to timeout
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+BUZZI, NOTARO & ANTONIELLI D'OULX S.P.A.  ÔÇö  P.IVA 06294960015
+Settore atteso: studio professionale  |  Citt├á: Torino
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  ÔØî lead-registry: The operation was aborted due to timeout
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+C2R ENERGY CONSULTING S.R.L.  ÔÇö  P.IVA 11375970016
+Settore atteso: consulenza energia  |  Citt├á: Torino
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  ÔØî lead-registry: The operation was aborted due to timeout
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+C.I.T. CENTRO INFISSI TORINO S.R.L.  ÔÇö  P.IVA 08466090019
+Settore atteso: infissi/edilizia  |  Citt├á: Torino
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Lead-registry: Ô£à found
+    ÔÇó Ragione sociale: C.I.T. CENTRO INFISSI TORINO S.R.L.
+    ÔÇó P.IVA risolta:   ÔÇö  ÔÜá NON match con quella fornita
+    ÔÇó ATECO:           ÔÇö  
+    ÔÇó Fatturato:       ÔÇö  (anno ÔÇö)
+    ÔÇó Dipendenti:      ÔÇö
+    ÔÇó Sede:            ÔÇö
+
+  ­ƒôè PREMI ASSICURATIVI
+    ÔÇó Settore: Settore non identificato
+
+  ­ƒÆ╝ ASSET ASSICURABILI
+    ÔÇó Immobilizzazioni materiali: ÔÇö (non in bilancio o scartato dal sanitize)
+
+  ­ƒæÑ WORKFORCE
+    ÔÇó CCNL probabile: CCNL Generico
+
+  ­ƒîì RISCHIO SISMICO
+    ÔÇó non risolto (indirizzo non parsato)
+
+  ÔÜá´©Å  WARNINGS DI QUALIT├Ç DATI
+    ÔÇó ÔÜá´©Å SETTORE NON IDENTIFICATO: il codice ATECO non ├¿ stato trovato in fonti pubbliche. Le stime di premio mostrate sono basate su benchmark NAZIONALI MEDI, non specifici del settore. Per stime accura...
+    ÔÇó Premi assicurativi non disaggregati nel bilancio depositato (normale per PMI in regime abbreviato).
+    ÔÇó Fatturato non disponibile: stima premi non calcolabile.
+
+  ÔÅ▒  durata: 53222ms
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Fine test.

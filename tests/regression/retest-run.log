@@ -1,0 +1,33 @@
+
+===================================================================
+ REGRESSION TEST SUITE - /api/company-lookup
+ Target: http://localhost:3000
+ Companies: 14 | Max score: 140
+ Started: 2026-04-24 14:44:06
+===================================================================
+
+- [REPOWER VENDITA ITALIA SPA] 2/10 (20%) [154s]
+    piva : FAIL expected 13181080154 got empty
+    rs : FAIL expected contain 'repower vendita' got 'Repower'
+    citta : FAIL expected 'Milano' got ''
+    titolare : OK 'Fabio Bocchiola'
+    pec : FAIL expected PEC got empty
+- [RELCO SRL] 6/10 (60%) [187s]
+    piva : PARTIAL expected null got 12080570158
+    rs : FAIL expected contain 'relco' got ''
+    citta : OK no expected
+    titolare : OK empty no ground truth
+    pec : OK no requirement
+- [GUCCI SRL Firenze] 2/10 (20%) [137s]
+    piva : FAIL expected 04793760482 got empty
+    rs : FAIL expected contain 'gucci' got ''
+    citta : FAIL expected 'Firenze' got ''
+    titolare : OK empty no ground truth
+    pec : FAIL expected PEC got empty
+- [FERRARI S.P.A. Maranello] 0/10 (0%) [201s]
+    piva : FAIL expected 00159560366 got empty
+    rs : FAIL expected contain 'ferrari' got ''
+    citta : FAIL expected 'Maranello' got ''
+    titolare : FAIL expected Benedetto Vigna,John Elkann got empty
+    pec : FAIL expected PEC got empty
+- [BARILLA G. E R. FRATELLI S.P.A.] 

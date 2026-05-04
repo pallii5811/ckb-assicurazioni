@@ -274,6 +274,80 @@ Ora estrai per la query "${query}". JSON:
     return !!dom && sameRootDomain(dom, site)
   }
 
+  async function siteConfirmsCompany(siteUrl: string, companyName?: string, piva?: string): Promise<boolean> {
+    if (!siteUrl) return false
+    const cleanPiva = String(piva || '').replace(/\D/g, '')
+    const tokens = companyName ? companyTokens(companyName).filter((t: string) => !/^(srl|srls|spa|sas|snc|soc|societa|società|company|group)$/i.test(t)) : []
+    const host = normalizeHost(siteUrl).replace(/[^a-z0-9]/g, '')
+    const hasStrongHostToken = tokens.some((t: string) => t.length >= 8 && host.includes(t))
+    const hasMultiHostToken = tokens.length >= 2 && tokens.filter((t: string) => host.includes(t)).length >= 2
+    if (hasStrongHostToken || hasMultiHostToken) return true
+
+    let base: URL
+    try { base = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`) } catch { return false }
+    const paths = ['/', '/contatti', '/contatti/', '/contact', '/chi-siamo', '/privacy', '/pages/contatti', '/pages/contact']
+    let text = ''
+    for (const path of paths) {
+      try {
+        const url = new URL(path, base).toString()
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          signal: AbortSignal.timeout(5000),
+          redirect: 'follow',
+        })
+        if (!res.ok) continue
+        const html = await res.text()
+        text += ' ' + html.toLowerCase().replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ')
+        if (cleanPiva.length === 11 && text.replace(/\D/g, '').includes(cleanPiva)) return true
+      } catch {}
+    }
+    const normalizedText = text.replace(/[^a-z0-9à-ù\s]/gi, ' ')
+    if (cleanPiva.length === 11 && text.replace(/\D/g, '').includes(cleanPiva)) return true
+    if (tokens.length >= 2 && tokens.filter((t: string) => normalizedText.includes(t)).length >= 2) return true
+    if (tokens.length === 1 && tokens[0].length >= 8 && normalizedText.includes(tokens[0])) return true
+    return false
+  }
+
+  async function acceptWebsiteCandidate(siteUrl: string, companyName?: string, piva?: string): Promise<boolean> {
+    if (!(await isReachableDomain(siteUrl))) return false
+    if (!companyName && !piva) return true
+    return await siteConfirmsCompany(siteUrl, companyName, piva)
+  }
+
+  async function findOfficialWebsiteByPiva(piva: string, companyName?: string): Promise<string | null> {
+    const cleanPiva = String(piva || '').replace(/\D/g, '')
+    if (cleanPiva.length !== 11 || !tavilyKey) return null
+    const excluded = /google|facebook|instagram|linkedin|twitter|youtube|paginegialle|companyreports|fatturatoitalia|ufficiocamerale|registroimprese|informazione-aziende|reportaziende|dnb|kompass|cerved|infocamere|tuttitalia|guidamonaci|guida-monaci|inipec|gov\.it|agenziaentrate/i
+    const queries = [
+      `"${cleanPiva}"`,
+      companyName ? `"${cleanPiva}" "${companyName}"` : `"${cleanPiva}" sito ufficiale`,
+    ]
+    for (const q of queries) {
+      try {
+        const res = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: tavilyKey, query: q, search_depth: 'basic', include_answer: false, max_results: 8 }),
+          signal: AbortSignal.timeout(12000),
+        })
+        if (!res.ok) continue
+        const data = await res.json()
+        for (const r of (data.results || [])) {
+          if (!r?.url) continue
+          let origin = ''
+          try {
+            const u = new URL(r.url)
+            const h = u.hostname.replace(/^www\./, '').toLowerCase()
+            if (excluded.test(h)) continue
+            origin = `${u.protocol}//${u.hostname}`
+          } catch { continue }
+          if (await siteConfirmsCompany(origin, companyName, cleanPiva)) return origin
+        }
+      } catch {}
+    }
+    return null
+  }
+
   // ── Helper: derive company domain candidates from LinkedIn URL slug ──
   // e.g. "linkedin.com/in/alberto-pacellini-4planstudio" → ["4planstudio.it","4planstudio.com",...]
   // Strips the person's name parts from the slug; remaining tokens are the brand.
@@ -539,16 +613,16 @@ Ora estrai per la query "${query}". JSON:
         if (regDataPre1e?.found) {
           // Validate that the returned company actually matches the hint (avoid omonimi)
           const regNamePre = String(regDataPre1e.ragione_sociale || '').toLowerCase().replace(/[^a-z0-9\s]/g, '')
-          const hintWords = queryCompanyHint.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 3)
+          const hintWords = queryCompanyHint.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 3 && !/^(srl|srls|spa|sas|snc|soc|societa|società|coop|scarl|scrl)$/i.test(w))
           const matchesCompany = hintWords.length > 0 && hintWords.every((w: string) => regNamePre.includes(w))
           if (matchesCompany && regDataPre1e.sito) {
-            const reachablePre = await isReachableDomain(String(regDataPre1e.sito))
+            const reachablePre = await acceptWebsiteCandidate(String(regDataPre1e.sito), queryCompanyHint, regDataPre1e.partita_iva)
             if (reachablePre) {
               result.sito_web = regDataPre1e.sito
               if (!result.fonti.includes('Google Maps (azienda da query)')) result.fonti.push('Google Maps (azienda da query)')
               console.log(`[PERSON-LOOKUP] Pre-1e: ✓ sito_web LOCKED from company hint: ${result.sito_web}`)
             } else {
-              console.log(`[PERSON-LOOKUP] Pre-1e: ⚠️ company-hint site "${regDataPre1e.sito}" not reachable — skipping`)
+              console.log(`[PERSON-LOOKUP] Pre-1e: ⚠️ company-hint site "${regDataPre1e.sito}" not confirmed for "${queryCompanyHint}" — skipping`)
             }
           } else if (regDataPre1e.sito) {
             console.log(`[PERSON-LOOKUP] Pre-1e: company name mismatch — got "${regNamePre}", expected "${queryCompanyHint}" — skipping site`)
@@ -573,11 +647,13 @@ Ora estrai per la query "${query}". JSON:
       const candidates = [`${brandClean}.it`, `${brandClean}.com`, `${brandClean}.eu`, `${brandClean}.net`, `studio${brandClean}.it`, `${brandClean}studio.it`]
       console.log(`[PERSON-LOOKUP] Pre-1e STEP 2: trying brand domain candidates from hint "${queryCompanyHint}": ${candidates.join(', ')}`)
       for (const cand of candidates) {
-        if (await isReachableDomain(cand)) {
+        if (await acceptWebsiteCandidate(cand, queryCompanyHint)) {
           result.sito_web = cand
           if (!result.fonti.includes('Brand domain (derivato da query)')) result.fonti.push('Brand domain (derivato da query)')
           console.log(`[PERSON-LOOKUP] Pre-1e STEP 2: ✓ brand domain found via direct probe: ${cand}`)
           break
+        } else {
+          console.log(`[PERSON-LOOKUP] Pre-1e STEP 2: rejected candidate "${cand}" — reachable/ownership check failed`)
         }
       }
     }
@@ -929,7 +1005,12 @@ JSON:
             result.email_fonte = 'Google Maps (azienda)'
           }
           if (!result.sito_web && (lead.sito || lead.website)) {
-            result.sito_web = lead.sito || lead.website
+            const leadSite = lead.sito || lead.website
+            if (await acceptWebsiteCandidate(String(leadSite), company, result.partita_iva)) {
+              result.sito_web = leadSite
+            } else {
+              console.log(`[PERSON-LOOKUP] Search 1c: rejected Maps website "${leadSite}" — ownership check failed`)
+            }
           }
           result.fonti.push('Google Maps')
         }
@@ -952,7 +1033,11 @@ JSON:
           result.email_fonte = 'Sito web azienda'
         }
         if (!isJunk(extCompany.sito_web) && !result.sito_web) {
-          result.sito_web = extCompany.sito_web
+          if (await acceptWebsiteCandidate(String(extCompany.sito_web), company, result.partita_iva)) {
+            result.sito_web = extCompany.sito_web
+          } else {
+            console.log(`[PERSON-LOOKUP] Search 1c: rejected Tavily/GPT website "${extCompany.sito_web}" — ownership check failed`)
+          }
         }
       }
     }
@@ -1513,7 +1598,13 @@ JSON:
             if (regData.partita_iva && !result.partita_iva) result.partita_iva = regData.partita_iva
             if (regData.pec && !result.pec) result.pec = regData.pec
             if (regData.sede_legale && !result.indirizzo) result.indirizzo = regData.sede_legale
-            if (regData.sito) result.sito_web = regData.sito
+            if (regData.sito) {
+              if (await acceptWebsiteCandidate(String(regData.sito), regData.ragione_sociale || company || queryCompanyHint, regData.partita_iva || result.partita_iva)) {
+                result.sito_web = regData.sito
+              } else {
+                console.log(`[PERSON-LOOKUP] lead-registry VERIFIED: rejected website "${regData.sito}" — ownership check failed`)
+              }
+            }
             if (regData.email_privacy && !result.email) result.email = regData.email_privacy
             result.fonti.push('lead-registry (dettaglio lead)')
             console.log(`[PERSON-LOOKUP] lead-registry VERIFIED: "${personName}" is linked to "${regData.ragione_sociale}"`)
@@ -2721,6 +2812,50 @@ JSON:
     }
   }
 
+  const pivaForOfficialSite = String(result.partita_iva || result.dati_azienda?.partita_iva || '').replace(/\D/g, '')
+  const companyForOfficialSite = String(result.dati_azienda?.ragione_sociale || result.azienda || queryCompanyHint || company || '').trim()
+  if (pivaForOfficialSite.length === 11) {
+    const currentSite = String(result.sito_web || result.sito || '').trim()
+    const currentConfirmed = currentSite ? await siteConfirmsCompany(currentSite, companyForOfficialSite, pivaForOfficialSite) : false
+    if (!currentConfirmed) {
+      if (currentSite) {
+        console.log(`[PERSON-LOOKUP] FINAL PIVA SITE: current site "${currentSite}" not confirmed for P.IVA ${pivaForOfficialSite} — searching official site`)
+      }
+      const officialByPiva = await findOfficialWebsiteByPiva(pivaForOfficialSite, companyForOfficialSite)
+      if (officialByPiva) {
+        result.sito_web = officialByPiva
+        delete result.sito
+        if (!result.fonti.includes('Sito ufficiale da P.IVA')) result.fonti.push('Sito ufficiale da P.IVA')
+        console.log(`[PERSON-LOOKUP] FINAL PIVA SITE: corrected sito_web → ${officialByPiva}`)
+        try {
+          const deep = await scrapeWebsiteDeep(officialByPiva)
+          const emailsOnOfficial = deep.emails.filter(e => emailMatchesSite(e.email, officialByPiva))
+          const bestRegularEmail = emailsOnOfficial.find(e => e.type === 'personal') || emailsOnOfficial.find(e => e.type === 'generic')
+          const bestPec = emailsOnOfficial.find(e => e.type === 'pec')
+          const bestPhone = deep.phones.find(p => p.type === 'landline') || deep.phones.find(p => p.type === 'mobile') || deep.phones[0]
+          if (bestRegularEmail) {
+            result.email = bestRegularEmail.email
+            result.email_fonte = 'Sito ufficiale da P.IVA'
+          }
+          if (bestPec) result.pec = bestPec.email
+          if (bestPhone) {
+            result.telefono = bestPhone.number
+            result.telefono_fonte = 'Sito ufficiale da P.IVA'
+          }
+          if (deep.socialLinks.instagram) result.instagram = deep.socialLinks.instagram
+          if (deep.socialLinks.facebook) result.facebook = deep.socialLinks.facebook
+          if (deep.socialLinks.linkedin && !result.linkedin_azienda) result.linkedin_azienda = deep.socialLinks.linkedin
+        } catch (e: any) {
+          console.log(`[PERSON-LOOKUP] FINAL PIVA SITE: deep scrape failed for "${officialByPiva}": ${e?.message || e}`)
+        }
+      } else if (currentSite) {
+        delete result.sito_web
+        delete result.sito
+        console.log(`[PERSON-LOOKUP] FINAL PIVA SITE: removed unconfirmed site "${currentSite}" — no P.IVA-confirmed official site found`)
+      }
+    }
+  }
+
   // ── Final cleanup: remove ANY remaining placeholder/example values ──
   const placeholderRx = /esempio|example|sample|placeholder|lorem|ipsum|12345678/i
   const sequentialRx = /1234567|7654321|0000000|9999999/
@@ -2831,8 +2966,14 @@ JSON:
       if (!isGeneric) {
         // Strip eventuali sottodomini "mail." / "www." / "pec." per derivare il sito
         const cleanDom = emailDom.replace(/^(?:mail|www|pec|smtp|webmail|posta)\./, '')
-        result.sito = `https://${cleanDom}`
-        console.log(`[PERSON-LOOKUP] FINAL: derived sito "${result.sito}" from email "${result.email}"`)
+        const derivedSite = `https://${cleanDom}`
+        const mustConfirmDerivedSite = !!(pivaForOfficialSite || companyForOfficialSite || queryCompanyHint || company)
+        if (!mustConfirmDerivedSite || await acceptWebsiteCandidate(derivedSite, companyForOfficialSite || queryCompanyHint || company, pivaForOfficialSite)) {
+          result.sito = derivedSite
+          console.log(`[PERSON-LOOKUP] FINAL: derived sito "${result.sito}" from email "${result.email}"`)
+        } else {
+          console.log(`[PERSON-LOOKUP] FINAL: rejected derived sito "${derivedSite}" from email "${result.email}" — ownership check failed`)
+        }
       }
     }
   }

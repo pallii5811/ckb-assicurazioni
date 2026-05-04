@@ -1,0 +1,139 @@
+===== BATCH5 START 01:52:03 =====
+
+===== [1/10] REPOWER VENDITA ITALIA SPA =====
+  COMPANY (71s)
+    P.IVA:   00789540143 [NO(00789540143)]
+    Sede:    in  Via Uberti Giulio, 37 ,  Milano ( MI), regione  Lombardia [OK]
+    RagSoc:  Repower
+    Titolare: []
+    Tel/Em:  Œ?ø02 581 4211 / 
+    Sito:    http://www.repower.com/
+    Fatt/Dip:1634697800 / 100-199 (ATECO 35.11.00)
+  -> PERSON: skipped (no titolare)
+
+===== [2/10] REPUTATION MANAGER S.P.A. SOCIETA BENEFIT =====
+  COMPANY (90s)
+    P.IVA:    [NO()]
+    Sede:    Œ??Via G. d'Annunzio, 27, 20016 Pero MI [NO(Œ??Via G. d'Annunzio, 27, 20016 Pero MI|Œ??Via G. d'Annunzio, 27, 20016 Pero MI)]
+    RagSoc:  Reputation Manager S.p.A. - Ingegneria Reputazionale
+    Titolare: []
+    Tel/Em:  Œ?ø02 928501 / info@reputationmanager.it
+    Sito:    https://www.reputationmanager.it/
+    Fatt/Dip: /  (ATECO 73.11.02)
+  -> PERSON: skipped (no titolare)
+
+===== [3/10] RES FREEDATA S.R.L. =====
+  COMPANY (92s)
+    P.IVA:   07883910965 [NO(07883910965)]
+    Sede:    VIALE PIERO E ALBERTO PIRELLI 6 
+20126 MILANO MI [OK]
+    RagSoc:  
+    Titolare: []
+    Tel/Em:  Œ?ø02 8739 8200 / info@res-it.com
+    Sito:    https://res-group.eu/
+    Fatt/Dip:1985065 / 20-49 (ATECO 62.01.00)
+  -> PERSON: skipped (no titolare)
+
+===== [4/10] RES PUBLICA SRL =====
+  COMPANY (64s)
+    P.IVA:    [NO()]
+    Sede:     [NO(|)]
+    RagSoc:  RES PUBLICA SRL
+    Titolare: []
+    Tel/Em:   / 
+    Sito:    
+    Fatt/Dip: /  (ATECO )
+  -> PERSON: skipped (no titolare)
+
+===== [5/10] RES SYNESIS S.R.L. =====
+  COMPANY (66s)
+    P.IVA:    [NO()]
+    Sede:    Œ??Via Enzo Ferrari, 16, 25030 Roncadelle BS [NO(Œ??Via Enzo Ferrari, 16, 25030 Roncadelle BS|Œ??Via Enzo Ferrari, 16, 25030 Roncadelle BS)]
+    RagSoc:  
+    Titolare: []
+    Tel/Em:  Œ?ø099 591 2467 / 
+    Sito:    http://prosiri.com/
+    Fatt/Dip: /  (ATECO 70.22.09)
+  -> PERSON: skipped (no titolare)
+
+===== [6/10] RELCO SRL Milano =====
+  COMPANY (124s)
+    P.IVA:   12080570158 [NO(12080570158)]
+    Sede:    VIA DELLE AZALEE 6/A 
+20090 BUCCINASCO MI [NO(VIA DELLE AZALEE 6/A 
+20090 BUCCINASCO MI|Œ??Via delle Azalee, 6/A, 20090 Buccinasco MI)]
+    RagSoc:  
+    Titolare: []
+    Tel/Em:  Œ?ø02 9297 9103 / tecnico@relcogroup.com
+    Sito:    http://www.relcogroup.com/
+    Fatt/Dip:19902397 / 10-15 (ATECO 47.59.10)
+  -> PERSON: skipped (no titolare)
+
+===== [7/10] REMEMBER.MI SRL =====
+  COMPANY (124s)
+    P.IVA:   07391350969 [OK]
+    Sede:    Œ??Via Francesco Cilea, 50, 20090 Trezzano sul Naviglio MI [NO(Œ??Via Francesco Cilea, 50, 20090 Trezzano sul Naviglio MI|Œ??Via Francesco Cilea, 50, 20090 Trezzano sul Naviglio MI)]
+    RagSoc:  Souvenir Italia
+    Titolare: []
+    Tel/Em:  Œ?ø02 8489 5720 / commerciale@remembermi.it
+    Sito:    http://www.souveniritalia.com/
+    Fatt/Dip:4305914 / 20-49 (ATECO 47.99.90)
+  -> PERSON: skipped (no titolare)
+
+===== [8/10] REMTENE SRL =====
+  COMPANY (74s)
+    P.IVA:    [NO()]
+    Sede:     [NO(|)]
+    RagSoc:  REMTENE SRL
+    Titolare: []
+    Tel/Em:   / 
+    Sito:    
+    Fatt/Dip: /  (ATECO )
+  -> PERSON: skipped (no titolare)
+
+===== [9/10] RENOVIT PUBLIC SOLUTIONS S.P.A. =====
+  COMPANY (78s)
+    P.IVA:    [NO()]
+    Sede:    Œ??Via Gianfranco Malipiero, 16/18, 20138 Milano MI [OK]
+    RagSoc:  Renovit Spa
+    Titolare: []
+    Tel/Em:   / 
+    Sito:    https://www.renovit.it/it/home/
+    Fatt/Dip: /  (ATECO 74.90.11)
+  -> PERSON: skipped (no titolare)
+
+===== [10/10] REP S.R.L. CENTRO DI RICERCA SUGLI ENTI PUBBLICI =====
+  COMPANY (107s)
+    P.IVA:    [NO()]
+    Sede:    Œ??Via Caio Sulpicio, 2, 00175 Roma RM [NO(Œ??Via Caio Sulpicio, 2, 00175 Roma RM|Œ??Via Caio Sulpicio, 2, 00175 Roma RM)]
+    RagSoc:  
+    Titolare:Ricerca Sugli [Titolare / Rappresentante Legale]
+    Tel/Em:  Œ?ø327 949 5382 / 
+    Sito:    http://prosiri.com/
+    Fatt/Dip: /  (ATECO 82.20.00)
+  -> PERSON: Ricerca Sugli 
+    PERSON (37s): EMPTY
+      Nome:     
+      Ruolo:    
+      Email:    
+      Tel/Cel:   / 
+      LinkedIn: 
+      Azienda:   []
+
+===== SUMMARY =====
+
+Q                                                PivaOk          SedeOk                                                
+-                                                ------          ------                                                
+REPOWER VENDITA ITALIA SPA                       NO(00789540143) OK                                                    
+REPUTATION MANAGER S.P.A. SOCIETA BENEFIT        NO()            NO(Œ??Via G. d'Annunzio, 27, 20016 Pero MI|Œ??Via G...
+RES FREEDATA S.R.L.                              NO(07883910965) OK                                                    
+RES PUBLICA SRL                                  NO()            NO(|)                                                 
+RES SYNESIS S.R.L.                               NO()            NO(Œ??Via Enzo Ferrari, 16, 25030 Roncadelle BS|Œ??...
+RELCO SRL Milano                                 NO(12080570158) NO(VIA DELLE AZALEE 6/A ...                           
+REMEMBER.MI SRL                                  OK              NO(Œ??Via Francesco Cilea, 50, 20090 Trezzano sul N...
+REMTENE SRL                                      NO()            NO(|)                                                 
+RENOVIT PUBLIC SOLUTIONS S.P.A.                  NO()            OK                                                    
+REP S.R.L. CENTRO DI RICERCA SUGLI ENTI PUBBLICI NO()            NO(Œ??Via Caio Sulpicio, 2, 00175 Roma RM|Œ??Via Ca...
+
+
+===== END 02:07:32 =====

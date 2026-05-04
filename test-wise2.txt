@@ -1,0 +1,10 @@
+﻿=== WISEAIR (124s) ===
+RAG_SOC: 
+P.IVA:   04042801201 | atteso 10700370967
+C.F.:    04042801201
+SEDE:    Via Guerrazzi, 1/A, Bologna | atteso Via Andrea Costa 8
+ATECO:   64.20.00 Attivita' delle societa' di partecipazione (holding)
+FATT:    0 (2023)
+DIPEND:  0
+TITOLARE:  ()
+FONTI:   Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)

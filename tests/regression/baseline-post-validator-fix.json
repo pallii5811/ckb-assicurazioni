@@ -1,0 +1,677 @@
+﻿{
+    "timestamp":  "2026-04-24T14:20:05",
+    "base_url":  "http://localhost:3000",
+    "total_score":  83,
+    "max_score":  200,
+    "percent":  41.5,
+    "grade":  "FAIL \u003c60%",
+    "results":  [
+                    {
+                        "query":  "REPUTATION MANAGER S.P.A. Milano",
+                        "score":  8,
+                        "max":  10,
+                        "duration_sec":  134,
+                        "details":  {
+                                        "piva":  "OK 07569410967",
+                                        "rs":  "OK \u0027Reputation Manager S.p.A. - Ingegneria Reputazionale\u0027",
+                                        "citta":  "OK \u0027MILANO\u0027",
+                                        "titolare":  "FAIL expected Andrea Barchiesi got empty",
+                                        "pec":  "OK \u0027reputationmanagerspa@pec.it\u0027"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "Reputation Manager S.p.A. - Ingegneria Reputazionale",
+                                       "pec":  "reputationmanagerspa@pec.it",
+                                       "titolare":  null,
+                                       "sede_legale":  "VIA CESARE MANGILI 2 - 20121 - MILANO (MI)",
+                                       "fonti":  [
+                                                     "Google Maps",
+                                                     "Sito Web Aziendale",
+                                                     "Gemini 2.5 Flash Lite (Google Search grounding)",
+                                                     "Tavily (ricerca web)"
+                                                 ],
+                                       "partita_iva":  "07569410967",
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "07569410967",
+                                         "ragione_sociale_contains":  "reputation manager",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Andrea Barchiesi"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "RES FREEDATA S.R.L.",
+                        "score":  8,
+                        "max":  10,
+                        "duration_sec":  131,
+                        "details":  {
+                                        "piva":  "OK 10102720967",
+                                        "rs":  "FAIL expected contain \u0027res freedata\u0027 got \u0027\u0027",
+                                        "citta":  "OK \u0027Milano\u0027",
+                                        "titolare":  "OK empty no ground truth",
+                                        "pec":  "OK \u0027res@pec.res-it.com\u0027"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  null,
+                                       "pec":  "res@pec.res-it.com",
+                                       "titolare":  null,
+                                       "sede_legale":  "Viale Piero E Alberto Pirelli, 6, Milano",
+                                       "fonti":  [
+                                                     "Google Maps",
+                                                     "fatturatoitalia.it",
+                                                     "Sito Web Aziendale",
+                                                     "CompanyReports.it",
+                                                     "Tavily (ricerca web)",
+                                                     "Sito ufficiale (PEC)"
+                                                 ],
+                                       "partita_iva":  "10102720967",
+                                       "citta":  "Milano"
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "10102720967",
+                                         "ragione_sociale_contains":  "res freedata",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  null,
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "RES PUBLICA SRL",
+                        "score":  9,
+                        "max":  10,
+                        "duration_sec":  152,
+                        "details":  {
+                                        "piva":  "OK 06349250966",
+                                        "rs":  "OK \u0027Res Publica Srl\u0027",
+                                        "citta":  "OK \u0027Milano\u0027",
+                                        "titolare":  "PARTIAL \u0027Alberto Bianchi\u0027 no ground truth",
+                                        "pec":  "OK no requirement"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "Res Publica Srl",
+                                       "pec":  "respublicasrl@pec.it",
+                                       "titolare":  "Alberto Bianchi",
+                                       "sede_legale":  "Corso Buenos Aires, 47, Milano",
+                                       "fonti":  [
+                                                     "fatturatoitalia.it",
+                                                     "Sito Web Aziendale",
+                                                     "CompanyReports.it",
+                                                     "Tavily (ricerca web)"
+                                                 ],
+                                       "partita_iva":  "06349250966",
+                                       "citta":  "Milano"
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "06349250966",
+                                         "ragione_sociale_contains":  "res publica",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  null,
+                                         "has_pec":  false
+                                     }
+                    },
+                    {
+                        "query":  "RES SYNESIS S.R.L.",
+                        "score":  8,
+                        "max":  10,
+                        "duration_sec":  145,
+                        "details":  {
+                                        "piva":  "OK 09445240964",
+                                        "rs":  "FAIL expected contain \u0027res synesis\u0027 got \u0027\u0027",
+                                        "citta":  "OK \u0027Milano\u0027",
+                                        "titolare":  "OK empty no ground truth",
+                                        "pec":  "OK no requirement"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  null,
+                                       "pec":  "synesis@pec.res-it.com",
+                                       "titolare":  null,
+                                       "sede_legale":  "Viale Piero E Alberto Pirelli, 6, Milano",
+                                       "fonti":  [
+                                                     "fatturatoitalia.it",
+                                                     "CompanyReports.it",
+                                                     "Gemini 2.5 Flash Lite (Google Search grounding)",
+                                                     "Tavily (ricerca web)"
+                                                 ],
+                                       "partita_iva":  "09445240964",
+                                       "citta":  "Milano"
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "09445240964",
+                                         "ragione_sociale_contains":  "res synesis",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  null,
+                                         "has_pec":  false
+                                     }
+                    },
+                    {
+                        "query":  "REMTENE SRL",
+                        "score":  10,
+                        "max":  10,
+                        "duration_sec":  238,
+                        "details":  {
+                                        "piva":  "OK 08747890963",
+                                        "rs":  "OK \u0027Remtene S.r.l.\u0027",
+                                        "citta":  "OK \u0027Milano\u0027",
+                                        "titolare":  "OK \u0027Arnaldo Ferrari Nasi\u0027",
+                                        "pec":  "OK no requirement"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "Remtene S.r.l.",
+                                       "pec":  null,
+                                       "titolare":  "Arnaldo Ferrari Nasi",
+                                       "sede_legale":  "Corso Porta Vittoria (di), 58, Milano",
+                                       "fonti":  [
+                                                     "fatturatoitalia.it",
+                                                     "Sito Web Aziendale",
+                                                     "CompanyReports.it",
+                                                     "Tavily (ricerca web)"
+                                                 ],
+                                       "partita_iva":  "08747890963",
+                                       "citta":  "Milano"
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "08747890963",
+                                         "ragione_sociale_contains":  "remtene",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Arnaldo Ferrari Nasi"
+                                                              ],
+                                         "has_pec":  false
+                                     }
+                    },
+                    {
+                        "query":  "REP S.R.L. CENTRO DI RICERCA SUGLI ENTI PUBBLICI",
+                        "score":  8,
+                        "max":  10,
+                        "duration_sec":  154,
+                        "details":  {
+                                        "piva":  "OK 12420520962",
+                                        "rs":  "FAIL expected contain \u0027rep\u0027 got \u0027\u0027",
+                                        "citta":  "OK \u0027Milano\u0027",
+                                        "titolare":  "OK empty no ground truth",
+                                        "pec":  "OK no requirement"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  null,
+                                       "pec":  "repcentroricerca@pec.it",
+                                       "titolare":  null,
+                                       "sede_legale":  "Via Dante, 9, Milano",
+                                       "fonti":  [
+                                                     "Google Maps",
+                                                     "fatturatoitalia.it",
+                                                     "Sito Web Aziendale",
+                                                     "CompanyReports.it",
+                                                     "Gemini 2.5 Flash Lite (Google Search grounding)",
+                                                     "Tavily (ricerca web)"
+                                                 ],
+                                       "partita_iva":  "12420520962",
+                                       "citta":  "Milano"
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "12420520962",
+                                         "ragione_sociale_contains":  "rep",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  null,
+                                         "has_pec":  false
+                                     }
+                    },
+                    {
+                        "query":  "REPOWER VENDITA ITALIA SPA",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  227,
+                        "details":  {
+                                        "piva":  "FAIL expected 13181080154 got empty",
+                                        "rs":  "FAIL expected contain \u0027repower vendita\u0027 got \u0027Repower\u0027",
+                                        "citta":  "FAIL expected \u0027Milano\u0027 got \u0027\u0027",
+                                        "titolare":  "OK \u0027Fabio Bocchiola\u0027",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "Repower",
+                                       "pec":  null,
+                                       "titolare":  "Fabio Bocchiola",
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "Google Maps",
+                                                     "Sito Web Aziendale",
+                                                     "Tavily (ricerca web)",
+                                                     "INIPEC (via Tavily)"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "13181080154",
+                                         "ragione_sociale_contains":  "repower vendita",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Fabio Bocchiola"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "RELCO SRL",
+                        "score":  6,
+                        "max":  10,
+                        "duration_sec":  137,
+                        "details":  {
+                                        "piva":  "PARTIAL expected null got 12080570158",
+                                        "rs":  "FAIL expected contain \u0027relco\u0027 got \u0027\u0027",
+                                        "citta":  "OK no expected",
+                                        "titolare":  "OK empty no ground truth",
+                                        "pec":  "OK no requirement"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  null,
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  "Via Delle Azalee, 6/A, Buccinasco",
+                                       "fonti":  [
+                                                     "fatturatoitalia.it"
+                                                 ],
+                                       "partita_iva":  "12080570158",
+                                       "citta":  "Buccinasco"
+                                   },
+                        "expected":  {
+                                         "partita_iva":  null,
+                                         "ragione_sociale_contains":  "relco",
+                                         "citta":  null,
+                                         "titolare_allowed":  null,
+                                         "has_pec":  false
+                                     }
+                    },
+                    {
+                        "query":  "GUCCI SRL Firenze",
+                        "score":  4,
+                        "max":  10,
+                        "duration_sec":  80,
+                        "details":  {
+                                        "piva":  "FAIL expected 04793760482 got empty",
+                                        "rs":  "OK \u0027GUCCI SRL Firenze\u0027",
+                                        "citta":  "FAIL expected \u0027Firenze\u0027 got \u0027\u0027",
+                                        "titolare":  "OK empty no ground truth",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "GUCCI SRL Firenze",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "04793760482",
+                                         "ragione_sociale_contains":  "gucci",
+                                         "citta":  "Firenze",
+                                         "titolare_allowed":  null,
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "FERRARI S.P.A. Maranello",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  12,
+                        "details":  {
+                                        "piva":  "FAIL expected 00159560366 got empty",
+                                        "rs":  "OK \u0027FERRARI S.P.A. Maranello\u0027",
+                                        "citta":  "FAIL expected \u0027Maranello\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Benedetto Vigna,John Elkann got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "FERRARI S.P.A. Maranello",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "00159560366",
+                                         "ragione_sociale_contains":  "ferrari",
+                                         "citta":  "Maranello",
+                                         "titolare_allowed":  [
+                                                                  "Benedetto Vigna",
+                                                                  "John Elkann"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "BARILLA G. E R. FRATELLI S.P.A.",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  12,
+                        "details":  {
+                                        "piva":  "FAIL expected 01654010345 got empty",
+                                        "rs":  "OK \u0027BARILLA G. E R. FRATELLI S.P.A.\u0027",
+                                        "citta":  "FAIL expected \u0027Parma\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Guido Maria Barilla,Luca Barilla,Paolo Barilla got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "BARILLA G. E R. FRATELLI S.P.A.",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "01654010345",
+                                         "ragione_sociale_contains":  "barilla",
+                                         "citta":  "Parma",
+                                         "titolare_allowed":  [
+                                                                  "Guido Maria Barilla",
+                                                                  "Luca Barilla",
+                                                                  "Paolo Barilla"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "PRADA S.P.A.",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  12,
+                        "details":  {
+                                        "piva":  "FAIL expected 10115350159 got empty",
+                                        "rs":  "OK \u0027PRADA S.P.A.\u0027",
+                                        "citta":  "FAIL expected \u0027Milano\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Miuccia Prada,Patrizio Bertelli,Andrea Guerra got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "PRADA S.P.A.",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "10115350159",
+                                         "ragione_sociale_contains":  "prada",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Miuccia Prada",
+                                                                  "Patrizio Bertelli",
+                                                                  "Andrea Guerra"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "LUXOTTICA GROUP SPA",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  56,
+                        "details":  {
+                                        "piva":  "FAIL expected 00970890032 got empty",
+                                        "rs":  "OK \u0027LUXOTTICA GROUP SPA\u0027",
+                                        "citta":  "FAIL expected \u0027Milano\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Francesco Milleri,Leonardo Del Vecchio got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "LUXOTTICA GROUP SPA",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "00970890032",
+                                         "ragione_sociale_contains":  "luxottica",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Francesco Milleri",
+                                                                  "Leonardo Del Vecchio"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "AUTOGRILL S.P.A.",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  109,
+                        "details":  {
+                                        "piva":  "FAIL expected 03091940266 got empty",
+                                        "rs":  "OK \u0027AUTOGRILL S.P.A.\u0027",
+                                        "citta":  "FAIL expected \u0027Rozzano\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Gianmario Tondato Da Ruos,Paolo Roverato got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "AUTOGRILL S.P.A.",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "03091940266",
+                                         "ragione_sociale_contains":  "autogrill",
+                                         "citta":  "Rozzano",
+                                         "titolare_allowed":  [
+                                                                  "Gianmario Tondato Da Ruos",
+                                                                  "Paolo Roverato"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "ENEL S.P.A.",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  97,
+                        "details":  {
+                                        "piva":  "FAIL expected 00811720580 got empty",
+                                        "rs":  "OK \u0027ENEL S.P.A.\u0027",
+                                        "citta":  "FAIL expected \u0027Roma\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Flavio Cattaneo,Paolo Scaroni got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "ENEL S.P.A.",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "00811720580",
+                                         "ragione_sociale_contains":  "enel",
+                                         "citta":  "Roma",
+                                         "titolare_allowed":  [
+                                                                  "Flavio Cattaneo",
+                                                                  "Paolo Scaroni"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "TELECOM ITALIA SPA",
+                        "score":  0,
+                        "max":  10,
+                        "duration_sec":  73,
+                        "details":  {
+                                        "piva":  "FAIL expected 00488410010 got empty",
+                                        "rs":  "FAIL expected contain \u0027tim\u0027 got \u0027TELECOM ITALIA SPA\u0027",
+                                        "citta":  "FAIL expected \u0027Roma\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Pietro Labriola,Alberta Figari got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "TELECOM ITALIA SPA",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "00488410010",
+                                         "ragione_sociale_contains":  "tim",
+                                         "citta":  "Roma",
+                                         "titolare_allowed":  [
+                                                                  "Pietro Labriola",
+                                                                  "Alberta Figari"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "GENERALI ITALIA SPA",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  70,
+                        "details":  {
+                                        "piva":  "FAIL expected 01333550323 got empty",
+                                        "rs":  "OK \u0027GENERALI ITALIA SPA\u0027",
+                                        "citta":  "FAIL expected \u0027Mogliano Veneto\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Giancarlo Fancel,Marco Sesana got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "GENERALI ITALIA SPA",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "01333550323",
+                                         "ragione_sociale_contains":  "generali italia",
+                                         "citta":  "Mogliano Veneto",
+                                         "titolare_allowed":  [
+                                                                  "Giancarlo Fancel",
+                                                                  "Marco Sesana"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "PIRELLI \u0026 C. SPA",
+                        "score":  2,
+                        "max":  10,
+                        "duration_sec":  73,
+                        "details":  {
+                                        "piva":  "FAIL expected 00860340157 got empty",
+                                        "rs":  "OK \u0027PIRELLI \u0026 C. SPA\u0027",
+                                        "citta":  "FAIL expected \u0027Milano\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Andrea Casaluci,Marco Tronchetti Provera got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "PIRELLI \u0026 C. SPA",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  null,
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "00860340157",
+                                         "ragione_sociale_contains":  "pirelli",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Andrea Casaluci",
+                                                                  "Marco Tronchetti Provera"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "11876690150",
+                        "score":  4,
+                        "max":  10,
+                        "duration_sec":  99,
+                        "details":  {
+                                        "piva":  "OK 11876690150",
+                                        "rs":  "FAIL expected contain \u0027moncler\u0027 got \u002711876690150\u0027",
+                                        "citta":  "FAIL expected \u0027Milano\u0027 got \u0027\u0027",
+                                        "titolare":  "FAIL expected Remo Ruffini got empty",
+                                        "pec":  "FAIL expected PEC got empty"
+                                    },
+                        "actual":  {
+                                       "ragione_sociale":  "11876690150",
+                                       "pec":  null,
+                                       "titolare":  null,
+                                       "sede_legale":  null,
+                                       "fonti":  [
+                                                     "lead-registry"
+                                                 ],
+                                       "partita_iva":  "11876690150",
+                                       "citta":  null
+                                   },
+                        "expected":  {
+                                         "partita_iva":  "11876690150",
+                                         "ragione_sociale_contains":  "moncler",
+                                         "citta":  "Milano",
+                                         "titolare_allowed":  [
+                                                                  "Remo Ruffini"
+                                                              ],
+                                         "has_pec":  true
+                                     }
+                    },
+                    {
+                        "query":  "EDIL SMG S.R.L.S.",
+                        "score":  0,
+                        "max":  10,
+                        "details":  {
+                                        "error":  "Timeout dell\u0027operazione."
+                                    },
+                        "actual":  null,
+                        "expected":  {
+                                         "partita_iva":  null,
+                                         "ragione_sociale_contains":  "edil smg",
+                                         "citta":  null,
+                                         "titolare_allowed":  null,
+                                         "has_pec":  false
+                                     }
+                    }
+                ]
+}

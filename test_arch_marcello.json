@@ -1,0 +1,389 @@
+﻿{
+    "nome_cercato":  "Marcello Milone architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)",
+                  "lead-registry (dettaglio lead)"
+              ],
+    "nome_completo":  "Marcello Milone",
+    "ruolo":  "Architetto",
+    "azienda":  "Studio di Architettura Marcello Milone",
+    "settore":  "Architettura",
+    "citta":  "Anzola dell\u0027Emilia",
+    "descrizione":  "Marcello Milone Ã¨ un architetto specializzato in consulenza edile, paesaggistica e progettazione di lavori pubblici. Con sede a Anzola dell\u0027Emilia, offre supporto professionale in ambiti tecnici e progettuali.",
+    "tipo_lavoro":  "libero professionista",
+    "seniority":  "senior",
+    "dimensione_azienda":  "micro",
+    "_tavily_last_url":  "https://it.linkedin.com/in/martina-meoni-96a40a58",
+    "partita_iva":  "03528750650",
+    "indirizzo":  "Via Baiesi, 17/D â CAP 40011 Anzola Emilia (BO)",
+    "_camerale_ragione_sociale":  "Studio di Architettura MARCELLO MILONE",
+    "_camerale_data":  {
+                           "data_costituzione":  "1998",
+                           "stato_attivita":  "attiva"
+                       },
+    "telefono":  "+393473464872",
+    "telefono_fonte":  "Sito web azienda",
+    "sito_web":  "www.archingenio.net",
+    "dati_azienda":  {
+                         "found":  true,
+                         "fonte":  "vies_verificato",
+                         "ragione_sociale":  "MILONE MARCELLO",
+                         "email_privacy":  "arch.marcellomilone@archingenio.net",
+                         "sede_legale":  "VIA BRUNO ARNAUD N 27 03 INT 1 \n40128 BOLOGNA BO",
+                         "sede_legale_verificata":  true,
+                         "partita_iva":  "03528750650",
+                         "piva_verificata":  true,
+                         "titolare_ruolo":  "Rappresentante Legale",
+                         "descrizione_ateco":  "AttivitÃ  degli studi di architettura",
+                         "forma_giuridica":  "Impresa Individuale",
+                         "data_costituzione":  "N/A",
+                         "pec":  "N/A",
+                         "codice_fiscale":  "03528750650",
+                         "persone":  [
+                                         {
+                                             "nome":  "Marcello Milone",
+                                             "ruolo":  "Rappresentante Legale",
+                                             "cf":  "03528750650",
+                                             "quota":  "100"
+                                         }
+                                     ],
+                         "titolare":  "Marcello Milone",
+                         "titolare_fonte":  "tavily",
+                         "ruolo_titolare":  "Progettista senior e consulente",
+                         "fatturato_anno":  "2024",
+                         "certificazioni":  [
+                                                "ISO",
+                                                "SOA"
+                                            ],
+                         "ha_flotta_veicoli":  true,
+                         "ha_immobili_proprieta":  true,
+                         "immobili_descrizione":  "coinvolto in appalti pubblici relativi a progetti architettonici",
+                         "partecipa_appalti_pubblici":  true,
+                         "appalti_info":  "coinvolto in appalti pubblici per progetti architettonici in varie regioni d\u0027Italia",
+                         "sinistri_noti":  "nessun sinistro noto",
+                         "attivita_estero":  false,
+                         "rischi_specifici":  [
+
+                                              ],
+                         "note_broker":  "Architetto con esperienza in gestione di flotte veicoli e appalti pubblici",
+                         "bio_titolare":  "Marcello Milone is a senior designer and consultant based in Bologna, Italy. He is associated with GBsoftware and has been a long-term user. He is also an architect registered with the Comune di Bologna.",
+                         "esperienze_titolare":  [
+                                                     {
+                                                         "azienda":  "Libero Professionista",
+                                                         "ruolo":  "Consulente Aziendale",
+                                                         "periodo":  "N/A - Present"
+                                                     }
+                                                 ],
+                         "formazione_titolare":  "Laurea in architettura presso UniversitÃ  degli Studi di Napoli \u0027Federico II\u0027, Master in âIngegneria della sicurezzaâ di I Livello presso Politecnico di Torino",
+                         "seniority_titolare":  "senior",
+                         "competenze_titolare":  [
+                                                     "design",
+                                                     "consulting"
+                                                 ],
+                         "ai_enriched":  true,
+                         "ai_fonti":  [
+                                          "Tavily (ricerca web)"
+                                      ],
+                         "classificazione_eu":  {
+                                                    "classe":  "micro",
+                                                    "label":  "Micro Impresa",
+                                                    "descrizione":  "Dati dimensionali non disponibili",
+                                                    "obblighi_extra":  [
+                                                                           "DVR semplificato (art. 29 D.Lgs. 81/2008)",
+                                                                           "GDPR â informativa e consenso base"
+                                                                       ],
+                                                    "opportunita_broker":  [
+                                                                               "Polizza multirischio artigiano/commerciante",
+                                                                               "RC Professionale singola",
+                                                                               "Polizza infortuni titolare",
+                                                                               "Protezione locale e attrezzature"
+                                                                           ]
+                                                },
+                         "gap_analysis":  {
+                                              "livello_rischio":  "basso",
+                                              "score":  0,
+                                              "gaps":  [
+
+                                                       ],
+                                              "sommario":  "GAP BASSO: profilo assicurativo probabilmente adeguato. Verificare rinnovi e massimali."
+                                          },
+                         "stima_premio":  {
+                                              "totale_stimato":  "â¬1725 - â¬3575",
+                                              "dettaglio":  [
+                                                                {
+                                                                    "polizza":  "RC Terzi / RC Professionale",
+                                                                    "premio_min":  500,
+                                                                    "premio_max":  800,
+                                                                    "note":  "Massimale consigliato: â¬1.000.000"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Infortuni Lavoratori",
+                                                                    "premio_min":  525,
+                                                                    "premio_max":  975,
+                                                                    "note":  "5 dipendenti Ã â¬150/anno medio"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Incendio / All Risks",
+                                                                    "premio_min":  400,
+                                                                    "premio_max":  1000,
+                                                                    "note":  "Premio base"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Furto / Rapina",
+                                                                    "premio_min":  300,
+                                                                    "premio_max":  800,
+                                                                    "note":  "Dipende da sistemi di allarme e ubicazione"
+                                                                }
+                                                            ],
+                                              "disclaimer":  "Stima indicativa basata su benchmark interni e parametri medi di mercato. Il premio effettivo dipende da sinistrositÃ  pregressa, franchigie, massimali, attivitÃ  concreta, ubicazione e criteri assuntivi della compagnia.",
+                                              "fonte":  "Benchmark interni su parametri medi del mercato assicurativo italiano"
+                                          },
+                         "bisogni_assicurativi_verificati":  {
+                                                                 "fatti_verificati":  [
+                                                                                          {
+                                                                                              "id":  "forma_giuridica",
+                                                                                              "label":  "Forma giuridica",
+                                                                                              "value":  "IMPRESA INDIVIDUALE",
+                                                                                              "source":  "Registro Imprese / profilo camerale",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "website",
+                                                                                              "label":  "Sito aziendale",
+                                                                                              "value":  "www.archingenio.net",
+                                                                                              "source":  "Lead + verifica web",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "pec",
+                                                                                              "label":  "PEC rilevata",
+                                                                                              "value":  "N/A",
+                                                                                              "source":  "INI-PEC / profilo camerale",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "sede",
+                                                                                              "label":  "Sede legale / cittÃ ",
+                                                                                              "value":  "VIA BRUNO ARNAUD N 27 03 INT 1 \n40128 BOLOGNA BO",
+                                                                                              "source":  "Registro Imprese / lead",
+                                                                                              "confidence":  "media"
+                                                                                          }
+                                                                                      ],
+                                                                 "bisogni_raccomandati":  [
+
+                                                                                          ],
+                                                                 "dati_da_verificare":  [
+                                                                                            {
+                                                                                                "field":  "codice_ateco",
+                                                                                                "reason":  "ATECO non disponibile o non verificato",
+                                                                                                "impact":  "Riduce la precisione della proposta polizze settoriali"
+                                                                                            },
+                                                                                            {
+                                                                                                "field":  "fatturato",
+                                                                                                "reason":  "Fatturato non disponibile",
+                                                                                                "impact":  "Riduce la precisione di massimali, pricing e ranking commerciale"
+                                                                                            },
+                                                                                            {
+                                                                                                "field":  "dipendenti",
+                                                                                                "reason":  "Numero dipendenti non disponibile",
+                                                                                                "impact":  "Riduce la precisione su welfare, infortuni collettivi e benefits"
+                                                                                            }
+                                                                                        ],
+                                                                 "priorita_commerciale":  {
+                                                                                              "level":  "bassa",
+                                                                                              "score":  20,
+                                                                                              "reasons":  [
+
+                                                                                                          ]
+                                                                                          },
+                                                                 "playbook_commerciale":  {
+                                                                                              "prodotto_principale":  null,
+                                                                                              "cross_sell":  null,
+                                                                                              "target_principale":  null,
+                                                                                              "angolo_attacco":  "Serve prima completare i dati chiave per individuare il prodotto corretto da proporre.",
+                                                                                              "apertura_consigliata":  "Prima di proporre una polizza, conviene chiarire attivitÃ  effettiva, dimensione e struttura dellâazienda.",
+                                                                                              "call_to_action":  "Recupera prima questi dati: codice_ateco, fatturato."
+                                                                                          },
+                                                                 "prossime_domande":  [
+                                                                                          "Qual Ã¨ il codice ATECO preciso o lâattivitÃ  prevalente effettiva?",
+                                                                                          "Qual Ã¨ il fatturato indicativo o la fascia di ricavi dellâazienda?",
+                                                                                          "Quanti dipendenti o collaboratori operativi ha lâazienda?"
+                                                                                      ]
+                                                             },
+                         "sito":  "www.archingenio.net",
+                         "telefono":  "+39 0514840800",
+                         "telefono_fonte":  "sito_web",
+                         "fax":  "+39 0514840801",
+                         "email":  "arch.marcellomilone@archingenio.net",
+                         "instagram":  "https://www.instagram.com/loskate_/",
+                         "facebook":  "https://www.facebook.com/lucalenziingegneriaperlasicurezza/"
+                     },
+    "email":  "arch.marcellomilone@archingenio.net",
+    "formazione":  [
+                       {
+                           "titolo":  "Master in Ingegneria della sicurezza di I Livello",
+                           "istituzione":  "Politecnico di Torino"
+                       },
+                       {
+                           "titolo":  "Laurea in architettura",
+                           "istituzione":  "UniversitÃ  degli Studi di Napoli \u0027Federico II\u0027"
+                       }
+                   ],
+    "competenze":  [
+                       "Progettazione architettonica",
+                       "Direzione lavori",
+                       "Consulenza in materia di sicurezza",
+                       "Prevenzione incendi"
+                   ],
+    "anni_esperienza":  20,
+    "note":  "Fondatore dello Studio di Architettura Marcello Milone, attivo dal 1998.",
+    "linkedin":  "https://www.linkedin.com/in/marcellomilone",
+    "interessi_social":  [
+                             "architettura",
+                             "progettazione",
+                             "consulenza"
+                         ],
+    "instagram":  "https://www.instagram.com/loskate_",
+    "facebook":  "https://www.facebook.com/lucalenziingegneriaperlasicurezza",
+    "trigger_finanziari":  [
+
+                           ],
+    "rischi_professionali":  [
+                                 "responsabilitÃ  civile professionale",
+                                 "errori di progettazione"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "RC Professionale",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "necessaria per coprire eventuali danni causati a terzi durante l\u0027esercizio della professione"
+                                },
+                                {
+                                    "polizza":  "Infortuni",
+                                    "priorita":  "critica",
+                                    "motivo":  "protezione in caso di infortuni sul lavoro"
+                                },
+                                {
+                                    "polizza":  "Salute",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "per garantire un adeguato supporto sanitario"
+                                }
+                            ],
+    "note_broker":  "Considerare la specializzazione in consulenze per lavori pubblici e la necessitÃ  di coperture specifiche per progetti complessi.",
+    "stima_capacita_risparmio":  "medio-alta",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "caldo",
+    "zona_residenza":  "Anzola Dell\u0027emilia",
+    "cariche_societarie":  [
+                               {
+                                   "azienda":  "EDILMILONE DI MILONE MARCELLO",
+                                   "ruolo":  "Amministratore",
+                                   "stato":  "attiva",
+                                   "partita_iva":  "03623400839"
+                               },
+                               {
+                                   "azienda":  "ARCHITETTO MARCELLO MILONE",
+                                   "ruolo":  "Consulente ingegneristico",
+                                   "stato":  "attiva",
+                                   "partita_iva":  "03528750650"
+                               }
+                           ],
+    "numero_aziende_attive":  2,
+    "notizie_recenti":  [
+                            {
+                                "titolo":  "Bando Servizi professionali architettonici e affini",
+                                "data":  "11-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Rilevante per la valutazione della capacitÃ  professionale e della reputazione nel settore architettonico."
+                            },
+                            {
+                                "titolo":  "Bando Servizi professionali coordinamento della sicurezza",
+                                "data":  "06-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Importante per la conformitÃ  alle normative di sicurezza nei progetti architettonici."
+                            },
+                            {
+                                "titolo":  "Bando Servizi professionali di consulenza ingegneristica",
+                                "data":  "11-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Essenziale per la valutazione delle competenze ingegneristiche associate ai progetti."
+                            },
+                            {
+                                "titolo":  "Bando Servizi di formazione",
+                                "data":  "11-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Rilevante per la formazione continua e l\u0027aggiornamento professionale."
+                            },
+                            {
+                                "titolo":  "Bando Servizi di vigilanza antincendio",
+                                "data":  "11-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Importante per la sicurezza degli edifici progettati."
+                            },
+                            {
+                                "titolo":  "Bando Servizi professionali di progettazione di opere di ingegneria civile e industriale",
+                                "data":  "11-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Rilevante per la valutazione della capacitÃ  di progettazione in ingegneria."
+                            },
+                            {
+                                "titolo":  "Bando Servizi professionali direzione dei lavori",
+                                "data":  "06-04-2022",
+                                "fonte":  "Comune di Bologna",
+                                "rilevanza_assicurativa":  "Essenziale per la gestione e supervisione dei progetti."
+                            }
+                        ],
+    "relazioni_chiave":  [
+                             {
+                                 "nome":  "Germana Giacco",
+                                 "relazione":  "collega",
+                                 "contesto":  "Normatempo Italia srl Organismo di Ispezione di Tipo A"
+                             },
+                             {
+                                 "nome":  "Carlo Tedaldi",
+                                 "relazione":  "collega",
+                                 "contesto":  "Freelance"
+                             },
+                             {
+                                 "nome":  "Vincenzo Cirillo",
+                                 "relazione":  "collega",
+                                 "contesto":  "AttivitÃ  di libero professionista"
+                             },
+                             {
+                                 "nome":  "Ubaldo Drudi",
+                                 "relazione":  "collega",
+                                 "contesto":  "Libero Professionista settore commerciale"
+                             },
+                             {
+                                 "nome":  "Luca ZACCARELLI",
+                                 "relazione":  "collega",
+                                 "contesto":  "Cosmint S.p.A."
+                             },
+                             {
+                                 "nome":  "Giuseppe Sanna",
+                                 "relazione":  "collega",
+                                 "contesto":  "Titolare studio di Ingegneria civile-ambientale"
+                             },
+                             {
+                                 "nome":  "simone lussana",
+                                 "relazione":  "collega",
+                                 "contesto":  "Libero Professionista Consulente Aziendale"
+                             }
+                         ],
+    "eventi_conferenze":  [
+                              "Conferenza presso il Liceo âFulcieri Paulucci di Calboliâ di ForlÃ¬ il 29 aprile 2019",
+                              "Conferenza presso il Liceo âA. Vallisneriâ di Lucca il 30 aprile 2019",
+                              "Conferenze in occasione delle celebrazioni per la XV edizione delle Jornadas de Cultura ClÃ¡sica - Granada (Spagna) il 10-12 maggio 2019",
+                              "Conferenza presso il Liceo âL. Da Vinciâ di Vairano Patenora - Scalo (CE) il 13 maggio 2019"
+                          ],
+    "influenza_stimata":  "media"
+}

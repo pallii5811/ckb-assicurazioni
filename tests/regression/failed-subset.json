@@ -1,0 +1,205 @@
+﻿{
+    "_meta":  {
+                  "purpose":  "Ground truth di aziende italiane per testing di regressione del company-lookup API.",
+                  "usage":  "Ogni modifica al route company-lookup DEVE essere verificata con run-regression.ps1 prima del commit. Se il punteggio totale scende, rollback.",
+                  "fields":  {
+                                 "query":  "Input esatto dell\u0027utente (come digiterebbe nella UI)",
+                                 "expected.partita_iva":  "P.IVA corretta (11 cifre, senza prefisso IT). null se azienda non ha P.IVA pubblica verificabile.",
+                                 "expected.ragione_sociale_contains":  "Sottostringa che DEVE comparire nella ragione_sociale ritornata (case-insensitive)",
+                                 "expected.citta":  "Citta della sede legale (null se non verificabile)",
+                                 "expected.titolare_allowed":  "Array di nomi accettabili per il campo titolare. null = campo può essere vuoto ma NON deve essere un nome fuori da questa lista",
+                                 "expected.has_pec":  "true/false — se ci aspettiamo che la PEC venga trovata (true) o è accettabile vuoto (false)",
+                                 "notes":  "Appunti per documentare casi edge"
+                             },
+                  "scoring":  "Ogni azienda vale 10 punti: 4 P.IVA + 2 ragione_sociale + 1 citta + 2 titolare + 1 pec. Totale massimo = 200 punti per 20 aziende. Punteggio accettabile: \u003e= 150 (75%). Obiettivo Traccia A: \u003e= 160 (80%)."
+              },
+    "companies":  [
+                      {
+                          "query":  "REPOWER VENDITA ITALIA SPA",
+                          "expected":  {
+                                           "partita_iva":  "13181080154",
+                                           "ragione_sociale_contains":  "repower vendita",
+                                           "citta":  "Milano",
+                                           "titolare_allowed":  [
+                                                                    "Fabio Bocchiola"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "ATTENZIONE omonimo Repower Italia SPA (00789540143) - quello NON deve essere ritornato"
+                      },
+                      {
+                          "query":  "RELCO SRL",
+                          "expected":  {
+                                           "partita_iva":  null,
+                                           "ragione_sociale_contains":  "relco",
+                                           "citta":  null,
+                                           "titolare_allowed":  null,
+                                           "has_pec":  false
+                                       },
+                          "notes":  "Esistono 2 RELCO SRL in Italia (Milano 01153950157 e Buccinasco 12080570158). Query ambigua senza citta -\u003e accettiamo VUOTO. Query \u0027RELCO SRL Milano\u0027 dovrebbe portare alla 01153950157."
+                      },
+                      {
+                          "query":  "GUCCI SRL Firenze",
+                          "expected":  {
+                                           "partita_iva":  "04793760482",
+                                           "ragione_sociale_contains":  "gucci",
+                                           "citta":  "Firenze",
+                                           "titolare_allowed":  null,
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Nota azienda moda, facile da trovare"
+                      },
+                      {
+                          "query":  "FERRARI S.P.A. Maranello",
+                          "expected":  {
+                                           "partita_iva":  "00159560366",
+                                           "ragione_sociale_contains":  "ferrari",
+                                           "citta":  "Maranello",
+                                           "titolare_allowed":  [
+                                                                    "Benedetto Vigna",
+                                                                    "John Elkann"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Amministratore Delegato Benedetto Vigna, presidente John Elkann"
+                      },
+                      {
+                          "query":  "BARILLA G. E R. FRATELLI S.P.A.",
+                          "expected":  {
+                                           "partita_iva":  "01654010345",
+                                           "ragione_sociale_contains":  "barilla",
+                                           "citta":  "Parma",
+                                           "titolare_allowed":  [
+                                                                    "Guido Maria Barilla",
+                                                                    "Luca Barilla",
+                                                                    "Paolo Barilla"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Sede Parma"
+                      },
+                      {
+                          "query":  "PRADA S.P.A.",
+                          "expected":  {
+                                           "partita_iva":  "10115350159",
+                                           "ragione_sociale_contains":  "prada",
+                                           "citta":  "Milano",
+                                           "titolare_allowed":  [
+                                                                    "Miuccia Prada",
+                                                                    "Patrizio Bertelli",
+                                                                    "Andrea Guerra"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  ""
+                      },
+                      {
+                          "query":  "LUXOTTICA GROUP SPA",
+                          "expected":  {
+                                           "partita_iva":  "00970890032",
+                                           "ragione_sociale_contains":  "luxottica",
+                                           "citta":  "Milano",
+                                           "titolare_allowed":  [
+                                                                    "Francesco Milleri",
+                                                                    "Leonardo Del Vecchio"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Ora parte di EssilorLuxottica"
+                      },
+                      {
+                          "query":  "AUTOGRILL S.P.A.",
+                          "expected":  {
+                                           "partita_iva":  "03091940266",
+                                           "ragione_sociale_contains":  "autogrill",
+                                           "citta":  "Rozzano",
+                                           "titolare_allowed":  [
+                                                                    "Gianmario Tondato Da Ruos",
+                                                                    "Paolo Roverato"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Sede Rozzano MI"
+                      },
+                      {
+                          "query":  "ENEL S.P.A.",
+                          "expected":  {
+                                           "partita_iva":  "00811720580",
+                                           "ragione_sociale_contains":  "enel",
+                                           "citta":  "Roma",
+                                           "titolare_allowed":  [
+                                                                    "Flavio Cattaneo",
+                                                                    "Paolo Scaroni"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "CEO Flavio Cattaneo, presidente Paolo Scaroni"
+                      },
+                      {
+                          "query":  "TELECOM ITALIA SPA",
+                          "expected":  {
+                                           "partita_iva":  "00488410010",
+                                           "ragione_sociale_contains":  "tim",
+                                           "citta":  "Roma",
+                                           "titolare_allowed":  [
+                                                                    "Pietro Labriola",
+                                                                    "Alberta Figari"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Oggi denominazione TIM SpA"
+                      },
+                      {
+                          "query":  "GENERALI ITALIA SPA",
+                          "expected":  {
+                                           "partita_iva":  "01333550323",
+                                           "ragione_sociale_contains":  "generali italia",
+                                           "citta":  "Mogliano Veneto",
+                                           "titolare_allowed":  [
+                                                                    "Giancarlo Fancel",
+                                                                    "Marco Sesana"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Sede Mogliano Veneto TV"
+                      },
+                      {
+                          "query":  "PIRELLI \u0026 C. SPA",
+                          "expected":  {
+                                           "partita_iva":  "00860340157",
+                                           "ragione_sociale_contains":  "pirelli",
+                                           "citta":  "Milano",
+                                           "titolare_allowed":  [
+                                                                    "Andrea Casaluci",
+                                                                    "Marco Tronchetti Provera"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  ""
+                      },
+                      {
+                          "query":  "11876690150",
+                          "expected":  {
+                                           "partita_iva":  "11876690150",
+                                           "ragione_sociale_contains":  "moncler",
+                                           "citta":  "Milano",
+                                           "titolare_allowed":  [
+                                                                    "Remo Ruffini"
+                                                                ],
+                                           "has_pec":  true
+                                       },
+                          "notes":  "Query by P.IVA diretta - Moncler SpA"
+                      },
+                      {
+                          "query":  "EDIL SMG S.R.L.S.",
+                          "expected":  {
+                                           "partita_iva":  null,
+                                           "ragione_sociale_contains":  "edil smg",
+                                           "citta":  null,
+                                           "titolare_allowed":  null,
+                                           "has_pec":  false
+                                       },
+                          "notes":  "SRLS piccola - P.IVA specifica non verificata. Accettiamo VUOTO purche\u0027 non sia inventata. Il nome si, deve essere corretto."
+                      }
+                  ]
+}

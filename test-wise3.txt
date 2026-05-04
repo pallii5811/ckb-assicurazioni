@@ -1,0 +1,11 @@
+﻿=== WISEAIR (103s) ===
+P.IVA:   10700370967 | atteso 10700370967
+SEDE:    Via Andrea Costa, 8, Milano | atteso Via Andrea Costa 8
+CITTA:   Milano | atteso Milano
+ATECO:   63.11.19 Altre elaborazioni elettroniche di dati
+FATT:    355246 (2024)
+DIPEND:  3-5
+FORMA:   Societa' a responsabilita' limitata
+COSTIT:  2019-03-12
+TITOLARE:  ()
+FONTI:   Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)

@@ -1,0 +1,46 @@
+﻿{
+    "nome_commerciale":  "Control H.t.p.",
+    "telefono_fonte":  "Sito ufficiale azienda",
+    "certificazioni":  [
+
+                       ],
+    "ha_flotta_veicoli":  false,
+    "ha_immobili_proprieta":  false,
+    "partecipa_appalti_pubblici":  false,
+    "ai_enriched":  true,
+    "sito":  "https://www.control-htp.com",
+    "fatturato_fonte":  "fatturatoitalia.it",
+    "telefono":  "+39 039 6889578",
+    "email":  "info@control-htp.com",
+    "costo_personale":  "894570",
+    "costo_personale_anno":  "2024",
+    "storico_bilanci":  "{\"anni\":[\"2019\",\"2020\",\"2021\",\"2022\",\"2023\",\"2024\"],\"fatturato\":[\"3570046\",\"3469941\",\"4516379\",\"4262162\",\"3679917\",\"4098358\"],\"utile\":[\"-120614\",\"14202\",\"57669\",\"40587\",\"5188\",\"6342\"],\"costo_personale\":[\"761636\",\"762481\",\"886105\",\"920710\",\"858264\",\"894570\"]}",
+    "classe_fatturato":  "3M-5M",
+    "indirizzo":  "Via del Lavoro, 31/33/35, 20865 Usmate Velate (MB)",
+    "titolare":  "Giorgio Buzzi",
+    "ruolo_titolare":  "Partner and R\u0026D Director",
+    "persone":  [
+                    {
+                        "nome":  "Giorgio Buzzi",
+                        "ruolo":  "Partner and R\u0026D Director"
+                    }
+                ],
+    "bio_titolare":  "Giorgio Buzzi Ã¨ un professionista esperto nel settore della fabbricazione di apparecchiature elettriche. Con una solida esperienza nella gestione e direzione di progetti, si distingue per la sua capacitÃ  di innovare e ottimizzare i processi aziendali.",
+    "seniority_titolare":  "executive",
+    "competenze_titolare":  [
+                                "gestione progetti",
+                                "innovazione",
+                                "ottimizzazione processi"
+                            ],
+    "tipo_lavoro_titolare":  "dipendente",
+    "settore_titolare":  "Fabbricazione di altre apparecchiature elettriche nca",
+    "dimensione_azienda_titolare":  "piccola",
+    "fonti":  [
+                  "lead-registry",
+                  "Sito Web Aziendale",
+                  "Tavily (ricerca web)"
+              ],
+    "warnings":  [
+                     "P.IVA non confermata: citta mismatch: geo context \"via del lavoro, 31 33 35, 20865 usmate velate (mb)\" non contiene monza. Dati fiscali scartati per evitare omonimi."
+                 ]
+}

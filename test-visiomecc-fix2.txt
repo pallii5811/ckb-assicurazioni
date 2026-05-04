@@ -1,0 +1,15 @@
+﻿=== VISIOMECC (116s) ===
+RAG_SOC: 
+P.IVA:   07989760967 | atteso 07989760967
+C.F.:    
+SEDE:    Via Zante, 14, Milano
+CITTA:   
+ATECO:   33.13.03 Riparazione e manutenzione di apparecchi elettromedicali, di materiale medico-chirurgico e veterinario, di apparecchi e strumenti per odontoiatria
+FATT:    1860770 (2020)
+UTILE:   -1347
+DIPEND:  2
+FORMA:   Societa' a responsabilita' limitata
+COSTIT:  
+REA:     
+TITOLARE:  ()
+FONTI:   Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)

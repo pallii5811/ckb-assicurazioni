@@ -53,23 +53,106 @@ def extra_checks(d):
         issues.append(f"  ⚠ FAKE EMAIL: {email}")
     return issues
 
-# --- TEST CONTATTI: 5 aziende reali, focus su email + telefono ---
+# Dati attesi da PMI Lombarde (nuovo batch screenshot - verifica accuratezza)
+EXPECTED = {
+    "STIROTECNICA srl": {"tel": "02/92147450", "via": "Via S. Pio X 7", "citta": "Cernusco sul Naviglio", "settore": "Ferri da stiro uso domestico e industriale"},
+    "SURFATEK srl": {"tel": "02/94698622", "via": "Via Leopardi 24/26", "citta": "Abbiategrasso", "settore": "Chimica - prodotti industriali"},
+    "SPECIAL IND spa": {"tel": "02/6074741", "via": "P.zza Spotorno 3", "citta": "Milano", "settore": "Elettronica industriale"},
+    "SPEEDY BLOCK srl": {"tel": "02/90753026", "via": "Via P. Da Volpedo 38", "citta": "Locate di Triulzi", "settore": "Attrezzi di serraggio rapido"},
+    "SOTRADE srl": {"tel": "02/6460695", "via": "Via IV Novembre 20/22", "citta": "Novate Milanese", "settore": "Trasporti internazionali"},
+    "STAMP spa": {"tel": "02/95350295", "via": "Via Cardinal Pierogrosso 33", "citta": "Pozzuolo Martesana", "settore": "Stampaggio materie plastiche"},
+    "SPREAFICO R. srl": {"tel": "02/5471230", "via": "Via Liguria 3/6", "citta": "Peschiera Borromeo", "settore": "Forni industriali"},
+    "SUPERGALVANICA srl": {"tel": "02/66306646", "via": "Via A. Gramsci 25", "citta": "Cormano", "settore": "Galvanotecnica"},
+}
+
+def verify_vs_expected(name, d):
+    """Confronta dati trovati con quelli attesi da PMI Lombarde"""
+    exp = None
+    for k, v in EXPECTED.items():
+        if k.lower() in name.lower() or name.lower() in k.lower():
+            exp = v; break
+    if not exp: return []
+    issues = []
+    # Verifica telefono
+    tel_found = str(d.get('telefono', ''))
+    tel_exp_digits = exp['tel'].replace('/', '').replace(' ', '')
+    if tel_found and tel_exp_digits not in tel_found.replace(' ', '').replace('-', '').replace('+39', ''):
+        issues.append(f"  📞 TEL MISMATCH: trovato={tel_found} atteso={exp['tel']}")
+    elif not tel_found:
+        issues.append(f"  📞 TEL MANCANTE (atteso: {exp['tel']})")
+    else:
+        issues.append(f"  ✅ TEL OK: {tel_found} (atteso: {exp['tel']})")
+    # Verifica indirizzo
+    addr = str(d.get('indirizzo', d.get('sede_legale', '')))
+    via_key = exp['via'].split(' ')[-1].lower()  # ultima parola della via
+    if addr and via_key in addr.lower():
+        issues.append(f"  ✅ INDIRIZZO OK: contiene '{via_key}'")
+    elif addr:
+        issues.append(f"  📍 INDIRIZZO DIVERSO: trovato={addr[:60]} atteso contiene '{exp['via']}'")
+    else:
+        issues.append(f"  📍 INDIRIZZO MANCANTE (atteso: {exp['via']})")
+    return issues
+
+# ═══════════════════════════════════════════════════════════
+# TEST 1: COMPANY LOOKUP — 6 aziende da PMI Lombarde
+# ═══════════════════════════════════════════════════════════
 companies = [
-    "Ferramenta Vanoli Bergamo",       # re-test: mario.rossi@gmail.com dovrebbe sparire
-    "Pasticceria Marchesi Milano",     # brand noto, contatti verificabili
-    "Idraulica Santini Bologna",
-    "Studio Dentistico Bianchi Torino",
-    "Carrozzeria Rossi Genova",
+    "STIROTECNICA srl Cernusco sul Naviglio",
+    "SURFATEK srl Abbiategrasso",
+    "SPECIAL IND spa Milano",
+    "SPEEDY BLOCK srl Locate di Triulzi",
+    "SOTRADE srl Novate Milanese",
+    "STAMP spa Pozzuolo Martesana",
 ]
+titolari_trovati = {}
 for c in companies:
     print(f"\n>>> COMPANY: {c}")
     d, s, t = call('/api/company-lookup', {'query': c}, timeout=300)
-    # Focus: mostra SOLO i campi contatto
-    contatti = {k: d.get(k) for k in ['email','telefono','cellulare','pec','sito','sito_web'] if d.get(k)}
+    contatti = {k: d.get(k) for k in ['email','telefono','cellulare','pec','sito','ragione_sociale','titolare','indirizzo','sede_legale'] if d.get(k)}
     print(f"  CONTATTI: {contatti}")
-    show(f"COMPANY: {c}", d, s, t)
-    issues = (check_placeholders(c, d) + extra_checks(d)) if 'error' not in d else []
+    issues = (check_placeholders(c, d) + extra_checks(d) + verify_vs_expected(c, d)) if 'error' not in d else []
+    # Salva titolare per test referente
+    if d.get('titolare'):
+        titolari_trovati[c] = d['titolare']
     results.append((f"Company: {c}", s, t, d, issues))
+    print("  (pausa 8s...)")
+    time.sleep(8)
+
+# ═══════════════════════════════════════════════════════════
+# TEST 2: LEAD-REGISTRY (dettaglio lead) — 3 delle stesse aziende
+# ═══════════════════════════════════════════════════════════
+leads = [
+    {'business_name': 'STIROTECNICA srl', 'city': 'Cernusco sul Naviglio'},
+    {'business_name': 'SPEEDY BLOCK srl', 'city': 'Locate di Triulzi'},
+    {'business_name': 'STAMP spa', 'city': 'Pozzuolo Martesana'},
+]
+for l in leads:
+    label = f"{l['business_name']} {l['city']}"
+    print(f"\n>>> LEAD: {label}")
+    d, s, t = call('/api/lead-registry', {'lead': l, '_skipPersonEnrichment': True}, timeout=180)
+    contatti = {k: d.get(k) for k in ['email','telefono','cellulare','pec','sito_web','ragione_sociale','titolare','sede_legale'] if d.get(k)}
+    print(f"  CONTATTI: {contatti}")
+    issues = (check_placeholders(label, d) + extra_checks(d) + verify_vs_expected(label, d)) if 'error' not in d else []
+    results.append((f"Lead: {label}", s, t, d, issues))
+    print("  (pausa 8s...)")
+    time.sleep(8)
+
+# ═══════════════════════════════════════════════════════════
+# TEST 3: PERSON LOOKUP (referenti) — titolari trovati
+# ═══════════════════════════════════════════════════════════
+# Prendi max 2 titolari dal test company per cercare come referenti
+person_tests = []
+for comp, tit in list(titolari_trovati.items())[:2]:
+    person_tests.append(f"{tit} {comp.split(' ')[0]}")  # es. "Mario Rossi SOITRA"
+# Aggiungi anche un referente inventato da PMI Lombarde
+person_tests.append("Elena Bodini Studio Bodini sas Vittuone")
+for p in person_tests:
+    print(f"\n>>> REFERENTE: {p}")
+    d, s, t = call('/api/person-lookup', {'query': p}, timeout=360)
+    contatti = {k: d.get(k) for k in ['email','telefono','cellulare','linkedin','instagram','facebook','azienda','ruolo'] if d.get(k)}
+    print(f"  CONTATTI: {contatti}")
+    issues = (check_placeholders(p, d) + extra_checks(d)) if 'error' not in d else []
+    results.append((f"Referente: {p}", s, t, d, issues))
     print("  (pausa 8s...)")
     time.sleep(8)
 

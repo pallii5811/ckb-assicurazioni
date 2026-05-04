@@ -1,0 +1,393 @@
+﻿{
+    "nome_cercato":  "Elena Marchi architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)",
+                  "lead-registry (dettaglio lead)"
+              ],
+    "nome_completo":  "Elena Marchi",
+    "ruolo":  "Architetto",
+    "azienda":  "Studio Bettini Architetti",
+    "settore":  "Architettura",
+    "citta":  "Bologna",
+    "descrizione":  "Elena Marchi Ã¨ un architetto che collabora con lo Studio Bettini Architetti. Si occupa di progetti architettonici e ha un interesse particolare per l\u0027architettura inclusiva.",
+    "tipo_lavoro":  "libero professionista",
+    "seniority":  "mid",
+    "dimensione_azienda":  "piccola",
+    "email":  "marchi@studiobettini.com",
+    "_tavily_last_url":  "https://studiobettini.com/chi-siamo/",
+    "_camerale_ragione_sociale":  "Elena Marchi",
+    "dati_azienda":  {
+                         "found":  true,
+                         "fonte":  "google_maps",
+                         "ragione_sociale":  "Studio Bettini Architetti",
+                         "titolare":  "Sergio Bettini",
+                         "titolare_ruolo":  "Amministratore Delegato",
+                         "codice_ateco":  "63.22",
+                         "descrizione_ateco":  "AttivitÃ  connesse ai trasporti per vie d\u0027acqua",
+                         "forma_giuridica":  "SocietÃ  di capitale",
+                         "capitale_sociale":  "6.966,00",
+                         "codice_fiscale":  "97016000586",
+                         "persone":  [
+                                         {
+                                             "nome":  "Sergio Bettini",
+                                             "ruolo":  "Amministratore Delegato",
+                                             "cf":  "codice fiscale se disponibile",
+                                             "quota":  "0%"
+                                         },
+                                         {
+                                             "nome":  "Elena Marchi",
+                                             "ruolo":  "Project Manager"
+                                         },
+                                         {
+                                             "nome":  "Lucia Ferretti",
+                                             "ruolo":  "Head of Design Ability and Accessibility"
+                                         },
+                                         {
+                                             "nome":  "Alberto Rossini",
+                                             "ruolo":  "Responsible for Views, Rendering and WebSite Management"
+                                         }
+                                     ],
+                         "titolare_fonte":  "tavily",
+                         "dipendenti":  "250",
+                         "fatturato_fonte":  "tavily",
+                         "certificazioni":  [
+                                                "ISO 9001"
+                                            ],
+                         "ha_flotta_veicoli":  false,
+                         "ha_immobili_proprieta":  false,
+                         "partecipa_appalti_pubblici":  true,
+                         "appalti_info":  "Gestione delle gare di appalto per progetti pubblici e privati",
+                         "attivita_estero":  false,
+                         "rischi_specifici":  [
+                                                  "rischio legato alla sicurezza nei cantieri",
+                                                  "rischio di gestione di progetti complessi"
+                                              ],
+                         "note_broker":  "Studio Bettini Architetti si occupa di restauro monumentale, progettazione architettonica e urbanistica, con un approccio innovativo al design inclusivo.",
+                         "email":  "lorenzi@studiobettini.com",
+                         "ruolo_titolare":  "Owner, Creative Director and University Professor",
+                         "bio_titolare":  "Founder of the studio, responsible for the creative and strategic vision, leads the main projects and guarantees design excellence.",
+                         "formazione_titolare":  "UniversitÃ  IUAV di Venezia",
+                         "competenze_titolare":  [
+                                                     "monumental restoration",
+                                                     "urban design"
+                                                 ],
+                         "seniority_titolare":  "executive",
+                         "esperienze_titolare":  [
+                                                     {
+                                                         "azienda":  "Accademia di Architettura - USI",
+                                                         "ruolo":  "Docente universitario",
+                                                         "periodo":  "N/A - Present"
+                                                     }
+                                                 ],
+                         "ai_enriched":  true,
+                         "ai_fonti":  [
+                                          "Tavily (ricerca web)"
+                                      ],
+                         "rischio_territoriale":  {
+                                                      "zona_sismica":  2,
+                                                      "zona_sismica_label":  "Zona 2 â Rischio sismico ALTO",
+                                                      "rischio_idrogeologico":  "medio",
+                                                      "dettaglio_idrogeologico":  "Rischio sismico medio + alluvionale pianura padana, subsidenza",
+                                                      "polizze_consigliate":  [
+                                                                                  "Polizza Terremoto (fortemente raccomandata)",
+                                                                                  "Polizza All Risks Immobili",
+                                                                                  "Polizza Eventi Atmosferici"
+                                                                              ],
+                                                      "fonte":  "Protezione Civile â OPCM 3274/2003, ISPRA"
+                                                  },
+                         "obblighi_assicurativi":  {
+                                                       "settore":  "AttivitÃ  Professionali e Consulenza",
+                                                       "classe_inail":  "basso",
+                                                       "tasso_inail_indicativo":  "4-10â°",
+                                                       "polizze_obbligatorie":  [
+                                                                                    "RC Professionale (DPR 137/2012 â obbligo per professionisti iscritti ad albi)"
+                                                                                ],
+                                                       "polizze_raccomandate":  [
+                                                                                    "Cyber Risk (protezione dati clienti)",
+                                                                                    "Polizza D\u0026O (se societÃ  di consulenza)",
+                                                                                    "Polizza Tutela Legale Professionale",
+                                                                                    "Polizza All Risks Elettronica (hardware/server)",
+                                                                                    "Polizza Key Man (persona chiave)"
+                                                                                ],
+                                                       "rischi_principali":  [
+                                                                                 "Errore professionale / consulenza errata",
+                                                                                 "Violazione dati clienti (GDPR)",
+                                                                                 "Attacco informatico / ransomware",
+                                                                                 "Perdita dati / interruzione servizi IT",
+                                                                                 "Contenzioso con clienti"
+                                                                             ],
+                                                       "normativa":  [
+                                                                         "DPR 137/2012 â RC Professionale obbligatoria iscritti albi",
+                                                                         "GDPR â Protezione dati personali",
+                                                                         "D.Lgs. 231/2001 â ResponsabilitÃ  enti"
+                                                                     ],
+                                                       "fonte":  "Normativa italiana, INAIL, IVASS"
+                                                   },
+                         "classificazione_eu":  {
+                                                    "classe":  "grande",
+                                                    "label":  "Grande Impresa",
+                                                    "descrizione":  "250 dipendenti",
+                                                    "obblighi_extra":  [
+                                                                           "D.Lgs. 231/2001 â Modello 231 fortemente raccomandato, da verificare su governance e rischio-reato",
+                                                                           "D\u0026O fortemente raccomandata per CdA e top management",
+                                                                           "Obbligo revisione legale bilancio",
+                                                                           "NIS2 â obblighi cybersecurity se settore essenziale",
+                                                                           "CSRD / reporting ESG da verificare in base a soglie, gruppo e qualifica dellâimpresa"
+                                                                       ],
+                                                    "opportunita_broker":  [
+                                                                               "Programma assicurativo complesso â margine alto",
+                                                                               "NecessitÃ  risk manager dedicato",
+                                                                               "Polizze multinazionali se opera all\u0027estero",
+                                                                               "Programma Employee Benefits strutturato",
+                                                                               "Possibile gara broker annuale"
+                                                                           ]
+                                                },
+                         "gap_analysis":  {
+                                              "livello_rischio":  "medio",
+                                              "score":  33,
+                                              "gaps":  [
+                                                           {
+                                                               "area":  "Employee Benefits",
+                                                               "gravita":  "alto",
+                                                               "descrizione":  "250 dipendenti: verificare CCNL applicato per sanitÃ  integrativa, previdenza e coperture welfare",
+                                                               "azione":  "Proporre piano welfare: sanitaria collettiva + fondo pensione + infortuni extra-professionale"
+                                                           },
+                                                           {
+                                                               "area":  "Rischio Sismico",
+                                                               "gravita":  "alto",
+                                                               "descrizione":  "Zona sismica 2: verificare estensione terremoto sulla property e congruitÃ  del valore assicurato",
+                                                               "azione":  "Proporre estensione terremoto su polizza property con massimale pari al valore immobile"
+                                                           }
+                                                       ],
+                                              "sommario":  "GAP MEDIO: 2 opportunitÃ  di cross-selling su polizze esistenti."
+                                          },
+                         "stima_premio":  {
+                                              "totale_stimato":  "â¬28.450 - â¬54.850",
+                                              "dettaglio":  [
+                                                                {
+                                                                    "polizza":  "RC Terzi / RC Professionale",
+                                                                    "premio_min":  500,
+                                                                    "premio_max":  800,
+                                                                    "note":  "Massimale consigliato: â¬1.000.000"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Infortuni Lavoratori",
+                                                                    "premio_min":  26250,
+                                                                    "premio_max":  48750,
+                                                                    "note":  "250 dipendenti Ã â¬150/anno medio"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Incendio / All Risks",
+                                                                    "premio_min":  400,
+                                                                    "premio_max":  1000,
+                                                                    "note":  "Maggiorazione zona sismica inclusa"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Estensione Terremoto",
+                                                                    "premio_min":  500,
+                                                                    "premio_max":  1500,
+                                                                    "note":  "Zona sismica 2 â copertura fortemente raccomandata"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Furto / Rapina",
+                                                                    "premio_min":  300,
+                                                                    "premio_max":  800,
+                                                                    "note":  "Dipende da sistemi di allarme e ubicazione"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Cyber Risk",
+                                                                    "premio_min":  500,
+                                                                    "premio_max":  2000,
+                                                                    "note":  "Raccomandata per aziende strutturate"
+                                                                }
+                                                            ],
+                                              "disclaimer":  "Stima indicativa basata su benchmark interni e parametri medi di mercato. Il premio effettivo dipende da sinistrositÃ  pregressa, franchigie, massimali, attivitÃ  concreta, ubicazione e criteri assuntivi della compagnia.",
+                                              "fonte":  "Benchmark interni su parametri medi del mercato assicurativo italiano"
+                                          },
+                         "bisogni_assicurativi_verificati":  {
+                                                                 "fatti_verificati":  [
+                                                                                          {
+                                                                                              "id":  "forma_giuridica",
+                                                                                              "label":  "Forma giuridica",
+                                                                                              "value":  "SOCIETÃ DI CAPITALE",
+                                                                                              "source":  "Registro Imprese / profilo camerale",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "ateco",
+                                                                                              "label":  "Codice ATECO",
+                                                                                              "value":  "63.22",
+                                                                                              "source":  "Registro Imprese / profilo camerale",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "dipendenti",
+                                                                                              "label":  "Dipendenti",
+                                                                                              "value":  "250",
+                                                                                              "source":  "Registro Imprese / profilo camerale",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "zona_sismica",
+                                                                                              "label":  "Zona sismica",
+                                                                                              "value":  "2",
+                                                                                              "source":  "Protezione Civile / mapping territoriale",
+                                                                                              "confidence":  "media"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "rischio_idro",
+                                                                                              "label":  "Rischio idrogeologico",
+                                                                                              "value":  "medio",
+                                                                                              "source":  "Mapping territoriale",
+                                                                                              "confidence":  "media"
+                                                                                          }
+                                                                                      ],
+                                                                 "bisogni_raccomandati":  [
+                                                                                              {
+                                                                                                  "id":  "rc_professionale",
+                                                                                                  "product":  "RC Professionale",
+                                                                                                  "target":  "Professionista / studio / titolare",
+                                                                                                  "priority":  "immediata",
+                                                                                                  "confidence":  "alta",
+                                                                                                  "sales_reason":  "LâattivitÃ  rilevata rientra tra quelle per cui la RC professionale Ã¨ il primo tavolo di vendita da aprire.",
+                                                                                                  "why_now":  "Ã il bisogno piÃ¹ aderente al servizio erogato dallâazienda.",
+                                                                                                  "evidence_ids":  [
+                                                                                                                       "ateco",
+                                                                                                                       "forma_giuridica"
+                                                                                                                   ]
+                                                                                              },
+                                                                                              {
+                                                                                                  "id":  "employee_benefits",
+                                                                                                  "product":  "Sanitaria collettiva / Infortuni collettiva / Welfare",
+                                                                                                  "target":  "Titolare / HR / amministrazione",
+                                                                                                  "priority":  "immediata",
+                                                                                                  "confidence":  "alta",
+                                                                                                  "sales_reason":  "La dimensione dellâorganico rende vendibile unâofferta di welfare e coperture collettive.",
+                                                                                                  "why_now":  "Organico importante: alta probabilitÃ  di bisogno attuale o imminente.",
+                                                                                                  "evidence_ids":  [
+                                                                                                                       "dipendenti"
+                                                                                                                   ]
+                                                                                              }
+                                                                                          ],
+                                                                 "dati_da_verificare":  [
+                                                                                            {
+                                                                                                "field":  "fatturato",
+                                                                                                "reason":  "Fatturato non disponibile",
+                                                                                                "impact":  "Riduce la precisione di massimali, pricing e ranking commerciale"
+                                                                                            },
+                                                                                            {
+                                                                                                "field":  "website",
+                                                                                                "reason":  "Sito non rilevato",
+                                                                                                "impact":  "Riduce la precisione su cyber, contatti e segnali commerciali digitali"
+                                                                                            }
+                                                                                        ],
+                                                                 "priorita_commerciale":  {
+                                                                                              "level":  "alta",
+                                                                                              "score":  71,
+                                                                                              "reasons":  [
+                                                                                                              "Settore professionale: prodotto principale chiaro e facilmente spiegabile",
+                                                                                                              "Numero dipendenti sufficiente per pacchetti collettivi",
+                                                                                                              "Gap prioritario rilevato: Employee Benefits"
+                                                                                                          ]
+                                                                                          },
+                                                                 "playbook_commerciale":  {
+                                                                                              "prodotto_principale":  "RC Professionale",
+                                                                                              "cross_sell":  "Sanitaria collettiva / Infortuni collettiva / Welfare",
+                                                                                              "target_principale":  "Professionista / studio / titolare",
+                                                                                              "angolo_attacco":  "LâattivitÃ  rilevata rientra tra quelle per cui la RC professionale Ã¨ il primo tavolo di vendita da aprire.",
+                                                                                              "apertura_consigliata":  "Parti da dati pubblici verificati (Codice ATECO, Forma giuridica) e apri la conversazione sul bisogno RC Professionale.",
+                                                                                              "call_to_action":  "Obiettivo call: fissare check-up coperture su RC Professionale e preparare upsell su Sanitaria collettiva / Infortuni collettiva / Welfare."
+                                                                                          },
+                                                                 "prossime_domande":  [
+                                                                                          "Qual Ã¨ il fatturato indicativo o la fascia di ricavi dellâazienda?",
+                                                                                          "Applicate un CCNL con sanitÃ  integrativa o avete giÃ  un piano welfare?",
+                                                                                          "Avete giÃ  una copertura attiva per Employee Benefits?"
+                                                                                      ]
+                                                             }
+                     },
+    "competenze":  "Responsabile di Progetto, Coordinatrice dei processi, Responsabile per la Sicurezza, gestione dei progetti complessi, rispetto delle normative di sicurezza, comunicazioni con clienti e fornitori",
+    "colleghi_noti":  [
+                          "Sergio Bettini",
+                          "Beatrice Lorenzi"
+                      ],
+    "interessi_social":  [
+                             "architettura",
+                             "design inclusivo",
+                             "restauro monumentale",
+                             "design di interni",
+                             "spazi urbani accessibili"
+                         ],
+    "trigger_finanziari":  [
+
+                           ],
+    "rischi_professionali":  [
+                                 "responsabilitÃ  civile professionale",
+                                 "infortuni sul lavoro"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "Polizza Professionale Architetti",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "necessaria per coprire i rischi legati alla professione"
+                                },
+                                {
+                                    "polizza":  "Polizza Infortuni",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "per proteggere in caso di infortuni sul lavoro"
+                                }
+                            ],
+    "note_broker":  "Elena Marchi Ã¨ un libero professionista con esperienza nella gestione di progetti complessi e nella sicurezza nei cantieri, il che richiede una copertura assicurativa adeguata.",
+    "stima_capacita_risparmio":  "media",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "caldo",
+    "cariche_societarie":  [
+                               {
+                                   "azienda":  "Palladio Group",
+                                   "ruolo":  "Corporate Human Resources",
+                                   "stato":  "attiva",
+                                   "partita_iva":  null
+                               },
+                               {
+                                   "azienda":  "Ammortizzatori Marchi di Elena Marchi",
+                                   "ruolo":  "null",
+                                   "stato":  "cessata",
+                                   "partita_iva":  "12915580968"
+                               }
+                           ],
+    "numero_aziende_attive":  "1",
+    "storico_imprenditoriale":  "Elena Marchi ha lavorato in Palladio Group dal 2013, ricoprendo vari ruoli nel settore delle risorse umane e comunicazione. Ha anche avuto esperienze precedenti in Cohn \u0026 Wolfe e GfK Marketing Services.",
+    "albo_professionale":  "Ordine degli Avvocati di Modena",
+    "certificazioni":  "RGV certificato AICQ SICEV n. 518",
+    "onorificenze":  "Membro della short list 2025 per il programma Women on Board, con expertise nella tutela e valorizzazione della proprietÃ  intellettuale",
+    "docenze":  "Docente in materia di marchi, design e diritto d\u0027autore presso CNA di Carpi (MO)",
+    "notizie_recenti":  [
+
+                        ],
+    "relazioni_chiave":  [
+                             {
+                                 "nome":  "Sergio Bettini",
+                                 "relazione":  "collega, socio",
+                                 "contesto":  "Studio Bettini Architetti Associati"
+                             },
+                             {
+                                 "nome":  "Pablo comunicazione",
+                                 "relazione":  "collaboratore",
+                                 "contesto":  "spazio di lavoro in condivisione dal 2013"
+                             },
+                             {
+                                 "nome":  "Polo Progetti",
+                                 "relazione":  "socio",
+                                 "contesto":  "societÃ  di ingegneria dal 2022"
+                             }
+                         ],
+    "influenza_stimata":  "media"
+}

@@ -1,0 +1,10 @@
+﻿=== VISUAL ARTE (108s) ===
+P.IVA:   00860230945 | atteso 00860230945
+SEDE:    Via Marco D'agrate, 23, Milano | atteso Via Marco D'Agrate 23
+CITTA:   Milano | atteso Milano
+ATECO:   62.01.00
+FATT:    11396 (2023)
+DIPEND:  1
+COSTIT:  2016-02-16
+TITOLARE: Alberto Beretta (Global Reward and Labor Cost Director)
+FONTI:   Google Maps, fatturatoitalia.it, lead-registry, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)

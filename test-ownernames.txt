@@ -1,0 +1,21 @@
+﻿===== STEP 2d0 TEST 01:17:55 =====
+
+--- RT SOLUTIONS S.A.S. DI GIANNOTTA RAFFAELE & C. (151s) ---
+  P.IVA:   10126300960
+  Sede:    Via Caduti Di Marcinelle, 12, Milano
+  TITOL:   GIANNOTTA RAFFAELE [Rappresentante Legale]
+
+--- RUFFA MICHELA (145s) ---
+  P.IVA:   02523200356
+  Sede:    
+  TITOL:   Michela Ruffa [Titolare / Rappresentante Legale]
+
+--- RS PLANNER S.A.S DI SISTI PAOLO (164s) ---
+  P.IVA:   07232720966
+  Sede:    Via Lorenteggio, 240, Milano
+  TITOL:   Paolo Sisti [Direttore Generale]
+
+--- SALVATORE S.A.S. DI FIEMMINO GENNARO E C. (204s) ---
+  P.IVA:   05775320962
+  Sede:    Via Lago Di Nemi, 25, Milano
+  TITOL:   Iemmino Gennaro [Direttore]

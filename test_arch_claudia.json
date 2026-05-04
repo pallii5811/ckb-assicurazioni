@@ -1,0 +1,144 @@
+﻿{
+    "nome_cercato":  "Claudia Guastadini architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)"
+              ],
+    "nome_completo":  "Claudia Guastadini",
+    "ruolo":  "architetto",
+    "email":  "claudiaguastadini@nobo.cloud",
+    "_tavily_last_url":  "https://www.edilportale.com/claudia-guastadini/",
+    "_camerale_ragione_sociale":  "Claudia Guastadini",
+    "competenze":  "progettazione edilizia, architettura di interni, ingegnerizzazione di opere in acciaio e vetro, consulenza tecnica",
+    "colleghi_noti":  [
+                          "Flavio Gardini",
+                          "Luca Rossi",
+                          "Roberto Salvato"
+                      ],
+    "trigger_finanziari":  [
+
+                           ],
+    "segnali_comportamentali":  "progettazione edilizia e architettura di interni, ingegnerizzazione di opere in acciaio e vetro, recupero e restauro di una casa colonica, progetti speciali",
+    "rischi_professionali":  [
+                                 "errori nella progettazione",
+                                 "omissioni nei calcoli strutturali",
+                                 "mancata conformitÃ  alle normative vigenti",
+                                 "ritardi o inadempienze contrattuali"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "Polizza RC Professionale Architetti",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "Obbligatoria per legge per tutti i professionisti iscritti a un ordine"
+                                },
+                                {
+                                    "polizza":  "Polizza Patrimoniale Dipendenti Pubblici",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "Per maggiore tranquillitÃ  in caso di colpa grave"
+                                }
+                            ],
+    "note_broker":  "Ã consigliabile stipulare una polizza dedicata per evitare di erodere il massimale della RC Professionale.",
+    "stima_capacita_risparmio":  "media",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "caldo",
+    "cariche_societarie":  [
+                               {
+                                   "azienda":  "null",
+                                   "ruolo":  "Architetto",
+                                   "stato":  "attiva",
+                                   "partita_iva":  "null"
+                               }
+                           ],
+    "numero_aziende_attive":  "1",
+    "albo_professionale":  "Architetto",
+    "notizie_recenti":  [
+
+                        ],
+    "relazioni_chiave":  [
+                             {
+                                 "nome":  "Roberto Bacchilega",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Elvira Laura Bandini",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Alessandro Bettio",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Cinzia Compagnone",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Giulia Lucchi",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Silvia Manelli",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Francesco Michele Masera",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Patrizia Melotti",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Angela Miceli",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Sara Navicchia",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Roberta Paglioli",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Angela Santangelo",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Giuseppe Satta",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Daniel",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             },
+                             {
+                                 "nome":  "Valeria Zorzin",
+                                 "relazione":  "collega",
+                                 "contesto":  "partecipazione a eventi di progettazione"
+                             }
+                         ],
+    "eventi_conferenze":  "Villaggio Artigiano, Villaggio Vivo",
+    "influenza_stimata":  "media"
+}

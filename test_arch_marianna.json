@@ -1,0 +1,107 @@
+﻿{
+    "nome_cercato":  "Marianna Amendola architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)"
+              ],
+    "nome_completo":  "Marianna Amendola",
+    "ruolo":  "architetto",
+    "azienda":  "interlandstudio",
+    "settore":  "architettura",
+    "citta":  "Rome",
+    "descrizione":  "Marianna Amendola Ã¨ un architetto che attualmente lavora presso interlandstudio. Ha esperienza nel settore dell\u0027architettura e si occupa di vari progetti professionali.",
+    "tipo_lavoro":  "libero professionista",
+    "_tavily_last_url":  "https://it.linkedin.com/in/marianna-amendola-bb072313b",
+    "telefono":  "+39 06 45675601",
+    "telefono_fonte":  "Sito web azienda",
+    "dati_azienda":  {
+                         "ragione_sociale":  "interlandstudio",
+                         "nome":  "interlandstudio",
+                         "_nota":  "Dati aziendali non verificati â persona non trovata come titolare/socio"
+                     },
+    "linkedin":  "https://www.linkedin.com/in/marianna-amendola-bb072313b",
+    "trigger_finanziari":  [
+
+                           ],
+    "rischi_professionali":  [
+                                 "errori professionali",
+                                 "infortuni sul lavoro"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "Assicurazione RC Professionale Architetto",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "necessaria per coprire richieste di risarcimento per errori professionali"
+                                },
+                                {
+                                    "polizza":  "Polizza Infortuni",
+                                    "priorita":  "critica",
+                                    "motivo":  "protezione in caso di infortuni legati all\u0027attivitÃ  professionale"
+                                },
+                                {
+                                    "polizza":  "Tutela Legale",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "supporto per spese legali correlate all\u0027attivitÃ "
+                                }
+                            ],
+    "note_broker":  "Ã fondamentale che il professionista informi il cliente degli estremi della polizza e del massimale. Considerare anche la retroattivitÃ  e ultrattivitÃ  delle polizze.",
+    "stima_capacita_risparmio":  "media",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "caldo",
+    "proprieta_immobiliari":  [
+                                  {
+                                      "indirizzo":  "Via De Curtis, Cento",
+                                      "tipo":  "terreno edificabile",
+                                      "valore":  "174000"
+                                  },
+                                  {
+                                      "indirizzo":  "Alberazzo, Mesola",
+                                      "tipo":  "terreno agricolo",
+                                      "valore":  "35840"
+                                  },
+                                  {
+                                      "indirizzo":  "Via Belmonte, Mesola",
+                                      "tipo":  "abitazione",
+                                      "valore":  "32000"
+                                  },
+                                  {
+                                      "indirizzo":  "Via Tracchi, Poggio Renatico",
+                                      "tipo":  "abitazione",
+                                      "valore":  "61600"
+                                  },
+                                  {
+                                      "indirizzo":  "Via Padusa, Poggio Renatico",
+                                      "tipo":  null,
+                                      "valore":  null
+                                  }
+                              ],
+    "cariche_societarie":  [
+                               {
+                                   "azienda":  "Amendola S.r.l.",
+                                   "ruolo":  null,
+                                   "stato":  "attiva",
+                                   "partita_iva":  null
+                               },
+                               {
+                                   "azienda":  "Amendola Comunicazione S.r.l. Semplificata",
+                                   "ruolo":  null,
+                                   "stato":  "attiva",
+                                   "partita_iva":  "13937591009"
+                               }
+                           ],
+    "numero_aziende_attive":  2,
+    "notizie_recenti":  [
+
+                        ],
+    "relazioni_chiave":  [
+
+                         ]
+}

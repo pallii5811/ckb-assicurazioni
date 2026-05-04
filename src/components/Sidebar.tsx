@@ -39,6 +39,7 @@ const Sidebar = ({ credits, variant = 'desktop', open = false, onClose, onNaviga
     { icon: Folder, label: 'Ambienti', href: '/dashboard/environments' },
     { icon: Kanban, label: 'Pipeline', href: '/dashboard/pipeline' },
     { icon: Brain, label: 'Smart Insights', href: '/dashboard/insights' },
+    { icon: Crown, label: 'Insurance Prospezione', href: '/dashboard/insurance-prospezione' },
     { icon: Send, label: 'Sequenze Email', href: '/dashboard/sequences' },
     { icon: BarChart2, label: 'Il Mio Score AI', href: '/dashboard/stats' },
     { icon: Plug, label: 'Integrazioni', href: '/dashboard/integrations' },

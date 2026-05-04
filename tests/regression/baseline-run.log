@@ -1,0 +1,129 @@
+
+===================================================================
+ REGRESSION TEST SUITE - /api/company-lookup
+ Target: http://localhost:3000
+ Companies: 20 | Max score: 200
+ Started: 2026-04-24 13:41:36
+===================================================================
+
+- [REPUTATION MANAGER S.P.A. Milano] 8/10 (80%) [134s]
+    piva : OK 07569410967
+    rs : OK 'Reputation Manager S.p.A. - Ingegneria Reputazionale'
+    citta : OK 'MILANO'
+    titolare : FAIL expected Andrea Barchiesi got empty
+    pec : OK 'reputationmanagerspa@pec.it'
+- [RES FREEDATA S.R.L.] 8/10 (80%) [131s]
+    piva : OK 10102720967
+    rs : FAIL expected contain 'res freedata' got ''
+    citta : OK 'Milano'
+    titolare : OK empty no ground truth
+    pec : OK 'res@pec.res-it.com'
+- [RES PUBLICA SRL] 9/10 (90%) [152s]
+    piva : OK 06349250966
+    rs : OK 'Res Publica Srl'
+    citta : OK 'Milano'
+    titolare : PARTIAL 'Alberto Bianchi' no ground truth
+    pec : OK no requirement
+- [RES SYNESIS S.R.L.] 8/10 (80%) [145s]
+    piva : OK 09445240964
+    rs : FAIL expected contain 'res synesis' got ''
+    citta : OK 'Milano'
+    titolare : OK empty no ground truth
+    pec : OK no requirement
+- [REMTENE SRL] 10/10 (100%) [238s]
+    piva : OK 08747890963
+    rs : OK 'Remtene S.r.l.'
+    citta : OK 'Milano'
+    titolare : OK 'Arnaldo Ferrari Nasi'
+    pec : OK no requirement
+- [REP S.R.L. CENTRO DI RICERCA SUGLI ENTI PUBBLICI] 8/10 (80%) [154s]
+    piva : OK 12420520962
+    rs : FAIL expected contain 'rep' got ''
+    citta : OK 'Milano'
+    titolare : OK empty no ground truth
+    pec : OK no requirement
+- [REPOWER VENDITA ITALIA SPA] 2/10 (20%) [227s]
+    piva : FAIL expected 13181080154 got empty
+    rs : FAIL expected contain 'repower vendita' got 'Repower'
+    citta : FAIL expected 'Milano' got ''
+    titolare : OK 'Fabio Bocchiola'
+    pec : FAIL expected PEC got empty
+- [RELCO SRL] 6/10 (60%) [137s]
+    piva : PARTIAL expected null got 12080570158
+    rs : FAIL expected contain 'relco' got ''
+    citta : OK no expected
+    titolare : OK empty no ground truth
+    pec : OK no requirement
+- [GUCCI SRL Firenze] 4/10 (40%) [80s]
+    piva : FAIL expected 04793760482 got empty
+    rs : OK 'GUCCI SRL Firenze'
+    citta : FAIL expected 'Firenze' got ''
+    titolare : OK empty no ground truth
+    pec : FAIL expected PEC got empty
+- [FERRARI S.P.A. Maranello] 2/10 (20%) [12s]
+    piva : FAIL expected 00159560366 got empty
+    rs : OK 'FERRARI S.P.A. Maranello'
+    citta : FAIL expected 'Maranello' got ''
+    titolare : FAIL expected Benedetto Vigna,John Elkann got empty
+    pec : FAIL expected PEC got empty
+- [BARILLA G. E R. FRATELLI S.P.A.] 2/10 (20%) [12s]
+    piva : FAIL expected 01654010345 got empty
+    rs : OK 'BARILLA G. E R. FRATELLI S.P.A.'
+    citta : FAIL expected 'Parma' got ''
+    titolare : FAIL expected Guido Maria Barilla,Luca Barilla,Paolo Barilla got empty
+    pec : FAIL expected PEC got empty
+- [PRADA S.P.A.] 2/10 (20%) [12s]
+    piva : FAIL expected 10115350159 got empty
+    rs : OK 'PRADA S.P.A.'
+    citta : FAIL expected 'Milano' got ''
+    titolare : FAIL expected Miuccia Prada,Patrizio Bertelli,Andrea Guerra got empty
+    pec : FAIL expected PEC got empty
+- [LUXOTTICA GROUP SPA] 2/10 (20%) [56s]
+    piva : FAIL expected 00970890032 got empty
+    rs : OK 'LUXOTTICA GROUP SPA'
+    citta : FAIL expected 'Milano' got ''
+    titolare : FAIL expected Francesco Milleri,Leonardo Del Vecchio got empty
+    pec : FAIL expected PEC got empty
+- [AUTOGRILL S.P.A.] 2/10 (20%) [109s]
+    piva : FAIL expected 03091940266 got empty
+    rs : OK 'AUTOGRILL S.P.A.'
+    citta : FAIL expected 'Rozzano' got ''
+    titolare : FAIL expected Gianmario Tondato Da Ruos,Paolo Roverato got empty
+    pec : FAIL expected PEC got empty
+- [ENEL S.P.A.] 2/10 (20%) [97s]
+    piva : FAIL expected 00811720580 got empty
+    rs : OK 'ENEL S.P.A.'
+    citta : FAIL expected 'Roma' got ''
+    titolare : FAIL expected Flavio Cattaneo,Paolo Scaroni got empty
+    pec : FAIL expected PEC got empty
+- [TELECOM ITALIA SPA] 0/10 (0%) [73s]
+    piva : FAIL expected 00488410010 got empty
+    rs : FAIL expected contain 'tim' got 'TELECOM ITALIA SPA'
+    citta : FAIL expected 'Roma' got ''
+    titolare : FAIL expected Pietro Labriola,Alberta Figari got empty
+    pec : FAIL expected PEC got empty
+- [GENERALI ITALIA SPA] 2/10 (20%) [70s]
+    piva : FAIL expected 01333550323 got empty
+    rs : OK 'GENERALI ITALIA SPA'
+    citta : FAIL expected 'Mogliano Veneto' got ''
+    titolare : FAIL expected Giancarlo Fancel,Marco Sesana got empty
+    pec : FAIL expected PEC got empty
+- [PIRELLI & C. SPA] 2/10 (20%) [73s]
+    piva : FAIL expected 00860340157 got empty
+    rs : OK 'PIRELLI & C. SPA'
+    citta : FAIL expected 'Milano' got ''
+    titolare : FAIL expected Andrea Casaluci,Marco Tronchetti Provera got empty
+    pec : FAIL expected PEC got empty
+- [11876690150] 4/10 (40%) [99s]
+    piva : OK 11876690150
+    rs : FAIL expected contain 'moncler' got '11876690150'
+    citta : FAIL expected 'Milano' got ''
+    titolare : FAIL expected Remo Ruffini got empty
+    pec : FAIL expected PEC got empty
+- [EDIL SMG S.R.L.S.] HTTP FAIL: Timeout dell'operazione.
+
+===================================================================
+ TOTAL SCORE: 83/200 (41,5%) - FAIL <60%
+===================================================================
+
+Results saved to: tests/regression/baseline-post-validator-fix.json

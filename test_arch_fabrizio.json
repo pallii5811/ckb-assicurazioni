@@ -1,0 +1,211 @@
+﻿{
+    "nome_cercato":  "Fabrizio Bonatti architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)"
+              ],
+    "nome_completo":  "Fabrizio Bonatti",
+    "ruolo":  "Architetto",
+    "azienda":  "MCA Mario Cucinella Architects",
+    "settore":  "Architettura",
+    "citta":  "Bologna",
+    "descrizione":  "Co-fondatore di SUMs architects, Fabrizio Bonatti Ã¨ un architetto specializzato in modellazione parametrica e computational design. Ha una lunga esperienza nel settore, avendo lavorato in diverse aziende e partecipato a numerosi eventi di didattica e formazione.",
+    "tipo_lavoro":  "dipendente",
+    "seniority":  "senior",
+    "dimensione_azienda":  "grande",
+    "_tavily_last_url":  "https://rebuilditalia.it/it/relatori/dettaglio/fabrizio-bonatti",
+    "telefono":  "+390516313381",
+    "telefono_fonte":  "Sito web azienda",
+    "email":  "mca@mcarchitects.it",
+    "email_fonte":  "Sito web azienda",
+    "dati_azienda":  {
+                         "ragione_sociale":  "MCA Mario Cucinella Architects",
+                         "nome":  "MCA Mario Cucinella Architects",
+                         "_nota":  "Dati aziendali non verificati â persona non trovata come titolare/socio"
+                     },
+    "formazione":  "Laureato nel 2006 presso l\u0027UniversitÃ  degli Studi Roma Tre con la tesi \u0027Progettazione parametrica di strutture complesse\u0027",
+    "competenze":  "modellazione parametrica, BIM, stampa 3D, automatizzazione di processi, algoritmi generativi, script-language, diagrammi di flusso, progettazione digitale",
+    "anni_esperienza":  "17",
+    "colleghi_noti":  [
+                          "Paolo Greco",
+                          "Giulio Desiderio",
+                          "Lucrezia Rendace",
+                          "Julissa Gutarra",
+                          "Alberto Bruno",
+                          "Serena Carrisi",
+                          "Emanuele Dionigi",
+                          "Giovanni Lenci",
+                          "Giovanni Sanna",
+                          "Michele Roveri"
+                      ],
+    "note":  "Co-fondatore di SUMs architects, membro fondatore del Laboratorio interdisciplinare Formulas, relatore a conferenze sul design parametrico",
+    "interessi_social":  [
+                             "modellazione parametrica",
+                             "BIM",
+                             "stampa 3D",
+                             "automatizzazione di processi",
+                             "algoritmi generativi",
+                             "design computazionale"
+                         ],
+    "trigger_finanziari":  [
+
+                           ],
+    "segnali_comportamentali":  "interessi per la modellazione parametrica, BIM, stampa 3D, automatizzazione di processi e operazioni, algoritmi generativi, script-language e diagrammi di flusso.",
+    "rischi_professionali":  [
+                                 "responsabilitÃ  civile professionale",
+                                 "errori di progettazione"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "Polizza Professionale Architetti",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "copertura per responsabilitÃ  civile professionale"
+                                },
+                                {
+                                    "polizza":  "Polizza Infortuni",
+                                    "priorita":  "critica",
+                                    "motivo":  "protezione in caso di infortuni sul lavoro"
+                                },
+                                {
+                                    "polizza":  "Polizza Salute",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "copertura sanitaria per professionisti"
+                                }
+                            ],
+    "note_broker":  "Fabrizio Bonatti ha una carriera consolidata e una seniority che suggerisce una buona stabilitÃ  economica. Ã importante considerare polizze che coprano sia la responsabilitÃ  professionale che eventuali infortuni sul lavoro.",
+    "stima_capacita_risparmio":  "medio-alta",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "caldo",
+    "cariche_societarie":  [
+                               {
+                                   "azienda":  "Altaimago S.R.L.",
+                                   "ruolo":  "Titolare",
+                                   "stato":  "attiva",
+                                   "partita_iva":  null
+                               },
+                               {
+                                   "azienda":  "SUMS Architects",
+                                   "ruolo":  "Co-fondatore",
+                                   "stato":  "attiva",
+                                   "partita_iva":  null
+                               },
+                               {
+                                   "azienda":  "MCA Mario Cucinella Architects",
+                                   "ruolo":  "BIM Manager e Computational Design Leader",
+                                   "stato":  "cessata",
+                                   "partita_iva":  null
+                               }
+                           ],
+    "numero_aziende_attive":  "2",
+    "storico_imprenditoriale":  "Fabrizio Bonatti ha lavorato come capo progetto e responsabile dei sistemi informatici presso Insula Architettura e Ingegneria (2006-2009) e King Roselli Architetti (2009-2011).",
+    "certificazioni":  [
+                           "certificazione ICMQ per CDE Manager (ICMQ)",
+                           "certificazione ICMQ per BIM Manager (ICMQ)"
+                       ],
+    "associazioni":  [
+                         "SUMs architects",
+                         "Laboratorio interdisciplinare Formulas"
+                     ],
+    "notizie_recenti":  [
+                            {
+                                "titolo":  "La nuova sede della Pinacoteca e la Grande Brera",
+                                "data":  "10/12/2024",
+                                "fonte":  "Dove Viaggi - Corriere della sera",
+                                "rilevanza_assicurativa":  "Rilevante per gli assicuratori in quanto riguarda progetti di architettura di grande impatto e valore culturale."
+                            }
+                        ],
+    "interviste":  "Intervista allâarchitetto Mario Cucinella dedicato allâinaugurazione de La Grande Brera a partire dal minuto 16.36.",
+    "relazioni_chiave":  [
+                             {
+                                 "nome":  "Mario Cucinella",
+                                 "relazione":  "socio",
+                                 "contesto":  "MCA Mario Cucinella Architects"
+                             },
+                             {
+                                 "nome":  "Marco DellâAgli",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA Mario Cucinella Architects"
+                             },
+                             {
+                                 "nome":  "Giuliana Maggio",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA Mario Cucinella Architects"
+                             },
+                             {
+                                 "nome":  "Luca Stramigioli",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA Mario Cucinella Architects"
+                             },
+                             {
+                                 "nome":  "Maria Persichella",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Michele Olivieri",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Paolo Greco",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Augusto Barichello",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Maria Dolores Del Sol Ontalba",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Lucrezia Rendace",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Angelica Crisci",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Damiano Comini",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Michele Roveri",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Andrea Guazzotti",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             },
+                             {
+                                 "nome":  "Gianmarco Daniele",
+                                 "relazione":  "collega",
+                                 "contesto":  "MCA"
+                             }
+                         ],
+    "eventi_conferenze":  [
+                              "Festival della Scienza di Genova",
+                              "Festival della Matematica di Roma"
+                          ],
+    "influenza_stimata":  "alta",
+    "circoli_club":  [
+                         "Laboratorio interdisciplinare Formulas"
+                     ]
+}

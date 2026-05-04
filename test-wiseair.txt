@@ -1,0 +1,9 @@
+﻿=== WISEAIR (118s) ===
+RAG_SOC: 
+P.IVA:    | atteso 10700370967
+SEDE:     | atteso Via Andrea Costa 8, Milano
+ATECO:    
+TITOLARE:  ()
+FATT/DIP:  / 
+PERSONE: 
+FONTI: Tavily (ricerca web)

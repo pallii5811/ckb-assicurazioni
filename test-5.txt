@@ -1,0 +1,9 @@
+﻿=== VISIT ITALY (163s) ===
+RAG_SOC: Visit Italy - The promoting channel for Italy in the world
+P.IVA:   08368951219 | atteso 08368951219
+SEDE:    Via Filippo Argelati, 10, Milano | atteso Via Filippo Argelati 10, Milano
+ATECO:   73.11.01 Ideazione di campagne pubblicitarie
+TITOLARE: Ruben Santopietro (fondatore e ceo)
+FATT/DIP: 1201359 / 6-9
+PERSONE: [{"nome":"Ruben Santopietro","ruolo":"fondatore e ceo"},{"nome":"Claudio Sebillo","ruolo":"Founder \u0026 CEO","cf":"","quota":""},{"nome":"Rita Soccio","ruolo":"Assessora alla Cultura e al turismo","cf":"","quota":""},{"nome":"Pietro Esposito","ruolo":"Segretario Generale","cf":"","quota":""}]
+FONTI: Google Maps, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)

@@ -1,0 +1,11 @@
+﻿=== PERSON Daniele Cantalupo + Visionaria (141s) ===
+NOME: Daniele Cantalupo
+AZIENDA: Cantalupo Daniele
+RUOLO: 
+SETTORE: 
+CITTA: Ogliastro cilento
+LINKEDIN: 
+P.IVA: 04980220968
+dati_az.piva: 04980220968
+dati_az.rag_soc: Cantalupo Daniele
+FONTI: Tavily (ricerca web), Google Maps (personale), Sito Web Aziendale, CompanyReports.it (autoritativo)

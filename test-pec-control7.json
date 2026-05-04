@@ -1,0 +1,369 @@
+﻿{
+    "nome_commerciale":  "Control H.t.p.",
+    "telefono_fonte":  "Sito ufficiale azienda",
+    "sito":  "https://www.control-htp.com",
+    "partita_iva":  "02983840964",
+    "telefono":  "+39 039 6889578",
+    "email":  "info@control-htp.com",
+    "fatturato":  "4098358",
+    "fatturato_anno":  "2024",
+    "codice_ateco":  "27.90.09",
+    "descrizione_ateco":  "Fabbricazione di altre apparecchiature elettriche nca",
+    "forma_giuridica":  "Societa\u0027 a responsabilita\u0027 limitata",
+    "sede_legale":  "Via Del Lavoro, 31 33 35, Usmate Velate",
+    "stato_attivita":  "Attiva",
+    "costo_personale":  "894570",
+    "costo_personale_anno":  "2024",
+    "utile_netto":  "6342",
+    "storico_bilanci":  "{\"anni\":[\"2019\",\"2020\",\"2021\",\"2022\",\"2023\",\"2024\"],\"fatturato\":[\"3570046\",\"3469941\",\"4516379\",\"4262162\",\"3679917\",\"4098358\"],\"utile\":[\"-120614\",\"14202\",\"57669\",\"40587\",\"5188\",\"6342\"],\"costo_personale\":[\"761636\",\"762481\",\"886105\",\"920710\",\"858264\",\"894570\"]}",
+    "anno_fondazione":  "2007",
+    "codice_fiscale":  "02983840964",
+    "classe_fatturato":  "2M-5M",
+    "anno_bilancio":  "2024",
+    "cellulare":  "335 66 09 837",
+    "cellulare_fonte":  "Tavily AI (ricerca web)",
+    "indirizzo":  "Via del Lavoro, 31/33/35, 20865 Usmate Velate (MB)",
+    "titolare":  "Giorgio Buzzi",
+    "ruolo_titolare":  "Titolare",
+    "persone":  [
+                    {
+                        "nome":  "Giorgio Buzzi",
+                        "ruolo":  "Titolare"
+                    }
+                ],
+    "bio_titolare":  "Giorgio Buzzi Ã¨ un professionista con ottime capacitÃ  organizzative e di adattamento a cambiamenti e situazioni. Attualmente ricopre un ruolo di leadership nel settore della sostenibilitÃ .",
+    "seniority_titolare":  "mid",
+    "esperienze_titolare":  "Controller presso SACBO S.p.A.",
+    "formazione_titolare":  "UniversitÃ  degli Studi di Milano-Bicocca, 2013 - 2015",
+    "competenze_titolare":  [
+                                "capacitÃ  organizzative",
+                                "adattamento ai cambiamenti",
+                                "leadership",
+                                "orientamento al risultato"
+                            ],
+    "tipo_lavoro_titolare":  "dipendente",
+    "settore_titolare":  "Fabbricazione di altre apparecchiature elettriche nca",
+    "dimensione_azienda_titolare":  "piccola",
+    "citta_titolare":  "Usmate Velate",
+    "veicoli_titolare":  "non menzionati",
+    "certificazioni":  [
+                           "ISO 9001",
+                           "SOA",
+                           "OHSAS 18001",
+                           "ISO 20000"
+                       ],
+    "ha_flotta_veicoli":  true,
+    "numero_veicoli":  "25",
+    "ha_immobili_proprieta":  false,
+    "partecipa_appalti_pubblici":  true,
+    "appalti_info":  "Attestazione SOA per appalti lavori pubblici imprese edili ed impiantisti.",
+    "attivita_estero":  true,
+    "rischi_specifici":  [
+                             "rischio 1",
+                             "rischio 2"
+                         ],
+    "note_broker":  "Assicurazione flotta per veicoli aziendali, copertura completa con vantaggi per flotta di 10 veicoli.",
+    "nome":  "CONTROL H.T.P. srl",
+    "fonti":  [
+                  "Sito Web Aziendale",
+                  "CompanyReports.it",
+                  "Tavily (ricerca web)"
+              ],
+    "obblighi_assicurativi":  {
+                                  "settore":  "Manifattura e Industria",
+                                  "classe_inail":  "alto",
+                                  "tasso_inail_indicativo":  "30-70â°",
+                                  "polizze_obbligatorie":  [
+                                                               "RC Prodotti (Direttiva 85/374/CEE)",
+                                                               "Polizza Infortuni Lavoratori",
+                                                               "RC verso Terzi e Prestatori d\u0027Opera"
+                                                           ],
+                                  "polizze_raccomandate":  [
+                                                               "Polizza Incendio Stabilimento",
+                                                               "Polizza Guasti Macchinari (Machinery Breakdown)",
+                                                               "Polizza Interruzione AttivitÃ ",
+                                                               "Polizza Merci / Scorte in magazzino",
+                                                               "Polizza Inquinamento Ambientale (D.Lgs. 152/2006)",
+                                                               "Polizza Trasporto Merci"
+                                                           ],
+                                  "rischi_principali":  [
+                                                            "Infortuni da macchinari industriali",
+                                                            "Incendio/esplosione stabilimento",
+                                                            "Prodotto difettoso â richiamo / recall",
+                                                            "Inquinamento ambientale",
+                                                            "Guasto macchinario critico â fermo produzione"
+                                                        ],
+                                  "normativa":  [
+                                                    "Direttiva 85/374/CEE â RC Prodotti",
+                                                    "D.Lgs. 81/2008 â Sicurezza lavoro",
+                                                    "D.Lgs. 152/2006 â Tutela ambientale",
+                                                    "Direttiva Macchine 2006/42/CE"
+                                                ],
+                                  "fonte":  "Normativa italiana, INAIL, IVASS"
+                              },
+    "classificazione_eu":  {
+                               "classe":  "piccola",
+                               "label":  "Piccola Impresa",
+                               "descrizione":  "20 dipendenti Â· â¬4.098.358 fatturato",
+                               "obblighi_extra":  [
+                                                      "DVR (Documento Valutazione Rischi) obbligatorio",
+                                                      "Formazione sicurezza lavoratori obbligatoria",
+                                                      "GDPR â registro trattamenti"
+                                                  ],
+                               "opportunita_broker":  [
+                                                          "Pacchetto PMI all-inclusive",
+                                                          "RC + Incendio + Furto combinata",
+                                                          "Polizza sanitaria collettiva dipendenti",
+                                                          "Cyber risk in crescita per PMI"
+                                                      ]
+                           },
+    "verifica_polizze":  [
+                             {
+                                 "polizza":  "Cyber Risk",
+                                 "tipo":  "raccomandata",
+                                 "stato":  "probabilmente_no",
+                                 "probabilita_possesso":  "12%",
+                                 "motivo":  "Solo il 10-15% delle PMI italiane ha una polizza cyber.",
+                                 "domanda_broker":  "Ha una polizza cyber? Solo il 12% delle PMI del suo settore ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "Key Man",
+                                 "tipo":  "raccomandata",
+                                 "stato":  "probabilmente_no",
+                                 "probabilita_possesso":  "5%",
+                                 "motivo":  "Meno del 10% delle PMI ha una polizza Key Man.",
+                                 "domanda_broker":  "Ha una polizza Key Man per i soci o i dipendenti chiave? Meno del 10% delle PMI ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "Business Interruption",
+                                 "tipo":  "raccomandata",
+                                 "stato":  "probabilmente_no",
+                                 "probabilita_possesso":  "15%",
+                                 "motivo":  "Solo il 15-20% delle PMI ha una polizza di Business Interruption.",
+                                 "domanda_broker":  "Ha una polizza di Business Interruption? Solo il 15% delle PMI del suo settore ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "D\u0026O",
+                                 "tipo":  "raccomandata",
+                                 "stato":  "da_verificare",
+                                 "probabilita_possesso":  "25%",
+                                 "motivo":  "Solo il 20-25% delle SRL ha una polizza D\u0026O.",
+                                 "domanda_broker":  "Ha una polizza D\u0026O per i suoi amministratori? Solo il 25% delle SRL ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "Tutela Legale",
+                                 "tipo":  "raccomandata",
+                                 "stato":  "da_verificare",
+                                 "probabilita_possesso":  "25%",
+                                 "motivo":  "Circa il 20-25% delle aziende ha una polizza di Tutela Legale.",
+                                 "domanda_broker":  "Ha una polizza di Tutela Legale? Solo il 25% delle aziende del suo settore ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "Employee Benefits (sanitaria collettiva)",
+                                 "tipo":  "raccomandata",
+                                 "stato":  "da_verificare",
+                                 "probabilita_possesso":  "30%",
+                                 "motivo":  "Circa il 30% delle aziende con piÃ¹ di 15 dipendenti ha Employee Benefits.",
+                                 "domanda_broker":  "Ha un piano di Employee Benefits per i suoi dipendenti? Solo il 30% delle aziende con piÃ¹ di 15 dipendenti ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "Incendio",
+                                 "tipo":  "settoriale",
+                                 "stato":  "ce_lha",
+                                 "probabilita_possesso":  "65%",
+                                 "motivo":  "60-70% delle aziende con sede propria ha una polizza incendio.",
+                                 "domanda_broker":  "Ha una polizza incendio per la sua sede? Circa il 65% delle aziende del suo settore ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "Furto",
+                                 "tipo":  "settoriale",
+                                 "stato":  "ce_lha",
+                                 "probabilita_possesso":  "55%",
+                                 "motivo":  "50-60% delle aziende ha una polizza furto.",
+                                 "domanda_broker":  "Ha una polizza furto per la sua sede? Circa il 55% delle aziende del suo settore ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "RC Terzi",
+                                 "tipo":  "obbligatoria",
+                                 "stato":  "ce_lha",
+                                 "probabilita_possesso":  "80%",
+                                 "motivo":  "70-80% delle aziende ha una polizza RC Terzi.",
+                                 "domanda_broker":  "Ha una polizza RC Terzi? Circa l\u002780% delle aziende del suo settore ce l\u0027ha."
+                             },
+                             {
+                                 "polizza":  "INAIL",
+                                 "tipo":  "obbligatoria",
+                                 "stato":  "ce_lha",
+                                 "probabilita_possesso":  "95%",
+                                 "motivo":  "Obbligatoria per legge se ha dipendenti, quindi ce l\u0027ha.",
+                                 "domanda_broker":  "Ha la copertura INAIL per i suoi dipendenti? Ã obbligatoria per legge."
+                             }
+                         ],
+    "stima_premio":  {
+                         "totale_stimato":  "â¬19.136 - â¬41.292",
+                         "dettaglio":  [
+                                           {
+                                               "polizza":  "RC Terzi / RC Professionale",
+                                               "premio_min":  6557,
+                                               "premio_max":  12295,
+                                               "note":  "Massimale consigliato: â¬8.196.716"
+                                           },
+                                           {
+                                               "polizza":  "Infortuni Lavoratori",
+                                               "premio_min":  7000,
+                                               "premio_max":  13000,
+                                               "note":  "20 dipendenti Ã â¬500/anno medio"
+                                           },
+                                           {
+                                               "polizza":  "Incendio / All Risks",
+                                               "premio_min":  3279,
+                                               "premio_max":  8197,
+                                               "note":  "Premio base"
+                                           },
+                                           {
+                                               "polizza":  "Furto / Rapina",
+                                               "premio_min":  300,
+                                               "premio_max":  800,
+                                               "note":  "Dipende da sistemi di allarme e ubicazione"
+                                           },
+                                           {
+                                               "polizza":  "Cyber Risk",
+                                               "premio_min":  500,
+                                               "premio_max":  2000,
+                                               "note":  "Raccomandata per aziende strutturate"
+                                           },
+                                           {
+                                               "polizza":  "D\u0026O Amministratori",
+                                               "premio_min":  1500,
+                                               "premio_max":  5000,
+                                               "note":  "Fatturato â¬4.098.358 â responsabilitÃ  amministratori rilevante"
+                                           }
+                                       ],
+                         "disclaimer":  "Stima indicativa basata su benchmark interni e parametri medi di mercato. Il premio effettivo dipende da sinistrositÃ  pregressa, franchigie, massimali, attivitÃ  concreta, ubicazione e criteri assuntivi della compagnia.",
+                         "fonte":  "Benchmark interni su parametri medi del mercato assicurativo italiano"
+                     },
+    "bisogni_assicurativi":  {
+                                 "fatti_verificati":  [
+                                                          {
+                                                              "id":  "forma_giuridica",
+                                                              "label":  "Forma giuridica",
+                                                              "value":  "SOCIETA\u0027 A RESPONSABILITA\u0027 LIMITATA",
+                                                              "source":  "Registro Imprese / profilo camerale",
+                                                              "confidence":  "alta"
+                                                          },
+                                                          {
+                                                              "id":  "ateco",
+                                                              "label":  "Codice ATECO",
+                                                              "value":  "27.90.09",
+                                                              "source":  "Registro Imprese / profilo camerale",
+                                                              "confidence":  "alta"
+                                                          },
+                                                          {
+                                                              "id":  "fatturato",
+                                                              "label":  "Fatturato",
+                                                              "value":  "â¬4.098.358",
+                                                              "source":  "Bilancio / profilo camerale",
+                                                              "confidence":  "alta"
+                                                          },
+                                                          {
+                                                              "id":  "dipendenti",
+                                                              "label":  "Dipendenti",
+                                                              "value":  "20",
+                                                              "source":  "Registro Imprese / profilo camerale",
+                                                              "confidence":  "alta"
+                                                          },
+                                                          {
+                                                              "id":  "website",
+                                                              "label":  "Sito aziendale",
+                                                              "value":  "https://www.control-htp.com",
+                                                              "source":  "Lead + verifica web",
+                                                              "confidence":  "alta"
+                                                          },
+                                                          {
+                                                              "id":  "sede",
+                                                              "label":  "Sede legale / cittÃ ",
+                                                              "value":  "Via Del Lavoro, 31 33 35, Usmate Velate",
+                                                              "source":  "Registro Imprese / lead",
+                                                              "confidence":  "media"
+                                                          }
+                                                      ],
+                                 "bisogni_raccomandati":  [
+                                                              {
+                                                                  "id":  "rc_prodotti",
+                                                                  "product":  "RC Prodotti / Recall / Contaminazione",
+                                                                  "target":  "Titolare / responsabile qualitÃ  / amministratore",
+                                                                  "priority":  "immediata",
+                                                                  "confidence":  "alta",
+                                                                  "sales_reason":  "Chi produce o trasforma beni ha un angolo commerciale fortissimo su danno a terzi, difetto e richiamo.",
+                                                                  "why_now":  "Volume dâaffari sufficiente per aprire un tavolo RC prodotti serio.",
+                                                                  "evidence_ids":  [
+                                                                                       "ateco",
+                                                                                       "fatturato"
+                                                                                   ]
+                                                              },
+                                                              {
+                                                                  "id":  "employee_benefits",
+                                                                  "product":  "Sanitaria collettiva / Infortuni collettiva / Welfare",
+                                                                  "target":  "Titolare / HR / amministrazione",
+                                                                  "priority":  "alta",
+                                                                  "confidence":  "alta",
+                                                                  "sales_reason":  "La dimensione dellâorganico rende vendibile unâofferta di welfare e coperture collettive.",
+                                                                  "why_now":  "Il numero di dipendenti giustifica una proposta benefits credibile.",
+                                                                  "evidence_ids":  [
+                                                                                       "dipendenti"
+                                                                                   ]
+                                                              },
+                                                              {
+                                                                  "id":  "cyber_risk",
+                                                                  "product":  "Cyber Risk",
+                                                                  "target":  "Titolare / amministratore / IT / privacy",
+                                                                  "priority":  "media",
+                                                                  "confidence":  "media",
+                                                                  "sales_reason":  "Presenza digitale e trattamento di dati aumentano il valore di una proposta cyber ben impostata.",
+                                                                  "why_now":  "Azienda giÃ  abbastanza strutturata da rendere il rischio cyber rilevante.",
+                                                                  "evidence_ids":  [
+                                                                                       "website",
+                                                                                       "dipendenti",
+                                                                                       "fatturato"
+                                                                                   ]
+                                                              },
+                                                              {
+                                                                  "id":  "property_all_risks",
+                                                                  "product":  "Property / Incendio / All Risks / Business Interruption",
+                                                                  "target":  "Titolare / amministratore",
+                                                                  "priority":  "media",
+                                                                  "confidence":  "media",
+                                                                  "sales_reason":  "Il business sembra dipendere da beni, locali, attrezzature o continuitÃ  operativa.",
+                                                                  "why_now":  "Copertura quasi sempre presente, quindi ottima per revisione e up-sell.",
+                                                                  "evidence_ids":  [
+                                                                                       "ateco"
+                                                                                   ]
+                                                              }
+                                                          ],
+                                 "dati_da_verificare":  [
+
+                                                        ],
+                                 "priorita_commerciale":  {
+                                                              "level":  "altissima",
+                                                              "score":  84,
+                                                              "reasons":  [
+                                                                              "Produzione/manifattura: valore alto su RC prodotti e property",
+                                                                              "Numero dipendenti sufficiente per pacchetti collettivi",
+                                                                              "Gap prioritario rilevato: Employee Benefits"
+                                                                          ]
+                                                          },
+                                 "playbook_commerciale":  {
+                                                              "prodotto_principale":  "RC Prodotti / Recall / Contaminazione",
+                                                              "cross_sell":  "Sanitaria collettiva / Infortuni collettiva / Welfare",
+                                                              "target_principale":  "Titolare / responsabile qualitÃ  / amministratore",
+                                                              "angolo_attacco":  "Chi produce o trasforma beni ha un angolo commerciale fortissimo su danno a terzi, difetto e richiamo.",
+                                                              "apertura_consigliata":  "Parti da dati pubblici verificati (Codice ATECO, Fatturato) e apri la conversazione sul bisogno RC Prodotti / Recall / Contaminazione.",
+                                                              "call_to_action":  "Obiettivo call: fissare check-up coperture su RC Prodotti / Recall / Contaminazione e preparare upsell su Sanitaria collettiva / Infortuni collettiva / Welfare."
+                                                          },
+                                 "prossime_domande":  [
+                                                          "Applicate un CCNL con sanitÃ  integrativa o avete giÃ  un piano welfare?",
+                                                          "Avete giÃ  una copertura attiva per Employee Benefits?"
+                                                      ]
+                             },
+    "data_costituzione":  "16/05/2000"
+}

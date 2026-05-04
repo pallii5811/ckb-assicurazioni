@@ -1,0 +1,96 @@
+﻿===== BATCH TEST 23:06:41 =====
+
+--- SAIT (92s) ---
+  P.IVA atteso: 00297910630 => OK
+  Sede atteso: Via Vitruvio 11 Milano
+  Sede trovata: Piazza Castello, 1, Milano
+  Ateco:       43.29.02 Lavori di isolamento termico, acustico o antivibrazioni
+  Fatturato:   59636446 (2024)
+  Dipendenti:  41
+  Forma:       Societa' per azioni
+  Costituzione:2008-04-04
+  TITOLARE:     []
+  LinkedIn T:  
+  LinkedIn Az: 
+  Sito:        
+  Email:       info@saitelettronica.it
+  PEC:         
+  Telefono:    î°06 702 4532
+  Cellulare:   
+  Fonti:       Google Maps, fatturatoitalia.it, lead-registry, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+
+--- SALADINO ANDREA (97s) ---
+  P.IVA atteso: 07750250966 => MISMATCH (got 12492860015)
+  Sede atteso: Piazza Adigrat 2 Milano
+  Sede trovata: Piazza Della Repubblica, 30, Torino
+  Ateco:       86.23.00 AttivitÃ  degli studi medici di medicina specialistica
+  Fatturato:    ()
+  Dipendenti:  
+  Forma:       Societa' in nome collettivo
+  Costituzione:2021-05-17
+  TITOLARE:    Edoardo Saladino [chirurgo professionista specializzato in chirurgia mininvasiva]
+  LinkedIn T:  
+  LinkedIn Az: https://www.linkedin.com/company/miodottore
+  Sito:        
+  Email:       
+  PEC:         
+  Telefono:    î°338 925 6235
+  Cellulare:   
+  Fonti:       Google Maps, fatturatoitalia.it, lead-registry, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+
+--- SAN GIACOMO S.R.L. (67s) ---
+  P.IVA atteso: 02644040137 => MISMATCH (got 07965230019)
+  Sede atteso: Via Accademia 48 Milano
+  Sede trovata: 
+  Ateco:       46.19.04 Gruppi di acquisto; Mandatari agli acquisti; Buyer
+  Fatturato:   915248 (2024)
+  Dipendenti:  da 6 a 9
+  Forma:       SocietÃ  di capitale
+  Costituzione:Data di costituzione
+  TITOLARE:    Presidente del Consiglio di Amministrazione [Presidente del Consiglio di Amministrazione]
+  LinkedIn T:  
+  LinkedIn Az: 
+  Sito:        
+  Email:       
+  PEC:         
+  Telefono:    +39 0831 523072
+  Cellulare:   
+  Fonti:       Google Maps, Database CKB (lead esistente), lead-registry, CompanyReports.it (bilancio ufficiale)
+
+--- SANGALLI MARKETING & COMMUNICATIONS (76s) ---
+  P.IVA atteso: 03267760969 => OK
+  Sede atteso: Via Morimondo 26 Milano
+  Sede trovata: Via Morimondo, 26, Milano
+  Ateco:       73.20.00 Ricerche di mercato e sondaggi di opinione
+  Fatturato:   893134 (2024)
+  Dipendenti:  da 6 a 9
+  Forma:       Societa' a responsabilita' limitata con unico socio
+  Costituzione:2001-10-09
+  TITOLARE:    Michela Sangalli [Marketing and Communications]
+  LinkedIn T:  
+  LinkedIn Az: https://www.linkedin.com/company/sangalli-marketing-
+  Sito:        
+  Email:       info@sangallimc.it
+  PEC:         info@sangallimc.it
+  Telefono:    î°02 8905 6404
+  Cellulare:   
+  Fonti:       Google Maps, fatturatoitalia.it, lead-registry, CompanyReports.it (bilancio ufficiale)
+
+--- SANIXAIR S.R.L. (69s) ---
+  P.IVA atteso: 10779980969 => OK
+  Sede atteso: Via Alfredo Pizzoni 3 Milano
+  Sede trovata: Via Alfredo Pizzoni, 3, Milano
+  Ateco:       26.60.09 Fabbricazione di altri strumenti per irradiazione ed altre apparecchiature elettroterapeutiche
+  Fatturato:   1007373 (2023)
+  Dipendenti:  177
+  Forma:       Societa' a responsabilita' limitata
+  Costituzione:2019-04-29
+  TITOLARE:    Lucio Lecchini [professionista associato]
+  LinkedIn T:  
+  LinkedIn Az: 
+  Sito:        
+  Email:       info@sanixair.com
+  PEC:         
+  Telefono:    î°02 382733
+  Cellulare:   
+  Fonti:       Google Maps, fatturatoitalia.it, lead-registry, CompanyReports.it (bilancio ufficiale)

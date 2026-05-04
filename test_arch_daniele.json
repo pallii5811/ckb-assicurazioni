@@ -1,0 +1,310 @@
+﻿{
+    "nome_cercato":  "Daniele Vincenzi architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)",
+                  "CompanyReports.it (autoritativo)",
+                  "lead-registry (fallback)"
+              ],
+    "nome_completo":  "Daniele Vincenzi",
+    "ruolo":  "Architetto",
+    "azienda":  "Vincenzi Daniele",
+    "settore":  "Architettura e design",
+    "citta":  "Bologna",
+    "descrizione":  "Daniele Vincenzi Ã¨ un architetto e designer con esperienza nella progettazione architettonica e di paesaggio. Ha collaborato con importanti figure del settore e si dedica anche alla divulgazione della storia architettonica moderna.",
+    "tipo_lavoro":  "libero professionista",
+    "seniority":  "senior",
+    "dimensione_azienda":  "micro",
+    "_tavily_last_url":  "https://www.ufficiocamerale.it/2439/vincenzi-daniele?srsltid=AfmBOooPKWOFchI0vm_InF-YAQWyHq7DlWabp1sdVl9p7fI4954iCfs8",
+    "indirizzo":  "VIA ALESSANDRO MANZONI 10/2 - 37060 - SONA (VR)",
+    "_omonimo_detected":  true,
+    "dati_azienda":  {
+                         "found":  true,
+                         "fonte":  "google_maps",
+                         "ragione_sociale":  "Vincenzi Daniele",
+                         "titolare_ruolo":  "Rappresentante Legale",
+                         "descrizione_ateco":  "servizi professionali",
+                         "forma_giuridica":  "non societÃ  a responsabilitÃ  limitata",
+                         "sede_legale":  "Via XXX Ottobre, 14, Ravenna 48125 RA",
+                         "partita_iva":  "01296840398",
+                         "codice_fiscale":  "01296840398",
+                         "persone":  [
+                                         {
+                                             "nome":  "Daniele Vincenzi",
+                                             "ruolo":  "Titolare / Rappresentante Legale / Amministratore Unico"
+                                         },
+                                         {
+                                             "nome":  "Vincenzi Daniele",
+                                             "ruolo":  "Rappresentante Legale",
+                                             "cf":  "01296840398",
+                                             "quota":  "non specificato"
+                                         }
+                                     ],
+                         "titolare":  "Daniele Vincenzi",
+                         "titolare_fonte":  "tavily",
+                         "ruolo_titolare":  "Associate Director",
+                         "certificazioni":  [
+                                                "ISO 9001",
+                                                "SOA"
+                                            ],
+                         "ha_flotta_veicoli":  true,
+                         "numero_veicoli":  "430",
+                         "ha_immobili_proprieta":  false,
+                         "partecipa_appalti_pubblici":  true,
+                         "appalti_info":  "Procedura aperta per l\u0027affidamento in appalto del servizio di ottimizzazione della flotta, noleggio veicoli a lungo termine e gestione della flotta aziendale per n. 430 veicoli.",
+                         "attivita_estero":  false,
+                         "rischi_specifici":  [
+
+                                              ],
+                         "note_broker":  "Daniele Vincenzi Ã¨ un architetto noto per progetti a Bologna, con esperienza nella gestione di flotte veicolari e coinvolgimento in appalti pubblici.",
+                         "telefono":  "051 6230001",
+                         "telefono_fonte":  "tavily",
+                         "bio_titolare":  "Experienced (+20 years) Real Estate Professional with an extensive background in managingâ¦",
+                         "esperienze_titolare":  [
+                                                     {
+                                                         "azienda":  "Savills",
+                                                         "ruolo":  "Associate Director",
+                                                         "periodo":  "N/A - Present"
+                                                     }
+                                                 ],
+                         "formazione_titolare":  "N/A",
+                         "competenze_titolare":  [
+                                                     "Real Estate",
+                                                     "Retail Agency"
+                                                 ],
+                         "seniority_titolare":  "senior",
+                         "ai_enriched":  true,
+                         "ai_fonti":  [
+                                          "Tavily (ricerca web)"
+                                      ],
+                         "rischio_territoriale":  {
+                                                      "zona_sismica":  2,
+                                                      "zona_sismica_label":  "Zona 2 â Rischio sismico ALTO",
+                                                      "rischio_idrogeologico":  "medio",
+                                                      "dettaglio_idrogeologico":  "Rischio sismico medio + alluvionale pianura padana, subsidenza",
+                                                      "polizze_consigliate":  [
+                                                                                  "Polizza Terremoto (fortemente raccomandata)",
+                                                                                  "Polizza All Risks Immobili",
+                                                                                  "Polizza Eventi Atmosferici"
+                                                                              ],
+                                                      "fonte":  "Protezione Civile â OPCM 3274/2003, ISPRA"
+                                                  },
+                         "classificazione_eu":  {
+                                                    "classe":  "micro",
+                                                    "label":  "Micro Impresa",
+                                                    "descrizione":  "Dati dimensionali non disponibili",
+                                                    "obblighi_extra":  [
+                                                                           "DVR semplificato (art. 29 D.Lgs. 81/2008)",
+                                                                           "GDPR â informativa e consenso base"
+                                                                       ],
+                                                    "opportunita_broker":  [
+                                                                               "Polizza multirischio artigiano/commerciante",
+                                                                               "RC Professionale singola",
+                                                                               "Polizza infortuni titolare",
+                                                                               "Protezione locale e attrezzature"
+                                                                           ]
+                                                },
+                         "gap_analysis":  {
+                                              "livello_rischio":  "basso",
+                                              "score":  15,
+                                              "gaps":  [
+                                                           {
+                                                               "area":  "Rischio Sismico",
+                                                               "gravita":  "alto",
+                                                               "descrizione":  "Zona sismica 2: verificare estensione terremoto sulla property e congruitÃ  del valore assicurato",
+                                                               "azione":  "Proporre estensione terremoto su polizza property con massimale pari al valore immobile"
+                                                           }
+                                                       ],
+                                              "sommario":  "GAP BASSO: profilo assicurativo probabilmente adeguato. Verificare rinnovi e massimali."
+                                          },
+                         "stima_premio":  {
+                                              "totale_stimato":  "â¬2225 - â¬5075",
+                                              "dettaglio":  [
+                                                                {
+                                                                    "polizza":  "RC Terzi / RC Professionale",
+                                                                    "premio_min":  500,
+                                                                    "premio_max":  800,
+                                                                    "note":  "Massimale consigliato: â¬1.000.000"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Infortuni Lavoratori",
+                                                                    "premio_min":  525,
+                                                                    "premio_max":  975,
+                                                                    "note":  "5 dipendenti Ã â¬150/anno medio"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Incendio / All Risks",
+                                                                    "premio_min":  400,
+                                                                    "premio_max":  1000,
+                                                                    "note":  "Maggiorazione zona sismica inclusa"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Estensione Terremoto",
+                                                                    "premio_min":  500,
+                                                                    "premio_max":  1500,
+                                                                    "note":  "Zona sismica 2 â copertura fortemente raccomandata"
+                                                                },
+                                                                {
+                                                                    "polizza":  "Furto / Rapina",
+                                                                    "premio_min":  300,
+                                                                    "premio_max":  800,
+                                                                    "note":  "Dipende da sistemi di allarme e ubicazione"
+                                                                }
+                                                            ],
+                                              "disclaimer":  "Stima indicativa basata su benchmark interni e parametri medi di mercato. Il premio effettivo dipende da sinistrositÃ  pregressa, franchigie, massimali, attivitÃ  concreta, ubicazione e criteri assuntivi della compagnia.",
+                                              "fonte":  "Benchmark interni su parametri medi del mercato assicurativo italiano"
+                                          },
+                         "bisogni_assicurativi_verificati":  {
+                                                                 "fatti_verificati":  [
+                                                                                          {
+                                                                                              "id":  "forma_giuridica",
+                                                                                              "label":  "Forma giuridica",
+                                                                                              "value":  "NON SOCIETÃ A RESPONSABILITÃ LIMITATA",
+                                                                                              "source":  "Registro Imprese / profilo camerale",
+                                                                                              "confidence":  "alta"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "sede",
+                                                                                              "label":  "Sede legale / cittÃ ",
+                                                                                              "value":  "Via XXX Ottobre, 14, Ravenna 48125 RA",
+                                                                                              "source":  "Registro Imprese / lead",
+                                                                                              "confidence":  "media"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "zona_sismica",
+                                                                                              "label":  "Zona sismica",
+                                                                                              "value":  "2",
+                                                                                              "source":  "Protezione Civile / mapping territoriale",
+                                                                                              "confidence":  "media"
+                                                                                          },
+                                                                                          {
+                                                                                              "id":  "rischio_idro",
+                                                                                              "label":  "Rischio idrogeologico",
+                                                                                              "value":  "medio",
+                                                                                              "source":  "Mapping territoriale",
+                                                                                              "confidence":  "media"
+                                                                                          }
+                                                                                      ],
+                                                                 "bisogni_raccomandati":  [
+
+                                                                                          ],
+                                                                 "dati_da_verificare":  [
+                                                                                            {
+                                                                                                "field":  "codice_ateco",
+                                                                                                "reason":  "ATECO non disponibile o non verificato",
+                                                                                                "impact":  "Riduce la precisione della proposta polizze settoriali"
+                                                                                            },
+                                                                                            {
+                                                                                                "field":  "fatturato",
+                                                                                                "reason":  "Fatturato non disponibile",
+                                                                                                "impact":  "Riduce la precisione di massimali, pricing e ranking commerciale"
+                                                                                            },
+                                                                                            {
+                                                                                                "field":  "dipendenti",
+                                                                                                "reason":  "Numero dipendenti non disponibile",
+                                                                                                "impact":  "Riduce la precisione su welfare, infortuni collettivi e benefits"
+                                                                                            },
+                                                                                            {
+                                                                                                "field":  "website",
+                                                                                                "reason":  "Sito non rilevato",
+                                                                                                "impact":  "Riduce la precisione su cyber, contatti e segnali commerciali digitali"
+                                                                                            }
+                                                                                        ],
+                                                                 "priorita_commerciale":  {
+                                                                                              "level":  "bassa",
+                                                                                              "score":  16,
+                                                                                              "reasons":  [
+                                                                                                              "Gap prioritario rilevato: Rischio Sismico"
+                                                                                                          ]
+                                                                                          },
+                                                                 "playbook_commerciale":  {
+                                                                                              "prodotto_principale":  null,
+                                                                                              "cross_sell":  null,
+                                                                                              "target_principale":  null,
+                                                                                              "angolo_attacco":  "Serve prima completare i dati chiave per individuare il prodotto corretto da proporre.",
+                                                                                              "apertura_consigliata":  "Prima di proporre una polizza, conviene chiarire attivitÃ  effettiva, dimensione e struttura dellâazienda.",
+                                                                                              "call_to_action":  "Recupera prima questi dati: codice_ateco, fatturato."
+                                                                                          },
+                                                                 "prossime_domande":  [
+                                                                                          "Qual Ã¨ il codice ATECO preciso o lâattivitÃ  prevalente effettiva?",
+                                                                                          "Qual Ã¨ il fatturato indicativo o la fascia di ricavi dellâazienda?",
+                                                                                          "Quanti dipendenti o collaboratori operativi ha lâazienda?",
+                                                                                          "Avete giÃ  una copertura attiva per Rischio Sismico?"
+                                                                                      ]
+                                                             }
+                     },
+    "partita_iva":  "01296840398",
+    "formazione":  "Laurea in Architettura â UniversitÃ  degli Studi di Firenze, MaturitÃ  Scientifica â Liceo scientifico \u0027Augusto Righi\u0027",
+    "competenze":  "Progettazione architettonica, design d\u0027interni, allestimento espositivo, progettazione di piazze, parchi e giardini, recupero di edifici esistenti, competenze comunicative e interpersonali",
+    "anni_esperienza":  "oltre 20",
+    "note":  "Attivo nella divulgazione e valorizzazione di opere dell\u0027architettura moderna, coordinatore della Commissione Cultura dell\u0027Ordine degli Architetti di Bologna",
+    "facebook":  "https://www.facebook.com/daniele.vincenzi",
+    "trigger_finanziari":  [
+
+                           ],
+    "segnali_comportamentali":  "interessi nel settore immobiliare e retail",
+    "rischi_professionali":  [
+                                 "responsabilitÃ  civile professionale",
+                                 "infortuni sul lavoro"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "RC Professionale",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "necessaria per coprire eventuali danni causati a terzi durante l\u0027esercizio della professione"
+                                },
+                                {
+                                    "polizza":  "Infortuni",
+                                    "priorita":  "critica",
+                                    "motivo":  "per proteggere il professionista in caso di infortuni durante l\u0027attivitÃ  lavorativa"
+                                },
+                                {
+                                    "polizza":  "Salute",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "per garantire un accesso rapido a cure mediche in caso di malattia"
+                                }
+                            ],
+    "note_broker":  "Daniele Vincenzi ha una lunga carriera e una buona reputazione nel settore, il che potrebbe influenzare positivamente le condizioni delle polizze.",
+    "stima_capacita_risparmio":  "alta",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "caldo",
+    "cariche_societarie":  [
+                               {
+                                   "azienda":  "Savills",
+                                   "ruolo":  "Associate Director",
+                                   "stato":  "attiva",
+                                   "partita_iva":  null
+                               }
+                           ],
+    "numero_aziende_attive":  "1",
+    "albo_professionale":  "Ordine Architetti Bologna",
+    "notizie_recenti":  [
+
+                        ],
+    "relazioni_chiave":  [
+                             {
+                                 "nome":  "Pietro Lavino",
+                                 "relazione":  "collega",
+                                 "contesto":  "collaborazione professionale presso EY"
+                             },
+                             {
+                                 "nome":  "Simona Casini",
+                                 "relazione":  "collega",
+                                 "contesto":  "collaborazione professionale presso JLL"
+                             }
+                         ],
+    "eventi_conferenze":  [
+                              "Retail Tech Innovation event in Zurich",
+                              "convention #TimetoAct di Parigi",
+                              "tour esclusivo di Milano Cortina 2026"
+                          ],
+    "influenza_stimata":  "media"
+}

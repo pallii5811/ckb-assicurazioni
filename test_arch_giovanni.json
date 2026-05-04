@@ -1,0 +1,194 @@
+﻿{
+    "nome_cercato":  "Giovanni Margareci architetto Bologna",
+    "fonti":  [
+                  "Tavily (ricerca web)"
+              ],
+    "nome_completo":  "Giovanni Margareci",
+    "ruolo":  "Architetto",
+    "settore":  "Architettura",
+    "citta":  "Bologna",
+    "descrizione":  "Giovanni Margareci Ã¨ un architetto attivo nel settore dell\u0027architettura. Ha esperienza in vari progetti e collaborazioni nel campo della progettazione architettonica.",
+    "email":  "arch.g.margareci@pec.it",
+    "_tavily_last_url":  "https://it.linkedin.com/in/giovanni-arch-margareci-b42b99a/en",
+    "esperienze_precedenti":  [
+                                  {
+                                      "azienda":  "COSTRUZIONI SRL",
+                                      "ruolo":  "Architetto aziendale",
+                                      "periodo":  "Jan 2023 - Present",
+                                      "localita":  "Treviso, Veneto, Italia"
+                                  },
+                                  {
+                                      "azienda":  "studio Above architetti",
+                                      "ruolo":  "Architetto",
+                                      "periodo":  "Jan 2003 - Present",
+                                      "localita":  "Treviso"
+                                  },
+                                  {
+                                      "azienda":  "Dal Pozzo Mario S.R.L",
+                                      "ruolo":  "Architetto aziendale",
+                                      "periodo":  "Apr 2022 - Dec 2022",
+                                      "localita":  "Treviso, Veneto, Italia"
+                                  }
+                              ],
+    "formazione":  [
+                       {
+                           "titolo":  "Architettura",
+                           "universita":  "UniversitÃ  degli studi di Reggio Calabria",
+                           "specializzazione":  "Bioclimatica",
+                           "note":  "Tesi in architettura bioclimatica. Corso specialistico in bioedilizia a Brescia"
+                       }
+                   ],
+    "competenze":  [
+                       "Progettazione architettonica",
+                       "Interior design",
+                       "Restauro architettonico",
+                       "Direzione dei lavori",
+                       "Coordinamento della sicurezza",
+                       "Progettazione partecipata",
+                       "Microprogettazione"
+                   ],
+    "anni_esperienza":  20,
+    "note":  "Partecipazione a concorsi internazionali di progettazione",
+    "trigger_finanziari":  [
+
+                           ],
+    "rischi_professionali":  [
+                                 "responsabilitÃ  civile professionale",
+                                 "infortuni sul lavoro"
+                             ],
+    "polizze_consigliate":  [
+                                {
+                                    "polizza":  "RC Professionale",
+                                    "priorita":  "obbligatoria",
+                                    "motivo":  "necessaria per coprire eventuali danni causati a terzi durante l\u0027esercizio della professione"
+                                },
+                                {
+                                    "polizza":  "Infortuni",
+                                    "priorita":  "critica",
+                                    "motivo":  "protezione in caso di infortuni sul lavoro"
+                                },
+                                {
+                                    "polizza":  "Salute",
+                                    "priorita":  "raccomandata",
+                                    "motivo":  "per garantire un accesso rapido a cure mediche"
+                                }
+                            ],
+    "note_broker":  "Considerare l\u0027andamento del mercato immobiliare e le opportunitÃ  di investimento nel settore edilizio.",
+    "stima_capacita_risparmio":  "media",
+    "ambiti_protection":  [
+                              "vita",
+                              "salute",
+                              "infortuni",
+                              "RC professionale",
+                              "casa",
+                              "auto",
+                              "previdenza",
+                              "investimenti"
+                          ],
+    "priorita_commerciale":  "tiepido",
+    "cariche_societarie":  [
+
+                           ],
+    "numero_aziende_attive":  "0",
+    "albo_professionale":  "Ordine degli Ingegneri della Provincia di Varese",
+    "numero_iscrizione":  "03553490982",
+    "certificazioni":  [
+                           "Certificatore energetico Regione Lombardia",
+                           "Six Sigma White Belt",
+                           "Corso di formazione per certificatore energetico accreditato CENED",
+                           "Attestato âSicurezza e Salute nei Cantieriâ",
+                           "Attestato TOEFL",
+                           "Esperto in gestione dell\u0027energia"
+                       ],
+    "associazioni":  [
+                         "CNI - Consiglio Nazionale Ingegneri"
+                     ],
+    "notizie_recenti":  [
+
+                        ],
+    "contenziosi":  "Esposito ha intentato una causa civile contro il giornalista Antonio Manzo per un\u0027intervista, ma la Cassazione ha respinto il ricorso, confermando che l\u0027intervista non era diffamatoria e rispettava il diritto di cronaca. Data della sentenza: non specificata, fonte: Il Dubbio.",
+    "relazioni_chiave":  [
+                             {
+                                 "nome":  "Clelia D\u0027Avino",
+                                 "relazione":  "collega",
+                                 "contesto":  "Almaviva"
+                             },
+                             {
+                                 "nome":  "Umberto Torricelli",
+                                 "relazione":  "collega",
+                                 "contesto":  "Veolia"
+                             },
+                             {
+                                 "nome":  "Davide Serani",
+                                 "relazione":  "collega",
+                                 "contesto":  "BrainDoing"
+                             },
+                             {
+                                 "nome":  "Giancanio Sileo",
+                                 "relazione":  "collega",
+                                 "contesto":  "Eni Rewind"
+                             },
+                             {
+                                 "nome":  "Patrick Maurelli",
+                                 "relazione":  "collega",
+                                 "contesto":  "Sapienza UniversitÃ  di Roma"
+                             },
+                             {
+                                 "nome":  "Carola Carmignani",
+                                 "relazione":  "collega",
+                                 "contesto":  "TeamSystem"
+                             },
+                             {
+                                 "nome":  "Roberto Galvanelli",
+                                 "relazione":  "collega",
+                                 "contesto":  "Regula S.r.l."
+                             },
+                             {
+                                 "nome":  "Domenico Iervolino",
+                                 "relazione":  "collega",
+                                 "contesto":  "Optima Italia S.p.A."
+                             },
+                             {
+                                 "nome":  "Maurizio Vivian",
+                                 "relazione":  "collega",
+                                 "contesto":  "S.I.E.I. srl"
+                             },
+                             {
+                                 "nome":  "Alex Forlani",
+                                 "relazione":  "collega",
+                                 "contesto":  "Alex Ing. Forlani"
+                             },
+                             {
+                                 "nome":  "Luca Allorio",
+                                 "relazione":  "collega",
+                                 "contesto":  "UniversitÃ  degli Studi del Piemonte Orientale"
+                             },
+                             {
+                                 "nome":  "Laura del Cioppo",
+                                 "relazione":  "collega",
+                                 "contesto":  "Enel Group"
+                             },
+                             {
+                                 "nome":  "Antonio Manco",
+                                 "relazione":  "collega",
+                                 "contesto":  "Re-Charge energia"
+                             },
+                             {
+                                 "nome":  "Martino Mitidieri PhD",
+                                 "relazione":  "collega",
+                                 "contesto":  "KINEO ENERGY E FACILITY SRL"
+                             },
+                             {
+                                 "nome":  "Daniele Meda",
+                                 "relazione":  "collega",
+                                 "contesto":  "SIMBIOSI"
+                             }
+                         ],
+    "consigli_amministrazione":  [
+                                     {
+                                         "nome":  "ICF Group S.p.A.",
+                                         "ruolo":  "membro"
+                                     }
+                                 ],
+    "influenza_stimata":  "media"
+}

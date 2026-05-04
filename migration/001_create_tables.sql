@@ -305,5 +305,35 @@ CREATE POLICY "Service role full access monitors"
   ON public.lead_monitors FOR ALL
   USING (auth.role() = 'service_role');
 
+-- 13. LEAD_ALERTS (user notifications about lead events)
+CREATE TABLE IF NOT EXISTS public.lead_alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  lead_id TEXT,
+  alert_type TEXT NOT NULL DEFAULT 'info',
+  title TEXT NOT NULL,
+  message TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_lead_alerts_user ON public.lead_alerts(user_id);
+CREATE INDEX idx_lead_alerts_unread ON public.lead_alerts(user_id, is_read) WHERE is_read = FALSE;
+
+ALTER TABLE public.lead_alerts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own alerts"
+  ON public.lead_alerts FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own alerts"
+  ON public.lead_alerts FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Service role full access alerts"
+  ON public.lead_alerts FOR ALL
+  USING (auth.role() = 'service_role');
+
 -- DONE
 SELECT 'All tables created successfully!' AS result;

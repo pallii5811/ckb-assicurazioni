@@ -1,0 +1,163 @@
+﻿===== BATCH TEST 23:31:07 =====
+
+########## ROYAL CANIN ITALIA ##########
+  [COMPANY-LOOKUP 157s]
+  P.IVA atteso:  06822100969 => OK
+  Sede atteso:   Via Vezza D'Oglio 7 Milano
+  Sede trovata:  Via Vezza D'oglio, 7, Milano
+  Ateco:         46.38.00 Commercio all'ingrosso di altri prodotti alimentari
+  Fatturato:     161316066 (2024)
+  Dipendenti:    100-199
+  Forma:         Societa' a responsabilita' limitata
+  Costituzione:  2009-12-18
+  TITOLARE:      Jean Cathary [Fondatore]
+  LinkedIn T:    
+  LinkedIn Az:   Royal Canin | LinkedIn
+  Sito web:      
+  Email:         info.ita@royalcanin.com
+  PEC:           
+  Telefono:      î°02 334 7611
+  Cellulare:     
+  Fonti company: Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+  [PERSON-LOOKUP FAILED] Richiesta annullata: Timeout dell'operazione..
+
+########## RS PLANNER S.A.S DI SISTI PAOLO ##########
+  [COMPANY-LOOKUP 149s]
+  P.IVA atteso:  07232770966 => MISMATCH (got 07232720966)
+  Sede atteso:   Via Zurigo 10 Milano
+  Sede trovata:  Via Lorenteggio, 240, Milano
+  Ateco:         58.14.00 Edizione di riviste e periodici
+  Fatturato:     16497 (2019)
+  Dipendenti:    0-9
+  Forma:         Societa' in accomandita semplice
+  Costituzione:  2010-12-06
+  Titolare atteso: Sisti Paolo
+  TITOLARE:      Paolo Sisti [Direttore Generale]
+  LinkedIn T:    
+  LinkedIn Az:   
+  Sito web:      
+  Email:         info@rsplanner.com
+  PEC:           
+  Telefono:      î°391 706 3966
+  Cellulare:     391.7063966
+  Fonti company: Google Maps, fatturatoitalia.it, CompanyReports.it, Tavily (ricerca web)
+  [PERSON-LOOKUP FAILED] Richiesta annullata: Timeout dell'operazione..
+
+########## RSM SOCIETA DI REVISIONE ##########
+  [COMPANY-LOOKUP 137s]
+  P.IVA atteso:  01889000509 => OK
+  Sede atteso:   Via San Prospero 1 Milano
+  Sede trovata:  Via San Prospero, 1, Milano
+  Ateco:         69.20.00 Attivit&agrave; delle societa' di revisione e certificazione di bilanci
+  Fatturato:      (2024)
+  Dipendenti:    100-199
+  Forma:         Societa' per azioni
+  Costituzione:  2015-01-05
+  TITOLARE:      Giuseppe Caroccia [Amministratore Delegato]
+  LinkedIn T:    
+  LinkedIn Az:   https://www.linkedin.com/company/rsm-societ-di-revisione-e-organizzazione-contabile-s-p-a-
+  Sito web:      
+  Email:         inforsmspa@pec.it
+  PEC:           inforsmspa@pec.it
+  Telefono:      î°02 8342 1490
+  Cellulare:     
+  Fonti company: Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+  [PERSON-LOOKUP FAILED] Richiesta annullata: Timeout dell'operazione..
+
+########## RT PROGETTI SRL ##########
+  [COMPANY-LOOKUP 134s]
+  P.IVA atteso:  09312200968 => OK
+  Sede atteso:   Via A. Locatelli 5 Milano
+  Sede trovata:  Via Garofalo, 10, Milano
+  Ateco:         71.12.10 Attivita' degli studi di ingegneria
+  Fatturato:     2280572 (2024)
+  Dipendenti:    10-15
+  Forma:         Societa' a responsabilita' limitata
+  Costituzione:  
+  TITOLARE:      Tommaso Trio [Fondatore, Amministratore Unico e Direttore]
+  LinkedIn T:    https://www.linkedin.com/in/tommaso-trio
+  LinkedIn Az:   URL LinkedIn TROVATO nel testo
+  Sito web:      
+  Email:         info@rtprogetti.it
+  PEC:           
+  Telefono:      390249533424
+  Cellulare:     
+  Fonti company: Google Maps, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+  [PERSON-LOOKUP 77s] query='Tommaso Trio RT PROGETTI SRL Milano'
+    Nome:       
+    Ruolo:      
+    Azienda:    
+    CittÃ :      
+    Email:      
+    Telefono:   
+    Cellulare:  
+    LinkedIn:   
+    Instagram:  
+    Facebook:   
+    Twitter/X:  
+    Sito:       
+
+########## RT SOLUTIONS S.A.S. DI GIANNOTTA RAFFAELE ##########
+  [COMPANY-LOOKUP 124s]
+  P.IVA atteso:  10126300960 => OK
+  Sede atteso:   Via Caduti di Marcinelle 12 Milano
+  Sede trovata:  Via Caduti Di Marcinelle, 12, Milano
+  Ateco:         46.43.00 Commercio all'ingrosso di elettrodomestici, di elettronica di consumo audio e video
+  Fatturato:      ()
+  Dipendenti:    
+  Forma:         Societa' in accomandita semplice
+  Costituzione:  2017-12-11
+  Titolare atteso: Giannotta Raffaele
+  TITOLARE:       []
+  LinkedIn T:    
+  LinkedIn Az:   
+  Sito web:      
+  Email:         info@rtsolutions.it
+  PEC:           rtsolutionssas@legalmail.it
+  Telefono:      î°02 4792 3115
+  Cellulare:     
+  Fonti company: Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+  [PERSON-LOOKUP FAILED] Richiesta annullata: Timeout dell'operazione..
+
+########## RUCOLA STUDIO ##########
+  [COMPANY-LOOKUP 132s]
+  P.IVA atteso:  10658290969 => OK
+  Sede atteso:   Via Luciano Zuccoli 26 Milano
+  Sede trovata:  Via Luciano Zuccoli, 26, Milano
+  Ateco:         70.22.09 Altre attivita' di consulenza imprenditoriale e altra consulenza amministrativo-gestionale e pianificazione aziendale
+  Fatturato:     93786 (2024)
+  Dipendenti:    
+  Forma:         Societa' a responsabilita' limitata semplificata
+  Costituzione:  2019-02-05
+  TITOLARE:       []
+  LinkedIn T:    
+  LinkedIn Az:   
+  Sito web:      
+  Email:         
+  PEC:           rucolastudio@legalmail.it
+  Telefono:      î°02 314142
+  Cellulare:     
+  Fonti company: Google Maps, fatturatoitalia.it, Sito Web Aziendale, CompanyReports.it, Tavily (ricerca web)
+  [PERSON-LOOKUP] skipped (no titolare found)
+
+########## RUFFA MICHELA ##########
+  [COMPANY-LOOKUP 161s]
+  P.IVA atteso:  04761880964 => MISMATCH (got 02523200356)
+  Sede atteso:   Via Cervignano 4 Milano
+  Sede trovata:  
+  Ateco:          
+  Fatturato:      ()
+  Dipendenti:    
+  Forma:         
+  Costituzione:  
+  Titolare atteso: Ruffa Michela
+  TITOLARE:       []
+  LinkedIn T:    
+  LinkedIn Az:   https://www.linkedin.com/in/michelaruffa
+  Sito web:      
+  Email:         scrivi@michelaruffa.com
+  PEC:           
+  Telefono:      
+  Cellulare:     
+  Fonti company: Sito Web Aziendale, Tavily (ricerca web), Google Maps
+  [PERSON-LOOKUP FAILED] Richiesta annullata: Timeout dell'operazione..

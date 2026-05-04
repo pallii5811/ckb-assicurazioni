@@ -1,0 +1,13 @@
+﻿{
+    "results":  [
+
+                ],
+    "failed_results":  [
+                           {
+                               "url":  "https://www.ufficiocamerale.it/5278/control-htp-srl",
+                               "error":  "Failed to fetch url"
+                           }
+                       ],
+    "response_time":  0.26,
+    "request_id":  "7cfae56b-bd74-4e34-886c-fb5dabd621a9"
+}
