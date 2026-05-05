@@ -870,32 +870,24 @@ interface OpenApiStakeholdersResponse {
 }
 
 async function openApiPeople(piva: string): Promise<{ nome: string; ruolo: string; cf?: string; data_nascita?: string; sesso?: string; eta?: string; quota?: string; isLegalRep?: boolean }[]> {
-  const token = process.env.OPENAPI_IT_TOKEN
-  if (!token || !piva) return []
-
-  const people: { nome: string; ruolo: string; cf?: string; data_nascita?: string; sesso?: string; eta?: string; quota?: string; isLegalRep?: boolean }[] = []
+  // USE the centralized openapi-service which has Supabase cache (180 days).
+  // Previously this function called /IT-advanced and /IT-stakeholders DIRECTLY
+  // without cache, causing DOUBLE API calls for every P.IVA search.
   try {
-    // Clean P.IVA — remove IT prefix, spaces
+    const { enrichCompanyByPiva } = await import('@/lib/openapi-service')
     const cleanPiva = piva.replace(/^IT/i, '').replace(/\s/g, '').trim()
     if (cleanPiva.length < 11) return []
 
-    // Use /IT-advanced (FREE tier!) — returns shareholders with names, CF, %, ATECO, bilancio
-    const res = await fetch(`https://company.openapi.com/IT-advanced/${cleanPiva}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!res.ok) return []
-    const json = await res.json()
-    const entries = json?.data as Array<Record<string, unknown>> | undefined
-    if (!entries || entries.length === 0) return []
-    const data = entries[0]
+    const enriched = await enrichCompanyByPiva(cleanPiva)
+    if (!enriched) return []
 
-    // Extract shareholders from /IT-advanced response
-    const shareholders = (data.shareHolders || []) as Array<{ name?: string; surname?: string; companyName?: string; taxCode?: string; percentShare?: number }>
+    const people: { nome: string; ruolo: string; cf?: string; data_nascita?: string; sesso?: string; eta?: string; quota?: string; isLegalRep?: boolean }[] = []
+
+    // Extract shareholders from cached /IT-advanced data
+    const shareholders = enriched.shareholders || []
     for (const sh of shareholders) {
-      if (!sh.name || !sh.surname) continue
-      const nome = `${sh.name.charAt(0).toUpperCase()}${sh.name.slice(1).toLowerCase()} ${sh.surname.charAt(0).toUpperCase()}${sh.surname.slice(1).toLowerCase()}`
-      // First shareholder in a SRLS is typically the legal rep
+      if (sh.isCompany || !sh.nome || !sh.cognome) continue
+      const nome = `${sh.nome.charAt(0).toUpperCase()}${sh.nome.slice(1).toLowerCase()} ${sh.cognome.charAt(0).toUpperCase()}${sh.cognome.slice(1).toLowerCase()}`
       const isFirst = shareholders.indexOf(sh) === 0
       people.push({
         nome,
@@ -906,52 +898,42 @@ async function openApiPeople(piva: string): Promise<{ nome: string; ruolo: strin
       })
     }
 
-    // ALWAYS try /IT-stakeholders for managers/administrators (especially for SPA/large companies)
-    // Even if we found shareholders, we still need to know WHO manages the company
-    {
-      const res2 = await fetch(`https://company.openapi.com/IT-stakeholders/${cleanPiva}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      })
-      if (res2.ok) {
-        const json2 = (await res2.json()) as OpenApiStakeholdersResponse
-        const d2 = json2.data
-        if (d2) {
-          const existingNames = new Set(people.map(p => p.nome.toLowerCase()))
-          for (const mgr of d2.managers || []) {
-            if (!mgr.name || !mgr.surname) continue
-            const nome = `${mgr.name.charAt(0).toUpperCase()}${mgr.name.slice(1).toLowerCase()} ${mgr.surname.charAt(0).toUpperCase()}${mgr.surname.slice(1).toLowerCase()}`
-            if (existingNames.has(nome.toLowerCase())) continue
-            const roleDesc = mgr.roles?.[0]?.role?.description || 'Dirigente'
-            const roleMap: Record<string, string> = {
-              'Managing director': 'Amministratore Unico',
-              'Sole owner': 'Socio Unico',
-              'Chairman of the board of directors': 'Presidente CdA',
-              'Director': 'Consigliere',
-              'Special representative/agent': 'Procuratore Speciale',
-              'General manager': 'Direttore Generale',
-              'Auditor': 'Sindaco',
-              'Chairman of the board of auditors': 'Presidente Collegio Sindacale',
-              'Liquidator': 'Liquidatore',
-              'Holder': 'Titolare',
-            }
-            const ruolo = roleMap[roleDesc] || roleDesc
-            people.push({
-              nome,
-              ruolo: mgr.isLegalRepresentative ? `${ruolo} (Legale Rappresentante)` : ruolo,
-              cf: mgr.taxCode || undefined,
-              data_nascita: mgr.birthDate ? mgr.birthDate.split('T')[0] : undefined,
-              sesso: mgr.gender?.code === 'M' ? 'M' : mgr.gender?.code === 'F' ? 'F' : undefined,
-              eta: mgr.age ? String(mgr.age) : undefined,
-              isLegalRep: mgr.isLegalRepresentative || false,
-            })
-            existingNames.add(nome.toLowerCase())
-          }
+    // Extract managers from cached /IT-stakeholders data
+    if (enriched.managers) {
+      const existingNames = new Set(people.map(p => p.nome.toLowerCase()))
+      for (const mgr of enriched.managers) {
+        if (!mgr.nome || !mgr.cognome) continue
+        const nome = `${mgr.nome.charAt(0).toUpperCase()}${mgr.nome.slice(1).toLowerCase()} ${mgr.cognome.charAt(0).toUpperCase()}${mgr.cognome.slice(1).toLowerCase()}`
+        if (existingNames.has(nome.toLowerCase())) continue
+        const roleMap: Record<string, string> = {
+          'Managing director': 'Amministratore Unico',
+          'Sole owner': 'Socio Unico',
+          'Chairman of the board of directors': 'Presidente CdA',
+          'Director': 'Consigliere',
+          'Special representative/agent': 'Procuratore Speciale',
+          'General manager': 'Direttore Generale',
+          'Auditor': 'Sindaco',
+          'Chairman of the board of auditors': 'Presidente Collegio Sindacale',
+          'Liquidator': 'Liquidatore',
+          'Holder': 'Titolare',
         }
+        const ruolo = roleMap[mgr.ruoloOriginale || ''] || mgr.ruolo || 'Dirigente'
+        people.push({
+          nome,
+          ruolo: mgr.isLegalRep ? `${ruolo} (Legale Rappresentante)` : ruolo,
+          cf: mgr.taxCode || undefined,
+          data_nascita: mgr.dataNascita || undefined,
+          sesso: mgr.sesso || undefined,
+          eta: mgr.eta ? String(mgr.eta) : undefined,
+          isLegalRep: mgr.isLegalRep || false,
+        })
+        existingNames.add(nome.toLowerCase())
       }
     }
+
+    return people
   } catch { /* OpenAPI.it non raggiungibile */ }
-  return people
+  return []
 }
 
 // ── Google search for cached Visure Camerali ─────────────────

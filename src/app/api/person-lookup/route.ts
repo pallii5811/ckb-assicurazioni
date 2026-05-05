@@ -1090,9 +1090,22 @@ JSON:
         if (oaRes.ok) {
           const entries = (await oaRes.json())?.data as Array<Record<string, any>> | undefined
           if (entries?.length) {
+            // Filter by city if available and multiple results (avoid omonimi)
+            let filteredEntries = entries
+            const s1dCityNorm = (queryCityHint || result.citta || '').toLowerCase().replace(/[^a-zà-ù]/gi, '').trim()
+            if (s1dCityNorm.length >= 3 && entries.length > 1) {
+              const cityMatched = entries.filter((e: any) => {
+                const eCity = String(e.registeredOffice?.city || e.registeredOffice?.town || '').toLowerCase().replace(/[^a-zà-ù]/gi, '').trim()
+                return eCity.includes(s1dCityNorm) || s1dCityNorm.includes(eCity)
+              })
+              if (cityMatched.length > 0) {
+                console.log(`[PERSON-LOOKUP] Search 1d: OpenAPI filtered ${entries.length} → ${cityMatched.length} in "${s1dCityNorm}"`)
+                filteredEntries = cityMatched
+              }
+            }
             // Matching STRETTO: il nome azienda deve essere ESATTAMENTE il nome persona
             // (ditta individuale = "GORGONE EMANUELE", non "AZIENDA XYZ con Gorgone")
-            const match = entries.find((e: any) => {
+            const match = filteredEntries.find((e: any) => {
               const cn = (e.companyName || e.name || '').toUpperCase().replace(/[^A-Z\s]/g, '').trim()
               const words1 = cn.split(/\s+/).sort().join(' ')
               const words2 = normalName.replace(/[^A-Z\s]/g, '').trim().split(/\s+/).sort().join(' ')
@@ -1878,7 +1891,20 @@ JSON:
                     const items = oaJson?.data || []
                     if (items.length > 0) console.log(`[PERSON-LOOKUP] OpenAPI.it returned ${items.length} results — first: "${items[0]?.companyName || items[0]?.denominazione}" keys=[${Object.keys(items[0] || {}).join(',')}]`)
                     else console.log(`[PERSON-LOOKUP] OpenAPI.it returned 0 results for "${searchQ}"`)
-                    for (const item of items) {
+                    // Filter by city if available and multiple results (avoid omonimi)
+                    let filteredItems = items
+                    const plCityNorm = (queryCityHint || result.citta || '').toLowerCase().replace(/[^a-zà-ù]/gi, '').trim()
+                    if (plCityNorm.length >= 3 && items.length > 1) {
+                      const cityMatched = items.filter((it: any) => {
+                        const itCity = String(it.registeredOffice?.city || it.registeredOffice?.town || '').toLowerCase().replace(/[^a-zà-ù]/gi, '').trim()
+                        return itCity.includes(plCityNorm) || plCityNorm.includes(itCity)
+                      })
+                      if (cityMatched.length > 0) {
+                        console.log(`[PERSON-LOOKUP] OpenAPI.it: filtered ${items.length} results → ${cityMatched.length} in "${plCityNorm}"`)
+                        filteredItems = cityMatched
+                      }
+                    }
+                    for (const item of filteredItems) {
                       const rs = String(item.companyName || item.denominazione || '').toLowerCase()
                       const rsClean = rs.replace(/[^a-zà-ú0-9\s]/gi, '').replace(/\s+/g, ' ').trim() // "g.e.m di gorgone marco" → "gem di gorgone marco"
                       if (pWords.every((w: string) => rsClean.includes(w))) {

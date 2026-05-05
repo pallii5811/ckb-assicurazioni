@@ -509,7 +509,7 @@ export async function POST(req: NextRequest) {
         const compWords = cleanName.toLowerCase()
           .replace(/[^a-z0-9\s]/gi, ' ')
           .split(/\s+/)
-          .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|group|italia|italy)$/i.test(w))
+          .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|group|italia|italy|marco|andrea|luca|paolo|giuseppe|giovanni|antonio|mario|carlo|franco|roberto|stefano|massimo|alessandro|davide|francesco|fabio|matteo|simone|lorenzo|riccardo|cristian|daniele|michele|alberto|giorgio|sergio|claudio|gianluca|federica|chiara|anna|maria|laura|sara|valentina|giulia|elena|silvia|martina|alessandra|francesca|paola|daniela)$/i.test(w))
         for (const u of urlMatches) {
           const url = u.replace(/^href="/, '').replace(/"$/, '')
           try {
@@ -1007,6 +1007,55 @@ export async function POST(req: NextRequest) {
   if (src.data_costituzione) profile.data_costituzione = src.data_costituzione
 
   if (src.stato) profile.stato = src.stato
+
+  // ─── Step 5c: registroaziende.it fallback for ATECO (direct HTML scrape, no GPT) ───
+  const pivaForRA = (profile.partita_iva || websitePiva || '').replace(/\D/g, '')
+  if (!profile.codice_ateco && pivaForRA.length === 11) {
+    try {
+      console.log(`[LEAD-REGISTRY] Step 5c: registroaziende.it scraper for ATECO — P.IVA ${pivaForRA}`)
+      const raSearchUrl = `https://registroaziende.it/ricerca?q=${pivaForRA}`
+      const raSearchRes = await fetch(raSearchUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(8000), redirect: 'follow',
+      })
+      if (raSearchRes.ok) {
+        const raSearchHtml = await raSearchRes.text()
+        const raLinkM = raSearchHtml.match(/href="(\/azienda\/[^"]+)"/i)
+        if (raLinkM) {
+          const raPageUrl = `https://registroaziende.it${raLinkM[1]}`
+          const raPageRes = await fetch(raPageUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            signal: AbortSignal.timeout(8000), redirect: 'follow',
+          })
+          if (raPageRes.ok) {
+            const raHtml = await raPageRes.text()
+            // ATECO from og:description or href="/ateco/XX.XX.XX"
+            const raOgDesc = raHtml.match(/property="og:description"\s+content="([^"]+)"/i)?.[1] || ''
+            const raAtecoM = raOgDesc.match(/Codice Ateco:\s*(\d{2}\.\d{2}\.\d{2})\s*:\s*([^"]+)/i)
+            if (raAtecoM) {
+              profile.codice_ateco = raAtecoM[1]
+              profile.descrizione_ateco = raAtecoM[2].trim()
+              profile.fonte = 'registroaziende.it'
+              console.log(`[LEAD-REGISTRY] Step 5c: ATECO from registroaziende.it: ${raAtecoM[1]} — ${raAtecoM[2].trim()}`)
+            } else {
+              const raAtecoHref = raHtml.match(/\/ateco\/(\d{2}\.\d{2}\.\d{2})">([^<]+)/i)
+              if (raAtecoHref) {
+                profile.codice_ateco = raAtecoHref[1]
+                profile.descrizione_ateco = raAtecoHref[2].trim()
+                profile.fonte = 'registroaziende.it'
+                console.log(`[LEAD-REGISTRY] Step 5c: ATECO from registroaziende.it href: ${raAtecoHref[1]}`)
+              }
+            }
+            // City
+            if (!profile.citta) {
+              const raCityM = raOgDesc.match(/\)\s*-\s*([A-Z][A-Z\s]+?)(?:\s*\(|$)/i)
+              if (raCityM) profile.citta = raCityM[1].trim()
+            }
+          }
+        }
+      }
+    } catch (e: any) { console.log(`[LEAD-REGISTRY] Step 5c registroaziende error: ${e?.message}`) }
+  }
 
   // ─── Step 6: GPT ONLY for ATECO if not found from real sources
   if (!profile.codice_ateco) {

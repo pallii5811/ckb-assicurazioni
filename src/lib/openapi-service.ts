@@ -110,11 +110,17 @@ async function getWalletBalance(): Promise<number | null> {
   } catch { return null }
 }
 
-/** True when the wallet has enough balance (or we couldn't check, in which case we don't block). */
+/** True when the wallet has enough balance. Fail-CLOSED: if we can't check, BLOCK the call. */
 async function walletAllows(minEur: number): Promise<boolean> {
+  if (minEur <= 0) return true // minEur=0 means "always allow" (free tier mode)
   const bal = await getWalletBalance()
-  if (bal === null) return true // if balance endpoint fails, don't block — OpenAPI will fail gracefully
-  return bal >= minEur
+  if (bal === null) {
+    console.log(`[OPENAPI] walletAllows: BLOCKED — cannot check wallet balance (API error), minEur=${minEur}`)
+    return false // ★ fail-CLOSED: don't burn calls when we can't verify balance
+  }
+  const allowed = bal >= minEur
+  if (!allowed) console.log(`[OPENAPI] walletAllows: BLOCKED — balance €${bal.toFixed(2)} < min €${minEur}`)
+  return allowed
 }
 
 // ── HELPERS ────────────────────────────────────────────────────
@@ -147,6 +153,12 @@ export interface OpenApiAdvancedData {
   fatturato_anno?: number
   dipendenti?: number
   costo_personale?: number
+  patrimonio_netto?: number
+  totale_attivo?: number
+  ral_medio?: number
+  codice_sdi?: string
+  telefono?: string
+  sito_web?: string
   shareholders?: Array<{
     nome: string
     cognome: string
@@ -157,8 +169,14 @@ export interface OpenApiAdvancedData {
 }
 
 function mapAdvancedResponse(json: any): OpenApiAdvancedData | null {
-  const c = json?.data?.[0]
-  if (!c) return null
+  // ★ Handle both array and object formats: { data: [company] } or { data: company }
+  const rawData = json?.data
+  const c = Array.isArray(rawData) ? rawData[0] : rawData
+  if (!c || typeof c !== 'object') {
+    console.log(`[OPENAPI] mapAdvancedResponse: NO company data. success=${json?.success}, error=${json?.error}, message=${json?.message}, dataType=${typeof rawData}, keys=${JSON.stringify(Object.keys(json || {}))}`)
+    return null
+  }
+  console.log(`[OPENAPI] mapAdvancedResponse: company="${c.companyName}", vatCode=${c.vatCode}, status=${c.activityStatus}, hasBilancio=${!!c.balanceSheets?.last}, shareholders=${(c.shareHolders || c.shareholders || []).length}`)
   const office = c.address?.registeredOffice || c.registeredOffice || {}
   const ateco = c.atecoClassification?.ateco2007 || {}
   const bs = c.balanceSheets?.last || {}
@@ -187,12 +205,18 @@ function mapAdvancedResponse(json: any): OpenApiAdvancedData | null {
     stato_attivita: c.activityStatus || c.status || undefined,
     codice_rea: c.reaCode && c.cciaa ? `${c.cciaa} ${c.reaCode}` : (c.reaCode || undefined),
     pec: c.pec || c.certifiedEmail || undefined,
+    telefono: c.contacts?.phone || c.phone || undefined,
+    sito_web: c.contacts?.website || c.website || undefined,
     data_costituzione: c.startDate ? String(c.startDate).split('T')[0] : (c.incorporationDate ? String(c.incorporationDate).split('T')[0] : undefined),
     capitale_sociale: typeof (bs.shareCapital ?? c.shareCapital) === 'number' ? Number(bs.shareCapital ?? c.shareCapital) : undefined,
-    fatturato: typeof bs.turnover === 'number' ? bs.turnover : (typeof c.revenue === 'number' ? c.revenue : undefined),
+    fatturato: typeof bs.turnover === 'number' ? bs.turnover : (typeof bs.operatingRevenue === 'number' ? bs.operatingRevenue : (typeof c.revenue === 'number' ? c.revenue : undefined)),
     fatturato_anno: bs.year,
     dipendenti: typeof bs.employees === 'number' ? bs.employees : (typeof c.employeesNumber === 'number' ? c.employeesNumber : undefined),
     costo_personale: typeof bs.totalStaffCost === 'number' ? bs.totalStaffCost : undefined,
+    patrimonio_netto: typeof bs.netWorth === 'number' ? bs.netWorth : undefined,
+    totale_attivo: typeof bs.totalAssets === 'number' ? bs.totalAssets : undefined,
+    ral_medio: typeof bs.avgGrossSalary === 'number' ? Math.round(bs.avgGrossSalary) : undefined,
+    codice_sdi: c.sdiCode || undefined,
     shareholders: shareholders.length ? shareholders : undefined,
   }
 }
@@ -218,10 +242,18 @@ export async function getItAdvanced(piva: string): Promise<OpenApiResult<OpenApi
       headers: { Authorization: `Bearer ${OPENAPI_IT_TOKEN}`, Accept: 'application/json' },
       signal: AbortSignal.timeout(12000),
     })
-    if (!res.ok) return { success: false, data: null, source: src, fromCache: false, errorMessage: `HTTP ${res.status}` }
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '')
+      console.log(`[OPENAPI] IT-advanced HTTP ${res.status} for ${clean}: ${errBody.slice(0, 200)}`)
+      return { success: false, data: null, source: src, fromCache: false, errorMessage: `HTTP ${res.status}` }
+    }
     const json = await res.json()
+    console.log(`[OPENAPI] IT-advanced RAW response keys for ${clean}: ${JSON.stringify(Object.keys(json || {}))}`)
     const mapped = mapAdvancedResponse(json)
-    if (!mapped) return { success: false, data: null, source: src, fromCache: false, errorMessage: 'empty response' }
+    if (!mapped) {
+      console.log(`[OPENAPI] IT-advanced EMPTY mapping for ${clean} — raw snippet: ${JSON.stringify(json).slice(0, 300)}`)
+      return { success: false, data: null, source: src, fromCache: false, errorMessage: 'empty response' }
+    }
     // 4) Cache
     await writeCache(clean, src, mapped, CACHE_DAYS_ADVANCED, mapped.ragione_sociale)
     return { success: true, data: mapped, source: src, fromCache: false, costEur: 0.10 }
@@ -258,7 +290,10 @@ const ROLE_MAP_EN_IT: Record<string, string> = {
 }
 
 function mapStakeholdersResponse(json: any): OpenApiManager[] {
-  const managers = (json?.data?.managers || json?.data?.[0]?.managers || []) as any[]
+  const rawData = json?.data
+  const d = Array.isArray(rawData) ? rawData[0] : rawData
+  const managers = (d?.managers || []) as any[]
+  console.log(`[OPENAPI] mapStakeholdersResponse: ${managers.length} managers found, dataType=${typeof rawData}, isArray=${Array.isArray(rawData)}`)
   const out: OpenApiManager[] = []
   for (const m of managers) {
     if (!m?.name || !m?.surname) continue
@@ -280,9 +315,12 @@ function mapStakeholdersResponse(json: any): OpenApiManager[] {
   return out
 }
 
-/** Decide whether calling /IT-stakeholders is worth the cost for this company. */
+/** Decide whether calling /IT-stakeholders is worth it.
+ *  With 44k+ free tier, we call it ALWAYS (regardless of company size or IT-advanced result). */
 export function shouldCallStakeholders(adv: OpenApiAdvancedData | null): boolean {
   if (!ENABLE_STAKEHOLDERS) return false
+  // ★ With huge free tier (44k), always call — titolare is critical data
+  if (STAKEHOLDERS_MIN_REVENUE <= 0 && STAKEHOLDERS_MIN_EMPLOYEES <= 0) return true
   if (!adv) return false
   if (adv.forma_giuridica && SPA_REGEX.test(adv.forma_giuridica)) return true
   if (typeof adv.fatturato === 'number' && adv.fatturato >= STAKEHOLDERS_MIN_REVENUE) return true
@@ -300,6 +338,7 @@ export async function getItStakeholders(piva: string): Promise<OpenApiResult<Ope
   const cached = await readCache<OpenApiManager[]>(clean, src)
   if (cached) return { success: true, data: cached, source: src, fromCache: true, costEur: 0 }
 
+  // Wallet guard — IT-stakeholders is NOT free (402 without funds)
   if (!(await walletAllows(MIN_WALLET_EUR))) {
     return { success: false, data: null, source: src, fromCache: false, skipped: 'wallet_low' }
   }
