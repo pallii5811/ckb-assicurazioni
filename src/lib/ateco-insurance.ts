@@ -258,9 +258,12 @@ const ATECO_RULES: AtecoRule[] = [
     },
   },
 
-  // ── MANIFATTURA MECCANICA / INDUSTRIA (24-33) ──
+  // ── MANIFATTURA MECCANICA / INDUSTRIA (10-32, esclude 33 che è Riparazione) ──
+  // ★ FIX: ATECO 33 NON è manifattura ma "Riparazione e manutenzione macchine"
+  // (servizi tecnici), gestito da entry dedicata sotto. ATECO 35-39 (energia,
+  // acqua, rifiuti) gestito separatamente. Questo pattern copre solo 20-32.
   {
-    pattern: /^[23][0-9]/,
+    pattern: /^(2[0-9]|3[0-2])/,
     data: {
       settore: 'Manifattura e Industria',
       classe_inail: 'alto',
@@ -598,6 +601,54 @@ const ATECO_RULES: AtecoRule[] = [
         'D.Lgs. 81/2008 — Sicurezza lavoro',
         'Direttiva NIS2 — Cybersecurity infrastrutture critiche',
         'D.Lgs. 164/2000 — Distribuzione gas',
+      ],
+    },
+  },
+
+  // ── RIPARAZIONE E MANUTENZIONE MACCHINARI INDUSTRIALI (33) ──
+  // ATECO 33: Riparazione, manutenzione e installazione di macchine ed
+  // apparecchiature. NON è manifattura — è SERVIZIO TECNICO B2B con leve
+  // assicurative specifiche: RC Postuma (il prodotto manutentato fallisce →
+  // danno al cliente), RC Professionale del tecnico certificato, cauzioni
+  // per gare pubbliche (es. manutenzione estintori in scuole/ospedali).
+  // Include: 33.11 metallo, 33.12 macchinari (estintori 33.12.55), 33.13
+  // elettronica, 33.14 elettrica, 33.15 navi, 33.16 aeromobili, 33.17 mezzi,
+  // 33.19 altre, 33.20 installazione macchinari industriali.
+  {
+    pattern: /^33/,
+    data: {
+      settore: 'Riparazione e Manutenzione Macchinari',
+      classe_inail: 'medio',
+      tasso_inail_indicativo: '15-35‰',
+      polizze_obbligatorie: [
+        'RC verso Terzi (D.Lgs. 209/2005 se circolazione su strada)',
+        'Polizza Infortuni Lavoratori (D.Lgs. 81/2008)',
+      ],
+      polizze_raccomandate: [
+        'RC Postuma / Decennale Postuma — danno da malfunzionamento dopo intervento (CRITICA)',
+        'RC Professionale Tecnico Manutentore (UNI 11224, UNI 9994 per antincendio, ecc.)',
+        'Polizza Cose in Consegna (macchinari del cliente in officina)',
+        'Polizza Cauzioni per gare pubbliche (DM 49/2018)',
+        'Polizza RC Prodotto se sostituisce parti/ricambi',
+        'Polizza Infortuni Trasferte (tecnici on-site)',
+        'Polizza Tutela Legale (controversie su garanzie)',
+        'Polizza Incendio Sede/Magazzino',
+      ],
+      rischi_principali: [
+        'Malfunzionamento post-intervento → danno indiretto al cliente (es. estintore non funziona durante incendio)',
+        'Errore di valutazione tecnica → danno economico al cliente',
+        'Infortunio durante intervento on-site presso cliente',
+        'Smarrimento/danneggiamento macchinario in consegna',
+        'Sospensione contratto per inadempienza → escussione cauzione',
+        'Contenzioso su garanzia legale (24 mesi consumatore, 12 mesi B2B)',
+      ],
+      normativa: [
+        'D.Lgs. 81/2008 — Sicurezza lavoro',
+        'UNI 9994 — Manutenzione estintori (per ATECO 33.12.55)',
+        'UNI 11224 — Manutenzione impianti antincendio',
+        'D.Lgs. 50/2016 + DM 49/2018 — Cauzioni appalti pubblici',
+        'Codice Civile art. 1669 — Responsabilità decennale postuma',
+        'Codice Civile art. 1490-1495 — Garanzia per vizi (riparazione)',
       ],
     },
   },

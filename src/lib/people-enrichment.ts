@@ -188,7 +188,7 @@ function normalizeRole(role: string): PersonInsuranceProfile['ruolo_normalizzato
   return 'altro'
 }
 
-// ── Insurance recommendations per role ─────────────────────────
+// ── Insurance audit levers per role ─────────────────────────
 
 function getPersonalInsurance(
   role: PersonInsuranceProfile['ruolo_normalizzato'],
@@ -201,21 +201,18 @@ function getPersonalInsurance(
 
   switch (role) {
     case 'titolare':
-      polizze.push({ polizza: 'Key Man Insurance', priorita: 'critica', motivo: 'Persona chiave per la sopravvivenza dell\'azienda — in caso di decesso/invalidità, l\'azienda rischia di fermarsi' })
-      polizze.push({ polizza: 'Polizza Vita / TCM', priorita: 'critica', motivo: 'Protezione patrimonio familiare e continuità aziendale' })
+      polizze.push({ polizza: 'Audit Key Man / continuità operativa', priorita: 'critica', motivo: 'Verificare quanto fatturato e operatività dipendono direttamente da questa persona' })
+      polizze.push({ polizza: 'Tutela reddito titolare / TCM / infortuni', priorita: 'critica', motivo: 'Non indica una polizza posseduta: serve a verificare protezione personale, famiglia e continuità aziendale' })
       if (/SRL|SPA|SAS|SNC/.test(fg)) {
-        polizze.push({ polizza: 'D&O Amministratori', priorita: 'critica', motivo: 'Risponde con patrimonio personale per decisioni aziendali (art. 2476 c.c.)' })
+        polizze.push({ polizza: 'Audit D&O amministratori', priorita: 'critica', motivo: 'Verificare se esiste copertura per responsabilità gestionali, spese legali, retroattività e postuma' })
       }
-      polizze.push({ polizza: 'Polizza Infortuni Titolare', priorita: 'obbligatoria', motivo: 'INAIL non copre il titolare — deve assicurarsi privatamente' })
-      polizze.push({ polizza: 'Polizza Malattia Grave (Dread Disease)', priorita: 'raccomandata', motivo: 'Protezione da patologie gravi che impedirebbero la gestione' })
-      polizze.push({ polizza: 'Patto di Famiglia / Successione', priorita: 'raccomandata', motivo: 'Pianificazione patrimoniale per continuità aziendale' })
+      polizze.push({ polizza: 'Pianificazione successione / continuità', priorita: 'raccomandata', motivo: 'Leva consulenziale: capire cosa succede a quote, deleghe e liquidità se il titolare manca' })
       break
 
     case 'amministratore':
-      polizze.push({ polizza: 'D&O Amministratori', priorita: 'obbligatoria', motivo: 'Responsabilità personale illimitata per atti di mala gestio (art. 2392-2395 c.c.)' })
-      polizze.push({ polizza: 'Polizza Tutela Legale', priorita: 'critica', motivo: 'Copertura spese legali per azioni di responsabilità da soci/terzi' })
-      polizze.push({ polizza: 'RC Amministratori', priorita: 'critica', motivo: 'Risarcimento danni a soci, creditori e terzi per errori gestionali' })
-      polizze.push({ polizza: 'Polizza Infortuni', priorita: 'raccomandata', motivo: 'Protezione personale dell\'amministratore' })
+      polizze.push({ polizza: 'Audit D&O amministratore unico', priorita: 'critica', motivo: 'Verificare massimale, retroattività, postuma, spese legali e copertura verso soci/creditori' })
+      polizze.push({ polizza: 'Tutela legale amministratore', priorita: 'critica', motivo: 'Controllare se le spese legali sono coperte anche per azioni di responsabilità e contestazioni gestionali' })
+      polizze.push({ polizza: 'Garanzie personali / fideiussioni', priorita: 'critica', motivo: 'Domanda ad alto valore: verificare se l’amministratore ha firmato garanzie personali collegate all’attività' })
       break
 
     case 'socio':
@@ -1737,7 +1734,7 @@ Formato:
       polizze_personali: getPersonalInsurance(ruoloNorm, categoria, formaGiuridica),
       rischi_personali: getPersonalRisks(ruoloNorm, formaGiuridica),
       note: isGeneric
-        ? 'Nome non identificato — le polizze sono basate sul ruolo obbligatorio per questa forma giuridica'
+        ? 'Nome non identificato — le leve di audit sono basate sul ruolo societario e vanno validate in call'
         : ruoloNorm === 'titolare'
         ? 'Figura chiave dell\'azienda — massima priorità commerciale'
         : ruoloNorm === 'professionista'
@@ -1762,25 +1759,25 @@ Formato:
   const hasDirigenti = persone.filter(p => ['dirigente', 'dipendente_chiave'].includes(p.ruolo_normalizzato)).length
 
   if (hasTitolare) {
-    raccomandazioni_team.push('Key Man Insurance per il titolare — protegge l\'azienda dalla perdita della figura chiave')
+    raccomandazioni_team.push('Audit Key Man sul titolare — verificare dipendenza operativa, diaria, inabilità e continuità aziendale')
   }
   if (hasAmm && /SRL|SRLS|SPA/.test(fg)) {
-    raccomandazioni_team.push('D&O obbligatoria — l\'amministratore risponde personalmente per mala gestio (art. 2476 c.c.)')
+    raccomandazioni_team.push('Audit D&O amministratore — verificare massimale, retroattività, postuma, spese legali e garanzie personali')
   }
   if (/SRLS/.test(fg)) {
-    raccomandazioni_team.push('SRLS ha capitale sociale minimo (€1) — il titolare è più esposto. Polizza vita e Key Man fondamentali')
+    raccomandazioni_team.push('SRLS/capitale ridotto — leva consulenziale su patrimonio personale, continuità, Key Man e garanzie bancarie')
   }
   if (hasSoci >= 2) {
-    raccomandazioni_team.push(`${hasSoci} soci identificati — proporre patti parasociali con polizze vincolate alle quote`)
+    raccomandazioni_team.push(`${hasSoci} soci identificati — verificare patti parasociali, liquidità per quote e successione societaria`)
   }
   if (/SNC/.test(fg)) {
-    raccomandazioni_team.push('SNC: TUTTI i soci rispondono illimitatamente — RC Soci e Polizza Vita CRITICHE')
+    raccomandazioni_team.push('SNC: responsabilità personale dei soci — verificare protezione patrimonio, vita e tutela legale')
   }
   if (hasDirigenti >= 2) {
-    raccomandazioni_team.push(`${hasDirigenti} figure dirigenziali — proporre pacchetto Employee Benefits (sanitaria + previdenza)`)
+    raccomandazioni_team.push(`${hasDirigenti} figure dirigenziali — verificare retention, welfare, sanitaria e infortuni extraprofessionali`)
   }
   if (persone.length >= 3) {
-    raccomandazioni_team.push('Team strutturato — valutare polizza collettiva infortuni e sanitaria integrativa')
+    raccomandazioni_team.push('Team strutturato — aprire audit su infortuni collettiva, sanitaria integrativa, welfare e CCNL')
   }
 
   const realNamesCount = persone.filter(p => isValidPersonName(p.nome)).length

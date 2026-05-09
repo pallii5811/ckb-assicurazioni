@@ -315,12 +315,12 @@ export default function InsuranceProfileSection({
           </div>
           <div className="text-left">
             <h3 className={`font-bold text-foreground ${compact ? 'text-base' : 'text-lg'}`}>
-              Profilo Assicurativo
+              Profilo assicurativo consulenziale
             </h3>
             <p className="text-xs text-muted-foreground">
               {hasFetched
-                ? 'Premi, asset, dipendenti, fideiussioni, rischio sismico'
-                : 'Clicca per analizzare premi, fideiussioni ANAC, welfare e rischio sismico'}
+                ? 'Benchmark premi, asset, workforce, fideiussioni e rischio territoriale'
+                : 'Clicca per costruire benchmark, verifiche di portafoglio e leve consulenziali'}
             </p>
           </div>
         </div>
@@ -342,9 +342,9 @@ export default function InsuranceProfileSection({
           {loading && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-2" />
-              <p className="text-sm text-foreground font-medium">Analisi in corso...</p>
+              <p className="text-sm text-foreground font-medium">Costruzione profilo consulenziale...</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Sto interrogando 4 fonti pubbliche (Camera di Commercio, ANAC, Tavily, DPC). 30-90 secondi.
+                Interrogo fonti pubbliche e benchmark: Camera di Commercio, ANAC, Tavily, DPC. 30-90 secondi.
               </p>
             </div>
           )}
@@ -485,7 +485,7 @@ function PremiumsCard({ data, compact }: { data: PremiumsData; compact?: boolean
     <div className={`${padding} bg-card border border-border rounded-xl`}>
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp className="w-4 h-4 text-indigo-600" />
-        <h4 className="font-bold text-foreground text-sm">Premi Assicurativi</h4>
+        <h4 className="font-bold text-foreground text-sm">Benchmark premi & asset</h4>
       </div>
       {!hasAnyData && (
         <p className="text-xs text-muted-foreground italic">Dati di bilancio non disponibili in fonti gratuite.</p>
@@ -505,7 +505,7 @@ function PremiumsCard({ data, compact }: { data: PremiumsData; compact?: boolean
       {premiums.estimated && (
         <div className="mb-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold text-amber-700">STIMA SETTORIALE</span>
+            <span className="text-[10px] font-semibold text-amber-700">BENCHMARK SETTORIALE</span>
             <ConfidenceBadge c="estimated" />
           </div>
           <div className="text-base font-bold text-amber-900">{formatRange(premiums.estimated)}</div>
@@ -515,7 +515,7 @@ function PremiumsCard({ data, compact }: { data: PremiumsData; compact?: boolean
       {premiums.fairMarket && (
         <div className="mb-2 p-2.5 bg-blue-50 border border-border rounded-lg">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold text-blue-700">FAIR MARKET</span>
+            <span className="text-[10px] font-semibold text-blue-700">RANGE MERCATO ATTESO</span>
             <ConfidenceBadge c="computed" />
           </div>
           <div className="text-base font-bold text-blue-900">{formatRange(premiums.fairMarket)}</div>
@@ -525,7 +525,7 @@ function PremiumsCard({ data, compact }: { data: PremiumsData; compact?: boolean
         <div className="p-2.5 bg-rose-50 border-2 border-rose-300 rounded-lg">
           <div className="flex items-center gap-1 mb-1">
             <Target className="w-3 h-3 text-rose-600" />
-            <span className="text-[10px] font-bold text-rose-700">OPPORTUNITÀ RISPARMIO</span>
+            <span className="text-[10px] font-bold text-rose-700">RISPARMIO DA VALIDARE</span>
           </div>
           <div className="text-lg font-bold text-rose-900">{formatRange(premiums.savingOpportunity)}</div>
         </div>
@@ -535,7 +535,7 @@ function PremiumsCard({ data, compact }: { data: PremiumsData; compact?: boolean
       {(data.assets.tangibleAssetsValue || data.assets.employees || data.assets.payroll || data.assets.estimatedVehicles) && (
         <div className="mt-3 pt-3 border-t border-border">
           <h5 className="text-[10px] font-semibold text-foreground mb-2 flex items-center gap-1">
-            <Shield className="w-3 h-3" /> Asset Assicurabili
+            <Shield className="w-3 h-3" /> Asset assicurabili rilevati/stimati
           </h5>
           <div className="grid grid-cols-2 gap-2 text-xs">
             {data.assets.tangibleAssetsValue && (
@@ -572,6 +572,9 @@ function PremiumsCard({ data, compact }: { data: PremiumsData; compact?: boolean
           <span className="line-clamp-2">{data.meta.warnings[0]}</span>
         </div>
       )}
+      <div className="mt-3 p-2 rounded-lg border border-amber-200 bg-amber-50 text-[10px] text-amber-800">
+        Benchmark e stime non indicano polizze attive: servono per chiedere portafoglio, premi pagati, massimali, esclusioni, franchigie e scadenze.
+      </div>
     </div>
   )
 }
@@ -582,7 +585,7 @@ function WorkforceCard({ data, compact }: { data: WorkforceData; compact?: boole
     <div className={`${padding} bg-card border border-border rounded-xl`}>
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-purple-600" />
-        <h4 className="font-bold text-foreground text-sm">Workforce & CCNL</h4>
+        <h4 className="font-bold text-foreground text-sm">Workforce, CCNL & welfare</h4>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs mb-3">
@@ -629,7 +632,7 @@ function WorkforceCard({ data, compact }: { data: WorkforceData; compact?: boole
 
       {data.welfareOpportunities && data.welfareOpportunities.length > 0 && (
         <div className="pt-3 border-t border-border">
-          <div className="text-[10px] font-semibold text-foreground mb-2">Top 3 Opportunità Welfare</div>
+          <div className="text-[10px] font-semibold text-foreground mb-2">Opportunità welfare da validare</div>
           {data.welfareOpportunities.slice(0, 3).map((w, i) => (
             <div key={i} className="text-xs mb-1.5 flex items-start justify-between gap-2">
               <div className="flex-1">
@@ -651,7 +654,7 @@ function CauzioniCard({ data, compact }: { data: CauzioniData; compact?: boolean
     <div className={`${padding} bg-card border border-border rounded-xl`}>
       <div className="flex items-center gap-2 mb-3">
         <Hammer className="w-4 h-4 text-orange-600" />
-        <h4 className="font-bold text-foreground text-sm">Cauzioni ANAC & Fideiussioni</h4>
+        <h4 className="font-bold text-foreground text-sm">ANAC: cauzioni & fideiussioni</h4>
       </div>
 
       {!data.vinceAppaltiPubblici && (
@@ -713,7 +716,7 @@ function RiskCard({ data, compact }: { data: RiskData; compact?: boolean }) {
     <div className={`${padding} bg-card border border-border rounded-xl`}>
       <div className="flex items-center gap-2 mb-3">
         <MapPin className="w-4 h-4 text-rose-600" />
-        <h4 className="font-bold text-foreground text-sm">Risk Score Sismico</h4>
+        <h4 className="font-bold text-foreground text-sm">Rischio territoriale property</h4>
       </div>
 
       <div className="text-[10px] text-muted-foreground mb-2 line-clamp-2">{data.addressUsed}</div>
@@ -753,7 +756,7 @@ function RiskCard({ data, compact }: { data: RiskData; compact?: boolean }) {
               r.premiumImpact.direction === 'discount' ? 'bg-emerald-50 border-emerald-200' :
               'bg-muted/40 border-border'
             }`}>
-              <div className="text-[10px] font-semibold mb-1">Impatto premio All-Risk</div>
+              <div className="text-[10px] font-semibold mb-1">Impatto benchmark premio property</div>
               <div className="text-sm font-bold">
                 {r.premiumImpact.percentMin > 0 ? '+' : ''}{r.premiumImpact.percentMin}% a {r.premiumImpact.percentMax > 0 ? '+' : ''}{r.premiumImpact.percentMax}%
               </div>
@@ -771,7 +774,7 @@ function OpportunitiesCard({ data }: { data: PremiumsData }) {
     <div className="p-4 bg-card border border-border rounded-xl">
       <div className="flex items-center gap-2 mb-3">
         <Briefcase className="w-4 h-4 text-emerald-600" />
-        <h4 className="font-bold text-foreground text-sm">Top Opportunità Commerciali</h4>
+        <h4 className="font-bold text-foreground text-sm">Opportunità consulenziali da validare</h4>
       </div>
       <div className="space-y-1.5">
         {top.map((op, i) => (
@@ -786,7 +789,7 @@ function OpportunitiesCard({ data }: { data: PremiumsData }) {
             </div>
             <div className="text-right flex-shrink-0">
               <div className="text-xs font-bold text-foreground">{formatRange(op.estimatedAnnualPremium)}</div>
-              <div className="text-[10px] text-muted-foreground">/ anno</div>
+              <div className="text-[10px] text-muted-foreground">benchmark annuo</div>
             </div>
           </div>
         ))}

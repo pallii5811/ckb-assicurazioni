@@ -252,8 +252,8 @@ export function analyzeInsuranceGaps(
     gaps.push({
       area: 'D&O Amministratori',
       gravita: fat > 2_000_000 ? 'critico' : 'alto',
-      descrizione: `${fg} con ${fat > 0 ? '€' + formatNumber(fat) + ' di fatturato' : 'fatturato non noto'}: gli amministratori rispondono con patrimonio personale`,
-      azione: 'Proporre polizza D&O con massimale minimo €500.000',
+      descrizione: `${fg} con ${fat > 0 ? '€' + formatNumber(fat) + ' di fatturato' : 'fatturato non noto'}: gli amministratori possono avere esposizione personale da verificare`,
+      azione: 'Verificare presenza D&O, massimale, retroattività, esclusioni e continuità di copertura',
     })
     score += fat > 2_000_000 ? 20 : 12
   }
@@ -264,7 +264,7 @@ export function analyzeInsuranceGaps(
       area: 'Employee Benefits',
       gravita: dip >= 50 ? 'alto' : 'medio',
       descrizione: `${dip} dipendenti: verificare CCNL applicato per sanità integrativa, previdenza e coperture welfare`,
-      azione: 'Proporre piano welfare: sanitaria collettiva + fondo pensione + infortuni extra-professionale',
+      azione: 'Verificare coperture welfare già attive, CCNL, sanità integrativa, infortuni extra-professionale e fondi pensione',
     })
     score += dip >= 50 ? 18 : 10
   }
@@ -275,7 +275,7 @@ export function analyzeInsuranceGaps(
       area: 'Rischio Sismico',
       gravita: zonaSismica === 1 ? 'critico' : 'alto',
       descrizione: `Zona sismica ${zonaSismica}: verificare estensione terremoto sulla property e congruità del valore assicurato`,
-      azione: 'Proporre estensione terremoto su polizza property con massimale pari al valore immobile',
+      azione: 'Verificare estensione terremoto, valore assicurato, scoperti, franchigie e limite di indennizzo',
     })
     score += zonaSismica === 1 ? 20 : 15
   }
@@ -297,7 +297,7 @@ export function analyzeInsuranceGaps(
       area: 'RC Prodotti',
       gravita: 'critico',
       descrizione: `Fatturato €${formatNumber(fat)} nel settore produttivo: rischio richiamo prodotto e danni a consumatori`,
-      azione: 'Polizza RC Prodotti con estensione recall — massimale minimo €1.000.000',
+      azione: 'Verificare RC Prodotti, recall, esportazioni, tracciabilità lotti e massimale rispetto al fatturato',
     })
     score += 18
   }
@@ -308,7 +308,7 @@ export function analyzeInsuranceGaps(
       area: 'Polizza CAR/EAR',
       gravita: 'critico',
       descrizione: 'Settore edile: la Polizza Cantieri è spesso richiesta da committenti, appalti e finanziatori',
-      azione: 'Polizza CAR (Contractor All Risks) + Decennale Postuma obbligatoria per nuove costruzioni',
+      azione: 'Verificare CAR/EAR, Decennale Postuma, clausole appalti/subappalti e massimali richiesti dai committenti',
     })
     score += 15
   }
@@ -319,7 +319,7 @@ export function analyzeInsuranceGaps(
       area: 'RC Sanitaria',
       gravita: 'critico',
       descrizione: 'Legge Gelli-Bianco (L. 24/2017): obbligo di RC Sanitaria per strutture e professionisti',
-      azione: 'Polizza RC Medica + Malpractice + Tutela Legale specializzata',
+      azione: 'Verificare RC Sanitaria/Malpractice, retroattività, postuma, massimali e tutela legale specializzata',
     })
     score += 20
   }
@@ -329,8 +329,8 @@ export function analyzeInsuranceGaps(
     gaps.push({
       area: 'Cyber Risk',
       gravita: fat >= 2_000_000 ? 'alto' : 'medio',
-      descrizione: `Azienda con presenza web${dip >= 10 ? ' e ' + dip + ' dipendenti' : ''}: target per ransomware e data breach`,
-      azione: 'Polizza Cyber con copertura: data breach, ransomware, business interruption, GDPR defense',
+      descrizione: `Azienda con presenza web${dip >= 10 ? ' e ' + dip + ' dipendenti' : ''}: rischio digitale da qualificare su dati, backup, pagamenti e continuità operativa`,
+      azione: 'Verificare copertura Cyber: data breach, ransomware, business interruption, GDPR defense e gestione incident response',
     })
     score += fat >= 2_000_000 ? 12 : 8
   }
@@ -341,7 +341,7 @@ export function analyzeInsuranceGaps(
       area: 'RC Professionale',
       gravita: 'critico',
       descrizione: 'DPR 137/2012: obbligo di legge per tutti i professionisti iscritti ad albi',
-      azione: 'Verificare adeguatezza massimale RC Professionale — minimo €500.000 per la maggior parte degli ordini',
+      azione: 'Verificare RC Professionale, massimale, retroattività, postuma, franchigie e attività effettivamente esercitate',
     })
     score += 15
   }
@@ -363,12 +363,12 @@ export function analyzeInsuranceGaps(
   const livello = score >= 70 ? 'critico' : score >= 45 ? 'alto' : score >= 20 ? 'medio' : 'basso'
 
   const sommario = score >= 70
-    ? `GAP CRITICO: ${gaps.filter(g => g.gravita === 'critico').length} aree ad alta priorità assicurativa. Opportunità commerciale immediata.`
+    ? `PRIORITÀ CRITICA: ${gaps.filter(g => g.gravita === 'critico').length} aree da verificare subito in call. Opportunità consulenziale immediata.`
     : score >= 45
-    ? `GAP ALTO: ${gaps.length} aree di miglioramento assicurativo. Lead con forte potenziale di vendita.`
+    ? `PRIORITÀ ALTA: ${gaps.length} aree assicurative da qualificare. Lead con forte potenziale consulenziale.`
     : score >= 20
-    ? `GAP MEDIO: ${gaps.length} opportunità di cross-selling su polizze esistenti.`
-    : 'GAP BASSO: profilo assicurativo probabilmente adeguato. Verificare rinnovi e massimali.'
+    ? `PRIORITÀ MEDIA: ${gaps.length} opportunità di revisione coperture e cross-sell da validare.`
+    : 'PRIORITÀ BASSA: i dati pubblici non evidenziano trigger forti. Verificare comunque portafoglio attivo, rinnovi, massimali ed esclusioni.'
 
   return { livello_rischio: livello, score, gaps, sommario }
 }

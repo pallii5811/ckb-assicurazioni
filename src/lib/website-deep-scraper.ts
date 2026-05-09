@@ -103,6 +103,23 @@ function getOrigin(website: string): string {
   try { return new URL(url).origin } catch { return url }
 }
 
+function extractFramePaths(html: string, origin: string, currentPath: string): string[] {
+  const tags = html.match(/<(?:iframe|frame)\b[^>]*\bsrc=["'][^"']+["'][^>]*>/gi) || []
+  const paths: string[] = []
+  const currentUrl = currentPath === '/' ? `${origin}/` : `${origin}${currentPath.startsWith('/') ? currentPath : `/${currentPath}`}`
+  for (const tag of tags) {
+    const src = tag.match(/\bsrc=["']([^"']+)["']/i)?.[1]?.trim()
+    if (!src || /^(javascript:|mailto:|tel:|#)/i.test(src)) continue
+    try {
+      const url = new URL(src, currentUrl)
+      if (url.origin !== origin) continue
+      const path = `${url.pathname}${url.search}`
+      if (path && path !== '/' && !paths.includes(path)) paths.push(path)
+    } catch { /* ignore */ }
+  }
+  return paths
+}
+
 // ── Email extraction ────────────────────────────────────────────
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
 const FAKE_DOMAINS = new Set(['example.com','email.com','sito.com','domain.com','test.com','yoursite.com','yourdomain.com','tuosito.com','sitoweb.com','sample.com','placeholder.com','wixpress.com','sentry.io','googleapis.com','w3.org','schema.org','wordpress.org','jquery.com','bootstrapcdn.com'])
@@ -486,7 +503,7 @@ export async function scrapeWebsiteDeep(website: string): Promise<WebsiteScraped
 
   // For platform profiles (miodottore.it, etc.), only scrape the given URL
   // Do NOT scrape sub-pages — they belong to the platform, not the business
-  const pagePaths = isThirdPartyPlatform
+  let pagePaths = isThirdPartyPlatform
     ? [''] // only the profile page itself
     : [
         '', // homepage
@@ -517,6 +534,14 @@ export async function scrapeWebsiteDeep(website: string): Promise<WebsiteScraped
       if (f.status !== 'fulfilled' || !f.value.html) continue
       const { html, path } = f.value
       if (html.length < 500) continue // too small, probably error page
+
+      if (!isThirdPartyPlatform) {
+        const framePaths = extractFramePaths(html, origin, path)
+        for (const framePath of framePaths) {
+          if (pagePaths.length >= 30) break
+          if (!pagePaths.includes(framePath)) pagePaths.push(framePath)
+        }
+      }
 
       result.pagesScraped++
 

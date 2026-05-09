@@ -1535,17 +1535,6 @@ export default function DashboardShell() {
       {/* ── Tab switcher ── */}
       <div className="flex items-center gap-1 mb-4 bg-slate-100 rounded-xl p-1 max-w-2xl overflow-x-auto">
         <button
-          onClick={() => setSearchMode('referente')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-            searchMode === 'referente'
-              ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          Cerca Referente
-        </button>
-        <button
           onClick={() => setSearchMode('maps')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
             searchMode === 'maps'
@@ -1580,8 +1569,8 @@ export default function DashboardShell() {
         </button>
       </div>
 
-      {/* ── Ricerca Referenti ── */}
-      {searchMode === 'referente' && (
+      {/* ── Ricerca Referenti — RIMOSSA (i referenti si trovano da Cerca Azienda) ── */}
+      {false && searchMode === 'referente' && (
         <div className="mb-6 space-y-5 bg-gradient-to-br from-white via-purple-50/30 to-violet-50/40 border border-purple-100 rounded-3xl p-7 shadow-lg shadow-purple-100/30 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
           <div className="flex flex-col gap-1.5">
@@ -1920,8 +1909,12 @@ export default function DashboardShell() {
                 </div>
               </div>
 
-              {/* Stima Capacità & Priorità Commerciale */}
-              {(personSearchResult.stima_capacita_risparmio || personSearchResult.priorita_commerciale) && (
+              {/* Stima Capacità + Priorità Commerciale + Trigger Finanziari +
+                  Polizze Consigliate + Rischi Professionali RIMOSSI:
+                  GPT-extracted via Tavily senza verifica strutturata.
+                  Un broker professionista valuta capacità di spesa dal
+                  patrimonio immobiliare e dalle cariche societarie reali. */}
+              {false && (personSearchResult.stima_capacita_risparmio || personSearchResult.priorita_commerciale) && (
                 <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-3">Stima Potenziale</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1963,8 +1956,8 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Trigger Finanziari */}
-              {personSearchResult.trigger_finanziari?.length > 0 && (
+              {/* Trigger Finanziari person-lookup RIMOSSI: GPT-extracted */}
+              {false && personSearchResult.trigger_finanziari?.length > 0 && (
                 <div className="bg-white rounded-2xl border border-orange-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-3">Trigger Finanziari</h4>
                   <div className="space-y-2">
@@ -2152,8 +2145,8 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Polizze consigliate */}
-              {personSearchResult.polizze_consigliate?.length > 0 && (
+              {/* Polizze consigliate person-lookup RIMOSSE: template per ruolo */}
+              {false && personSearchResult.polizze_consigliate?.length > 0 && (
                 <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-3">Polizze Consigliate</h4>
                   <div className="space-y-2">
@@ -2170,8 +2163,8 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Rischi professionali */}
-              {personSearchResult.rischi_professionali?.length > 0 && (
+              {/* Rischi professionali person-lookup RIMOSSI: template per ruolo */}
+              {false && personSearchResult.rischi_professionali?.length > 0 && (
                 <div className="bg-white rounded-2xl border border-red-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-3">Rischi Professionali</h4>
                   <div className="flex flex-wrap gap-1">
@@ -2182,13 +2175,8 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Note broker */}
-              {personSearchResult.note_broker && (
-                <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
-                  <h4 className="text-sm font-bold text-slate-800 mb-2">Note per il Broker</h4>
-                  <p className="text-sm text-slate-700">{safeStr(personSearchResult.note_broker)}</p>
-                </div>
-              )}
+              {/* Note broker RIMOSSE: GPT-generate, spesso allucinate.
+                  Intelligence reale da CF/bilanci nei blocchi principali. */}
 
               {/* Proprietà immobiliari */}
               {(personSearchResult.proprieta_immobiliari || personSearchResult.zona_residenza || personSearchResult.tipo_abitazione || personSearchResult.valore_stimato_immobili || personSearchResult.mutuo || personSearchResult.altri_beni) && (
@@ -2229,8 +2217,11 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Albi professionali + certificazioni */}
-              {(personSearchResult.albo_professionale || personSearchResult.certificazioni || personSearchResult.onorificenze || personSearchResult.pubblicazioni || personSearchResult.docenze || personSearchResult.associazioni) && (
+              {/* Albi e Certificazioni RIMOSSE: erano estratte via GPT da Tavily
+                  senza verifica contro registri ufficiali (Accredia, CNF, ordini).
+                  Per riattivarle in sicurezza bisogna integrarsi con i registri
+                  pubblici degli albi professionali. */}
+              {false && (personSearchResult.albo_professionale || personSearchResult.certificazioni || personSearchResult.onorificenze || personSearchResult.pubblicazioni || personSearchResult.docenze || personSearchResult.associazioni) && (
                 <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">📜 Albi e Certificazioni</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2495,8 +2486,8 @@ export default function DashboardShell() {
                 </div>
               </div>
 
-              {/* Polizze */}
-              {employeeSearchResult.polizze_consigliate?.length > 0 && (
+              {/* Polizze consigliate employee RIMOSSE: template per ruolo, stessa fattispecie */}
+              {false && employeeSearchResult.polizze_consigliate?.length > 0 && (
                 <div className="bg-white rounded-2xl border border-teal-200 p-6 shadow-sm">
                   <h4 className="text-sm font-bold text-slate-800 mb-3">Polizze Consigliate</h4>
                   <div className="space-y-2">
@@ -2525,12 +2516,7 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {employeeSearchResult.note_broker && (
-                <div className="bg-white rounded-2xl border border-cyan-200 p-6 shadow-sm">
-                  <h4 className="text-sm font-bold text-slate-800 mb-2">Note per il Broker</h4>
-                  <p className="text-sm text-slate-700">{safeStr(employeeSearchResult.note_broker)}</p>
-                </div>
-              )}
+              {/* Note per il Broker RIMOSSE (employee search): GPT-generate, spesso allucinate. */}
 
               {employeeSearchResult.fonti?.length > 0 && (
                 <p className="text-[10px] text-slate-400">Fonti: {employeeSearchResult.fonti.join(', ')}</p>
@@ -2552,8 +2538,18 @@ export default function DashboardShell() {
               Cerca Azienda
             </h2>
             <p className="text-sm text-slate-500">
-              Inserisci il <strong>nome azienda + città</strong> oppure la <strong>Partita IVA</strong> per ottenere il dossier completo.
+              Inserisci la <strong>Partita IVA</strong> oppure la <strong>Ragione Sociale completa</strong> per ottenere il dossier completo con dati camerali, titolare, contatti e profilo assicurativo.
             </p>
+            <div className="bg-blue-50/80 border border-blue-200/60 rounded-xl px-4 py-3 space-y-1.5">
+              <p className="text-[11px] font-bold text-blue-800">Come cercare per risultati precisi al 100%:</p>
+              <ul className="text-[11px] text-blue-700 space-y-1 list-none">
+                <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> <strong>P.IVA diretta</strong> — es. <code className="bg-blue-100 px-1 rounded">07812270960</code> → risultato univoco, zero omonimi</li>
+                <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> <strong>Ragione Sociale completa + Città</strong> — es. <code className="bg-blue-100 px-1 rounded">I.P. Distribution S.r.l. Milano</code></li>
+                <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> <strong>Ragione Sociale completa</strong> — es. <code className="bg-blue-100 px-1 rounded">Innoa S.n.c. Dei Fratelli De Stefano</code></li>
+                <li className="flex items-start gap-2"><span className="text-amber-600 font-bold">!</span> <strong>Nomi brevi senza città</strong> — es. <code className="bg-amber-50 px-1 rounded">Almax</code> → rischio omonimi, aggiungi sempre la città</li>
+              </ul>
+              <p className="text-[10px] text-blue-600 mt-1">Il sistema trova automaticamente titolare, soci, contatti, social e dati finanziari.</p>
+            </div>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="flex-1 relative">
@@ -2872,11 +2868,130 @@ export default function DashboardShell() {
                       <p className="text-sm font-bold text-slate-800">{typeof companySearchResult.classificazione_eu === 'string' ? companySearchResult.classificazione_eu : companySearchResult.classificazione_eu?.label || companySearchResult.classificazione_eu?.classe || ''}</p>
                     </div>
                   )}
+                  {/* ── Nuovi campi OpenAPI IT-advanced ── */}
+                  {companySearchResult.codice_sdi && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Codice SDI</p>
+                      <p className="text-sm font-mono font-bold text-slate-800">{companySearchResult.codice_sdi}</p>
+                    </div>
+                  )}
+                  {companySearchResult.ral_medio && (
+                    <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl p-3.5 border border-violet-100/50">
+                      <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wider">RAL Medio</p>
+                      <p className="text-sm font-bold text-slate-800">€{Number(companySearchResult.ral_medio).toLocaleString('it-IT')}</p>
+                    </div>
+                  )}
+                  {companySearchResult.patrimonio_netto && (
+                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-3.5 border border-emerald-100/50">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Patrimonio Netto</p>
+                      <p className="text-sm font-bold text-slate-800">€{Number(companySearchResult.patrimonio_netto).toLocaleString('it-IT')}</p>
+                    </div>
+                  )}
+                  {companySearchResult.totale_attivo && (
+                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-3.5 border border-emerald-100/50">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Totale Attivo</p>
+                      <p className="text-sm font-bold text-slate-800">€{Number(companySearchResult.totale_attivo).toLocaleString('it-IT')}</p>
+                    </div>
+                  )}
+                  {companySearchResult.data_registrazione && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Registrazione</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.data_registrazione}</p>
+                    </div>
+                  )}
+                  {companySearchResult.regione && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Regione</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.regione}</p>
+                    </div>
+                  )}
+                  {companySearchResult.forma_giuridica_codice && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cod. Forma Giuridica</p>
+                      <p className="text-sm font-mono font-bold text-slate-800">{companySearchResult.forma_giuridica_codice}</p>
+                    </div>
+                  )}
+                  {companySearchResult.gruppo_iva && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gruppo IVA</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.gruppo_iva.partecipazione ? (companySearchResult.gruppo_iva.leader ? 'Capogruppo' : 'Partecipante') : 'Non partecipa'}</p>
+                    </div>
+                  )}
+                  {typeof companySearchResult.gps_lat === 'number' && typeof companySearchResult.gps_lng === 'number' && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Coordinate GPS</p>
+                      <a href={`https://maps.google.com/?q=${companySearchResult.gps_lat},${companySearchResult.gps_lng}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">{companySearchResult.gps_lat.toFixed(5)}, {companySearchResult.gps_lng.toFixed(5)}</a>
+                    </div>
+                  )}
+                  {companySearchResult.ateco_2022 && (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3.5 col-span-2 border border-slate-200/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">ATECO 2022</p>
+                      <p className="text-sm font-bold text-slate-800">{companySearchResult.ateco_2022.code} — {companySearchResult.ateco_2022.description}</p>
+                    </div>
+                  )}
+                  {companySearchResult.data_cessazione && (
+                    <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-3.5 border border-red-100/50">
+                      <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Data Cessazione</p>
+                      <p className="text-sm font-bold text-red-700">{companySearchResult.data_cessazione}</p>
+                    </div>
+                  )}
+                  {companySearchResult.storico_bilanci && (() => {
+                    // Handle both formats: OpenAPI array [{anno, fatturato, ...}] or CompanyReports JSON string {"anni":[], "fatturato":[], ...}
+                    let rows: Array<{anno: number; fatturato?: number; utile?: number; dipendenti?: number; costo_personale?: number}> = []
+                    const raw = companySearchResult.storico_bilanci
+                    if (Array.isArray(raw)) {
+                      rows = raw
+                    } else {
+                      try {
+                        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+                        if (parsed.anni && Array.isArray(parsed.anni)) {
+                          rows = parsed.anni.map((anno: string, i: number) => ({
+                            anno: Number(anno),
+                            fatturato: parsed.fatturato?.[i] ? Number(parsed.fatturato[i]) : undefined,
+                            utile: parsed.utile?.[i] ? Number(parsed.utile[i]) : undefined,
+                            costo_personale: parsed.costo_personale?.[i] ? Number(parsed.costo_personale[i]) : undefined,
+                          }))
+                        }
+                      } catch { /* ignore parse errors */ }
+                    }
+                    if (rows.length === 0) return null
+                    return (
+                      <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-xl p-3.5 col-span-2 md:col-span-3 border border-slate-200/50">
+                        <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">Storico Bilanci ({rows.length} anni)</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[11px]">
+                            <thead>
+                              <tr className="text-left text-slate-500 border-b border-slate-200">
+                                <th className="py-1 pr-3 font-bold">Anno</th>
+                                <th className="py-1 pr-3 font-bold">Fatturato</th>
+                                <th className="py-1 pr-3 font-bold">Utile</th>
+                                <th className="py-1 pr-3 font-bold">Dipendenti</th>
+                                <th className="py-1 pr-3 font-bold">Costo Pers.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((b: any) => (
+                                <tr key={b.anno} className="border-b border-slate-100 last:border-0">
+                                  <td className="py-1 pr-3 font-bold text-slate-800">{b.anno}</td>
+                                  <td className="py-1 pr-3 text-slate-700">{b.fatturato ? `€${Number(b.fatturato).toLocaleString('it-IT')}` : '—'}</td>
+                                  <td className="py-1 pr-3 text-slate-700">{b.utile ? `€${Number(b.utile).toLocaleString('it-IT')}` : '—'}</td>
+                                  <td className="py-1 pr-3 text-slate-700">{b.dipendenti ?? '—'}</td>
+                                  <td className="py-1 pr-3 text-slate-700">{b.costo_personale ? `€${Number(b.costo_personale).toLocaleString('it-IT')}` : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
 
-              {/* Profilo Titolare dettagliato */}
-              {companySearchResult.titolare && (companySearchResult.bio_titolare || companySearchResult.linkedin_titolare || companySearchResult.esperienze_titolare || companySearchResult.formazione_titolare || companySearchResult.competenze_titolare || companySearchResult.seniority_titolare) && (
+              {/* Profilo Titolare dettagliato RIMOSSO: bio/seniority/formazione/
+                  esperienze/competenze sono curriculum marketing senza valore
+                  assicurativo. Età/CF/successione ora in Titolare Intelligence. */}
+              {false && companySearchResult.titolare && (companySearchResult.bio_titolare || companySearchResult.linkedin_titolare || companySearchResult.esperienze_titolare || companySearchResult.formazione_titolare || companySearchResult.competenze_titolare || companySearchResult.seniority_titolare) && (
                 <div className="bg-white rounded-3xl border border-indigo-200/60 p-0 shadow-lg shadow-indigo-100/30 overflow-hidden">
                   <div className="bg-gradient-to-r from-indigo-500 to-violet-500 px-6 py-4">
                     <h4 className="text-sm font-bold text-white flex items-center gap-3">
@@ -3049,11 +3164,14 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Intelligence Assicurativa — dati da Tavily */}
-              {(companySearchResult.certificazioni?.length > 0 || companySearchResult.ha_flotta_veicoli || companySearchResult.ha_immobili_proprieta || companySearchResult.partecipa_appalti_pubblici || companySearchResult.rischi_specifici?.length > 0 || companySearchResult.note_broker) && (
+              {/* Intelligence Assicurativa Tavily RIMOSSA: certificazioni ISO/SOA,
+                  flotta, immobili, appalti, rischi_specifici, note_broker erano
+                  tutti GPT-allucinati (Search 3 disabilitata in backend).
+                  Intelligence reale ora nei blocchi Trigger/Financial/Titolare/Risk. */}
+              {false && (companySearchResult.certificazioni?.length > 0 || companySearchResult.ha_flotta_veicoli || companySearchResult.ha_immobili_proprieta || companySearchResult.partecipa_appalti_pubblici || companySearchResult.rischi_specifici?.length > 0 || companySearchResult.note_broker) && (
                 <div className="bg-white rounded-3xl border border-cyan-200/60 p-0 shadow-lg shadow-cyan-100/30 overflow-hidden">
                   <div className="bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-3.5">
-                    <h4 className="text-sm font-bold text-white">Intelligence Assicurativa</h4>
+                    <h4 className="text-sm font-bold text-white">Segnali assicurativi pubblici</h4>
                   </div>
                   <div className="p-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -3087,7 +3205,7 @@ export default function DashboardShell() {
                     )}
                     {companySearchResult.rischi_specifici?.length > 0 && (
                       <div className="bg-red-50 rounded-lg p-3 col-span-2">
-                        <p className="text-[10px] font-bold text-red-700 uppercase mb-1">Rischi Specifici Rilevati</p>
+                        <p className="text-[10px] font-bold text-red-700 uppercase mb-1">Rischi specifici da verificare</p>
                         <div className="flex flex-wrap gap-1">
                           {companySearchResult.rischi_specifici.map((r: string, i: number) => (
                             <span key={i} className="text-[10px] bg-red-200 text-red-800 px-2 py-0.5 rounded font-bold">{r}</span>
@@ -3127,82 +3245,117 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Analisi Polizze AI — cosa ha e cosa non ha */}
-              {companySearchResult.verifica_polizze?.length > 0 && (() => {
-                const policies = companySearchResult.verifica_polizze
-                const nonHa = policies.filter((p: any) => p.stato === 'probabilmente_no')
-                const daVerificare = policies.filter((p: any) => p.stato === 'da_verificare')
-                const ceLha = policies.filter((p: any) => p.stato === 'ce_lha')
+              {/* ═══ INSURANCE INTELLIGENCE — 100% deterministico ═══ */}
+              {companySearchResult.insurance_intelligence && (() => {
+                const intel = companySearchResult.insurance_intelligence
                 return (
-                  <div className="bg-white rounded-3xl border border-slate-200/60 p-0 shadow-lg shadow-slate-100/40 overflow-hidden">
-                    <div className="bg-gradient-to-r from-slate-700 to-slate-900 px-6 py-3.5">
-                      <h4 className="text-sm font-bold text-white">Mappa Assicurativa</h4>
+                  <>
+                  {/* Esposizione Totale */}
+                  {(intel.esposizione_totale?.patrimonio_a_rischio && intel.esposizione_totale.patrimonio_a_rischio !== 'Da quantificare') && (
+                    <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-3xl p-5 shadow-lg">
+                      <h4 className="text-sm font-bold text-white mb-3">Esposizione Patrimoniale</h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white/15 rounded-xl p-3 text-center">
+                          <p className="text-[9px] text-red-200 uppercase font-bold">Patrimonio a rischio</p>
+                          <p className="text-lg font-black text-white">{intel.esposizione_totale.patrimonio_a_rischio}</p>
+                        </div>
+                        <div className="bg-white/15 rounded-xl p-3 text-center">
+                          <p className="text-[9px] text-red-200 uppercase font-bold">Costo fermo/giorno</p>
+                          <p className="text-lg font-black text-white">{intel.esposizione_totale.costo_fermo_giornaliero}</p>
+                        </div>
+                        <div className="bg-white/15 rounded-xl p-3 text-center">
+                          <p className="text-[9px] text-red-200 uppercase font-bold">Massimale RC consigliato</p>
+                          <p className="text-lg font-black text-white">{intel.esposizione_totale.esposizione_rc}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="p-6">
-                    <p className="text-[10px] text-slate-500 mb-4">Analisi basata su normativa + statistiche ANIA/IVASS di penetrazione per settore</p>
+                  )}
 
-                    {nonHa.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-[10px] font-black text-red-700 uppercase mb-2 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-red-500" />
-                          Probabilmente NON ha ({nonHa.length})
-                        </p>
-                        <div className="space-y-1.5">
-                          {nonHa.map((p: any, i: number) => (
-                            <div key={i} className="p-2.5 rounded-lg bg-red-50 border border-red-200">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] font-bold text-slate-800">{p.polizza}</span>
-                                <span className="text-[9px] font-mono font-bold text-red-600">{p.probabilita_possesso || '< 25%'}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-600">{p.motivo}</p>
-                              {p.domanda_broker && <p className="text-[9px] text-blue-700 font-medium mt-1">&ldquo;{p.domanda_broker}&rdquo;</p>}
-                            </div>
-                          ))}
-                        </div>
+                  {/* Vulnerabilità Critiche */}
+                  {intel.vulnerabilita?.length > 0 && (
+                    <div className="bg-white rounded-3xl border border-red-200/60 p-0 shadow-lg overflow-hidden">
+                      <div className="bg-gradient-to-r from-red-600 to-rose-600 px-6 py-3.5">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <span className="text-lg">&#9888;</span>
+                          Vulnerabilit&agrave; Specifiche ({intel.vulnerabilita.length})
+                        </h4>
+                        <p className="text-[10px] text-red-100 mt-0.5">Aree di rischio motivate da dati pubblici e normativa — da validare sul portafoglio reale</p>
                       </div>
-                    )}
-
-                    {daVerificare.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-[10px] font-black text-amber-700 uppercase mb-2 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          Da verificare ({daVerificare.length})
-                        </p>
-                        <div className="space-y-1.5">
-                          {daVerificare.map((p: any, i: number) => (
-                            <div key={i} className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] font-bold text-slate-800">{p.polizza}</span>
-                                <span className="text-[9px] font-mono font-bold text-amber-600">{p.probabilita_possesso || '~50%'}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-600">{p.motivo}</p>
-                              {p.domanda_broker && <p className="text-[9px] text-blue-700 font-medium mt-1">&ldquo;{p.domanda_broker}&rdquo;</p>}
+                      <div className="p-5 space-y-3">
+                        {intel.vulnerabilita.map((v: any, i: number) => (
+                          <div key={i} className={`p-4 rounded-xl border-l-4 ${v.gravita === 'critica' ? 'border-l-red-500 bg-red-50' : v.gravita === 'alta' ? 'border-l-orange-500 bg-orange-50' : 'border-l-amber-400 bg-amber-50'}`}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${v.gravita === 'critica' ? 'bg-red-200 text-red-800' : v.gravita === 'alta' ? 'bg-orange-200 text-orange-800' : 'bg-amber-200 text-amber-800'}`}>{v.gravita}</span>
+                              <span className="text-xs font-black text-slate-900">{v.titolo}</span>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {ceLha.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-emerald-700 uppercase mb-2 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          Quasi certamente ha ({ceLha.length})
-                        </p>
-                        <div className="space-y-1">
-                          {ceLha.map((p: any, i: number) => (
-                            <div key={i} className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-800">{p.polizza}</span>
-                              <span className="text-[9px] font-mono font-bold text-emerald-600">{p.probabilita_possesso || '> 75%'}</span>
+                            <p className="text-[11px] text-slate-700 mb-1.5"><strong>Base verificabile:</strong> {v.fatto}</p>
+                            <p className="text-[11px] text-red-800 mb-1.5"><strong>CONSEGUENZA:</strong> {v.conseguenza}</p>
+                            <p className="text-[11px] text-emerald-800 mb-2"><strong>SOLUZIONE:</strong> {v.soluzione}</p>
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                              <p className="text-[10px] font-bold text-blue-800 uppercase mb-0.5">Domanda killer per il cliente:</p>
+                              <p className="text-[11px] text-blue-900 italic">{v.domanda_killer}</p>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-
-                    <p className="text-[9px] text-slate-400 mt-4">Probabilit&agrave; basate su dati ANIA/IVASS penetrazione assicurativa per settore. Le domande in blu sono suggerimenti per la call con il cliente.</p>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Obblighi di Legge */}
+                  {intel.obblighi?.length > 0 && (
+                    <div className="bg-white rounded-3xl border border-amber-200/60 p-0 shadow-lg overflow-hidden">
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3.5">
+                        <h4 className="text-sm font-bold text-white">Obblighi di Legge ({intel.obblighi.length})</h4>
+                        <p className="text-[10px] text-amber-100 mt-0.5">Coperture obbligatorie per questa specifica azienda — verificabili per legge</p>
+                      </div>
+                      <div className="p-5 space-y-2">
+                        {intel.obblighi.map((o: any, i: number) => (
+                          <div key={i} className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-slate-900">{o.polizza}</span>
+                              <span className="text-[8px] font-mono text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{o.norma}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-700 mb-1">{o.descrizione}</p>
+                            <p className="text-[10px] text-red-700"><strong>Sanzione:</strong> {o.sanzione}</p>
+                            <p className="text-[10px] text-blue-700 mt-1"><strong>Azione:</strong> {o.azione_broker}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Opportunit&agrave; di Cross-Sell — slimmed */}
+                  {intel.opportunita?.length > 0 && (
+                    <div className="bg-white rounded-3xl border border-emerald-200/60 p-0 shadow-lg overflow-hidden">
+                      <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-3.5">
+                        <h4 className="text-sm font-bold text-white">Opportunit&agrave; consulenziali ({intel.opportunita.length})</h4>
+                        <p className="text-[10px] text-emerald-100 mt-0.5">Da validare in call con il cliente</p>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        {intel.opportunita.map((op: any, i: number) => (
+                          <div key={i} className="p-4 rounded-xl bg-gradient-to-br from-white to-emerald-50 border border-emerald-200">
+                            <p className="text-xs font-bold text-slate-900 mb-1.5">{op.polizza}</p>
+                            <p className="text-[11px] text-slate-700 mb-1"><strong>Perch&eacute;:</strong> {op.motivo_specifico}</p>
+                            <p className="text-[11px] text-emerald-800"><strong>Valore per il cliente:</strong> {op.valore_per_cliente}</p>
+                            {/* trigger_vendita / premio_indicativo / fonte_dato RIMOSSI:
+                                erano script di vendita hard-coded e range premi inventati. */}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Briefing Broker RIMOSSO INTERAMENTE: era template script
+                      ad-hoc (apertura "Buongiorno..." standardizzata, domande generic,
+                      obiezioni hard-coded). Un broker professionista non usa script
+                      copia-incolla. Le DOMANDE rilevanti emergono dalla Broker
+                      Intelligence (Trigger Alerts, Risk Concentration, ecc.). */}
+
+                  {/* Fonti normative */}
+                  {intel.fonti_normative?.length > 0 && (
+                    <p className="text-[9px] text-slate-400">Fonti normative: {intel.fonti_normative.join(' &middot; ')}</p>
+                  )}
+                  </>
                 )
               })()}
 
@@ -3224,7 +3377,7 @@ export default function DashboardShell() {
                       ))}
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-amber-600 uppercase mb-1.5">Raccomandate</p>
+                      <p className="text-[10px] font-bold text-amber-600 uppercase mb-1.5">Raccomandate da verificare</p>
                       {companySearchResult.obblighi_assicurativi.polizze_raccomandate?.map((p: string, i: number) => (
                         <div key={i} className="flex items-start gap-1.5 mb-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
@@ -3237,68 +3390,137 @@ export default function DashboardShell() {
                 </div>
               )}
 
-              {/* Stima Premio Annuale */}
-              {companySearchResult.stima_premio && (
-                <div className="bg-white rounded-3xl border border-emerald-200/60 p-0 shadow-lg shadow-emerald-100/30 overflow-hidden">
-                  <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-3.5">
-                    <h4 className="text-sm font-bold text-white">Stima Premio Annuale</h4>
-                  </div>
-                  <div className="p-6">
-                  <p className="text-2xl font-black text-emerald-700 mb-3">{companySearchResult.stima_premio.totale_stimato}</p>
-                  <div className="space-y-1.5">
-                    {companySearchResult.stima_premio.dettaglio?.map((d: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between text-[11px] py-1.5 border-b border-slate-100 last:border-0">
-                        <span className="font-bold text-slate-700">{d.polizza}</span>
-                        <span className="text-slate-500">&euro;{d.premio_min?.toLocaleString('it-IT')} - &euro;{d.premio_max?.toLocaleString('it-IT')}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-slate-400 mt-2">{companySearchResult.stima_premio.disclaimer}</p>
-                  </div>
-                </div>
-              )}
+              {/* Stima Premio Annuale RIMOSSA: era benchmark grezzo
+                  ATECO×INAIL senza valore per il broker (range generico).
+                  Il broker usa tariffari interni più precisi. Priorità
+                  commerciale ora in bisogni_assicurativi_verificati. */}
 
-              {/* Bisogni Assicurativi — Playbook Commerciale */}
-              {companySearchResult.bisogni_assicurativi?.bisogni_raccomandati?.length > 0 && (
+              {/* ═══ Broker Intelligence — Priorità + Trigger + Bisogni + Playbook ═══ */}
+              {companySearchResult.bisogni_assicurativi && (
                 <div className="bg-white rounded-3xl border border-blue-200/60 p-0 shadow-lg shadow-blue-100/30 overflow-hidden">
                   <div className="bg-gradient-to-r from-blue-500 to-indigo-500 px-6 py-3.5">
-                    <h4 className="text-sm font-bold text-white">Bisogni Assicurativi Rilevati</h4>
+                    <h4 className="text-sm font-bold text-white">Broker Intelligence Assicurativa</h4>
+                    <p className="text-[10px] font-medium text-blue-100 mt-0.5">priorit&agrave; consulenziale + trigger alert + opportunit&agrave; — basati su dati Registro Imprese verificati</p>
                   </div>
-                  <div className="p-6">
-                  <div className="space-y-2">
-                    {companySearchResult.bisogni_assicurativi.bisogni_raccomandati.map((b: any, i: number) => (
-                      <div key={i} className={`p-3 rounded-xl border ${
-                        b.priority === 'immediata' ? 'bg-red-50 border-red-200' :
-                        b.priority === 'alta' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'
-                      }`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                            b.priority === 'immediata' ? 'bg-red-200 text-red-800' :
-                            b.priority === 'alta' ? 'bg-orange-200 text-orange-800' : 'bg-blue-200 text-blue-800'
-                          }`}>{b.priority}</span>
-                          <span className="text-xs font-bold text-slate-800">{b.product}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-600">{b.sales_reason}</p>
-                        {b.why_now && <p className="text-[10px] text-blue-700 font-medium mt-1">{b.why_now}</p>}
-                      </div>
-                    ))}
-                  </div>
+                  <div className="p-6 space-y-4">
 
-                  {/* Playbook */}
-                  {companySearchResult.bisogni_assicurativi.playbook_commerciale && (
-                    <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">Playbook Commerciale</p>
-                      {companySearchResult.bisogni_assicurativi.playbook_commerciale.angolo_attacco && (
-                        <p className="text-[11px] text-slate-700 mb-1"><strong>Angolo:</strong> {companySearchResult.bisogni_assicurativi.playbook_commerciale.angolo_attacco}</p>
-                      )}
-                      {companySearchResult.bisogni_assicurativi.playbook_commerciale.apertura_consigliata && (
-                        <p className="text-[11px] text-slate-700 mb-1"><strong>Apertura:</strong> {companySearchResult.bisogni_assicurativi.playbook_commerciale.apertura_consigliata}</p>
-                      )}
-                      {companySearchResult.bisogni_assicurativi.playbook_commerciale.call_to_action && (
-                        <p className="text-[11px] text-blue-700 font-bold mt-1">{companySearchResult.bisogni_assicurativi.playbook_commerciale.call_to_action}</p>
-                      )}
+                    {/* Priorità commerciale */}
+                    {companySearchResult.bisogni_assicurativi.priorita_commerciale && (() => {
+                      const pc = companySearchResult.bisogni_assicurativi.priorita_commerciale
+                      const colors = pc.level === 'alta'
+                        ? { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', accent: 'text-red-900' }
+                        : pc.level === 'media'
+                          ? { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', accent: 'text-amber-900' }
+                          : { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', accent: 'text-emerald-900' }
+                      return (
+                        <div className={`p-4 rounded-2xl border ${colors.border} ${colors.bg}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className={`text-[11px] font-black uppercase tracking-wider ${colors.text}`}>Priorit&agrave; consulenziale</p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${colors.text} ${colors.bg} border ${colors.border}`}>{pc.level}</span>
+                              <span className={`text-base font-black ${colors.accent}`}>{pc.score}/100</span>
+                            </div>
+                          </div>
+                          {pc.reasons?.length > 0 && (
+                            <ul className="space-y-1 mt-1">
+                              {pc.reasons.slice(0, 4).map((r: string, i: number) => (
+                                <li key={i} className={`text-[12px] ${colors.accent} flex items-start gap-1.5 leading-snug`}>
+                                  <span className={`mt-1 w-1.5 h-1.5 rounded-full ${colors.text.replace('text-', 'bg-')} shrink-0`} />
+                                  {r}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )
+                    })()}
+
+                    {/* Trigger Alerts compatti */}
+                    {companySearchResult.bisogni_assicurativi.trigger_alerts?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">Trigger commerciali verificati ({companySearchResult.bisogni_assicurativi.trigger_alerts.length})</p>
+                        <div className="space-y-1.5">
+                          {companySearchResult.bisogni_assicurativi.trigger_alerts.slice(0, 5).map((a: any, i: number) => {
+                            const c = a.type === 'red_flag'
+                              ? { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', label: 'RED FLAG' }
+                              : a.type === 'opportunita'
+                                ? { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', label: 'OPPORTUNIT&Agrave;' }
+                                : { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', label: 'AVVISO' }
+                            return (
+                              <div key={i} className={`p-2.5 rounded-xl border ${c.border} ${c.bg}`}>
+                                <div className="flex items-start gap-2">
+                                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase shrink-0 mt-0.5 ${c.text}`} dangerouslySetInnerHTML={{__html: c.label}} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-[12px] font-bold ${c.text}`}>{a.title}</p>
+                                    <p className="text-[11px] text-slate-700 leading-snug mt-0.5">{a.message}</p>
+                                    {a.broker_action && <p className="text-[11px] text-slate-900 font-semibold mt-1">→ {a.broker_action}</p>}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bisogni raccomandati */}
+                    {companySearchResult.bisogni_assicurativi.bisogni_raccomandati?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">Opportunit&agrave; assicurative da validare in call</p>
+                        <div className="space-y-1.5">
+                          {companySearchResult.bisogni_assicurativi.bisogni_raccomandati.slice(0, 6).map((b: any, i: number) => (
+                            <div key={i} className={`p-2.5 rounded-xl border ${
+                              b.priority === 'immediata' ? 'bg-red-50 border-red-200' :
+                              b.priority === 'alta' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                                  b.priority === 'immediata' ? 'bg-red-200 text-red-800' :
+                                  b.priority === 'alta' ? 'bg-orange-200 text-orange-800' : 'bg-blue-200 text-blue-800'
+                                }`}>{b.priority}</span>
+                                <span className="text-[12px] font-bold text-slate-800">{b.product}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-700 leading-snug">{b.sales_reason}</p>
+                              {b.why_now && <p className="text-[10px] text-blue-700 font-medium mt-0.5">⚡ {b.why_now}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Playbook semplificato — usa nuovi campi */}
+                    {companySearchResult.bisogni_assicurativi.playbook_commerciale && (
+                      companySearchResult.bisogni_assicurativi.playbook_commerciale.prodotto_principale ||
+                      companySearchResult.bisogni_assicurativi.playbook_commerciale.cross_sell
+                    ) && (
+                      <div className="p-3.5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-2">Playbook prima call</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          {companySearchResult.bisogni_assicurativi.playbook_commerciale.prodotto_principale && (
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Prodotto principale</p>
+                              <p className="text-[12px] font-bold text-slate-800">{companySearchResult.bisogni_assicurativi.playbook_commerciale.prodotto_principale}</p>
+                            </div>
+                          )}
+                          {companySearchResult.bisogni_assicurativi.playbook_commerciale.cross_sell && (
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Cross-sell</p>
+                              <p className="text-[12px] font-bold text-slate-800">{companySearchResult.bisogni_assicurativi.playbook_commerciale.cross_sell}</p>
+                            </div>
+                          )}
+                          {companySearchResult.bisogni_assicurativi.playbook_commerciale.target_principale && (
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Target consigliato</p>
+                              <p className="text-[12px] font-bold text-slate-800 capitalize">{companySearchResult.bisogni_assicurativi.playbook_commerciale.target_principale}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-[11px] text-amber-800">
+                      ⚠️ Priorit&agrave; consulenziali generate da dati pubblici verificati: NON indicano polizze gi&agrave; attive o assenti. La call verifica copertura reale, scadenze, massimali, esclusioni.
                     </div>
-                  )}
                   </div>
                 </div>
               )}

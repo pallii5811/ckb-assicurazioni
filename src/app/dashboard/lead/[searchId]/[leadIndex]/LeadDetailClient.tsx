@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -23,6 +23,9 @@ import {
   Megaphone,
   Target,
   TrendingUp,
+  TrendingDown,
+  Activity,
+  UserCheck,
   Building2,
   Video,
   Check,
@@ -44,6 +47,7 @@ import {
 import { calcOpportunityScore } from '@/components/ResultsTable'
 import { generatePitchAction } from '@/app/dashboard/actions'
 import { analyzeReviewsForRisk } from '@/lib/insurance-analysis'
+
 
 type LeadDetailClientProps = {
   lead: any | null
@@ -227,21 +231,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       ? (lead.htmlErrors as unknown[]).filter((v) => typeof v === 'string')
       : []
 
-  const opportunityItems = useMemo(() => {
-    if (!lead) return []
-    const out: string[] = []
-    const cat = ((lead as any)?.categoria || (lead as any)?.category || '').toLowerCase()
-    const nome = ((lead as any)?.nome || (lead as any)?.name || '').toLowerCase()
-    const combined = `${nome} ${cat}`
-    if (/costruzion|edili|edile|impian|cantier/.test(combined)) out.push('Settore ad alto rischio infortuni')
-    if (/s\.?r\.?l|s\.?p\.?a/.test(nome)) out.push('Società di capitali — serve D&O e Cyber')
-    if (/medic|dentist|clinic|farmaci/.test(combined)) out.push('Settore sanitario — RC Medica obbligatoria')
-    if (/ristorant|bar |pizz|aliment|panific/.test(combined)) out.push('Rischio incendio e RC Terzi elevato')
-    if (/trasport|logistic|spedizion/.test(combined)) out.push('Flotta veicoli e merci da assicurare')
-    if (/avvocat|commerciali|notai|architect|ingegner|consulen/.test(combined)) out.push('RC Professionale obbligatoria')
-    if (out.length === 0) out.push('Analisi rischi disponibile nel dettaglio')
-    return out
-  }, [lead])
+  // opportunityItems RIMOSSO: era keyword matching generico ("Settore ad alto
+  // rischio infortuni" per qualunque azienda edile) senza valore consulenziale.
+  // Sostituito da Trigger Alerts + Bisogni Raccomandati ancorati a dati verificati.
 
   const [reviews, setReviews] = useState<any>(null)
   const reviewRiskSignals = useMemo(() => {
@@ -281,8 +273,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
 
   const [coldEmail, setColdEmail] = useState('')
 
+  const primaryFetchedRef = useRef(false)
+  const secondaryFetchedRef = useRef(false)
+
   useEffect(() => {
     if (!lead) return
+    if (primaryFetchedRef.current) return
+    primaryFetchedRef.current = true
+
     const name = encodeURIComponent(lead?.nome || lead?.azienda || '')
     const city = encodeURIComponent(lead?.citta || lead?.city || '')
     const website = encodeURIComponent(lead?.sito || lead?.website || lead?.url || '')
@@ -390,6 +388,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   // Fetch B2B triggers once registry data is available
   useEffect(() => {
     if (!lead || loadingRegistry) return
+    if (secondaryFetchedRef.current) return
+    secondaryFetchedRef.current = true
+
     setLoadingTriggers(true)
     fetch('/api/lead-triggers', {
       method: 'POST',
@@ -601,18 +602,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             <span style={{ margin: '0 8px', color: '#CBD5E1' }}>•</span>
             {categoria || category || '—'}
           </div>
-          {registry?.stima_premio?.totale_stimato && (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#EEF2FF', border: '1px solid #C7D2FE',
-              borderRadius: 8, padding: '4px 12px', marginTop: 6,
-              fontSize: 12, fontWeight: 700, color: '#4338CA',
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
-              <DollarSign size={13} />
-              Potenziale stimato: {registry.stima_premio.totale_stimato}/anno
-            </div>
-          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -828,26 +817,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             </div>
           </div>
 
-          <div className="mt-4">
-            <div className="text-xs font-semibold text-slate-700 mb-2">Opportunità</div>
-            {opportunityItems.length > 0 ? (
-              <ul className="space-y-1 text-sm">
-                {opportunityItems.map((o, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="mt-0.5 w-5 h-5 rounded-full 
-                      bg-blue-100 border border-blue-200 
-                      flex items-center justify-center 
-                      text-blue-600 text-xs font-black shrink-0">
-                      !
-                    </span>
-                    <span className="text-slate-800">{o}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <span className="text-sm text-slate-500">—</span>
-            )}
-          </div>
         </div>
       </div>
 
@@ -1166,7 +1135,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <Users className="w-4 h-4 text-violet-600" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">Persone Chiave — Intelligence Assicurativa</h3>
+                <h3 className="font-bold text-base text-slate-900">Persone chiave — Opportunità consulenziali</h3>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider">
                   {peopleData.fonti?.join(' · ')} — {peopleData.totale_trovate > 0 ? `${peopleData.totale_trovate} persone identificate` : 'Profili obbligatori per forma giuridica'}
                 </p>
@@ -1174,10 +1143,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             </div>
           </div>
 
-          {/* Team recommendations */}
-          {peopleData.raccomandazioni_team?.length > 0 && (
+          {/* Team recommendations RIMOSSO: era template identico per ogni
+              azienda con stessa forma giuridica. Rimpiazzato da Risk
+              Concentration + Trigger Alerts nella Broker Intelligence. */}
+          {false && peopleData.raccomandazioni_team?.length > 0 && (
             <div className="mb-4 p-3 rounded-xl bg-violet-100/50 border border-violet-200">
-              <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">Raccomandazioni per il team</p>
+              <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1.5">Leve di contatto per il consulente</p>
               {peopleData.raccomandazioni_team.map((r: string, i: number) => (
                 <p key={i} className="text-[11px] text-violet-800 flex items-start gap-1.5">
                   <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
@@ -1299,45 +1270,20 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   </div>
                 )}
 
-                {p.polizze_personali?.length > 0 && (
-                  <div className="mb-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Polizze personali</p>
-                    <div className="space-y-1">
-                      {p.polizze_personali.map((pol: any, j: number) => (
-                        <div key={j} className="flex items-start gap-2">
-                          <span className={`mt-0.5 shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded ${
-                            pol.priorita === 'obbligatoria' ? 'bg-red-100 text-red-700' :
-                            pol.priorita === 'critica' ? 'bg-orange-100 text-orange-700' :
-                            'bg-slate-100 text-slate-500'
-                          }`}>{pol.priorita === 'obbligatoria' ? 'OBBL.' : pol.priorita === 'critica' ? 'CRIT.' : 'RACC.'}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-bold text-slate-700">{pol.polizza}</p>
-                            <p className="text-[10px] text-slate-500">{pol.motivo}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {p.rischi_personali?.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100">
-                    <p className="text-[9px] font-bold text-red-400 uppercase tracking-wider mb-1">Rischi personali</p>
-                    <div className="flex flex-wrap gap-1">
-                      {p.rischi_personali.map((r: string, j: number) => (
-                        <span key={j} className="text-[9px] font-medium px-2 py-0.5 rounded-lg bg-red-50 border border-red-100 text-red-600">{r}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* polizze_personali + rischi_personali per-persona RIMOSSI:
+                    erano template identici basati sul ruolo (es. "Polizza TCM
+                    — Dipendenza economica familiare" appariva uguale per ogni
+                    titolare). L'intelligence reale sul titolare è ora calcolata
+                    da CF + bilanci nei blocchi Titolare Intelligence, Risk
+                    Concentration e Trigger Alerts della Broker Intelligence. */}
               </div>
             ))}
           </div>
 
           {/* Disclaimer accuratezza */}
-          <div className="mt-4 p-3 rounded-xl bg-amber-50/60 border border-amber-200/50">
-            <p className="text-[9px] text-amber-700 leading-relaxed">
-              <span className="font-bold">&#9888; Nota:</span> I dati provengono da fonti pubbliche (Registro Imprese, CompanyReports, OpenCorporates, privacy policy, Google News). Le polizze personali sono <span className="font-bold">raccomandazioni basate sul ruolo e sulla forma giuridica</span>, non preventivi reali. Verificare sempre i dati prima di contattare il lead.
+          <div className="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+            <p className="text-xs text-amber-800 leading-relaxed">
+              ⚠️ <span className="font-semibold">Nota:</span> nomi, ruoli e quote provengono da Registro Imprese / OpenAPI. L'età del titolare viene derivata dal codice fiscale (vedi Titolare Intelligence). Il sistema non conosce le polizze attualmente attive: massimali, esclusioni, scoperti e scadenze vanno sempre verificati in call.
             </p>
           </div>
         </div>
@@ -1487,7 +1433,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <p className="text-sm font-semibold text-slate-900">€ {safeStr(registry.costo_personale)}</p>
                 </div>
               )}
-              {registry.utile_netto && (
+              {registry.utile_netto !== undefined && registry.utile_netto !== null && registry.utile_netto !== '' && (
                 <div>
                   <p className="text-xs text-gray-500">Utile Netto</p>
                   <p className="text-sm font-semibold text-slate-900">€ {safeStr(registry.utile_netto)}</p>
@@ -1551,6 +1497,122 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <p className="text-sm font-semibold text-slate-900">{safeStr(registry.stato)}</p>
                 </div>
               )}
+              {/* ── Nuovi campi OpenAPI IT-advanced ── */}
+              {registry.codice_sdi && (
+                <div>
+                  <p className="text-xs text-gray-500">Codice SDI</p>
+                  <p className="text-sm font-mono font-semibold text-slate-900">{safeStr(registry.codice_sdi)}</p>
+                </div>
+              )}
+              {registry.ral_medio && (
+                <div>
+                  <p className="text-xs text-gray-500">RAL Medio</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {Number(registry.ral_medio).toLocaleString('it-IT')}</p>
+                </div>
+              )}
+              {registry.patrimonio_netto && (
+                <div>
+                  <p className="text-xs text-gray-500">Patrimonio Netto</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {Number(registry.patrimonio_netto).toLocaleString('it-IT')}</p>
+                </div>
+              )}
+              {registry.totale_attivo && (
+                <div>
+                  <p className="text-xs text-gray-500">Totale Attivo</p>
+                  <p className="text-sm font-semibold text-slate-900">€ {Number(registry.totale_attivo).toLocaleString('it-IT')}</p>
+                </div>
+              )}
+              {registry.data_registrazione && (
+                <div>
+                  <p className="text-xs text-gray-500">Data Registrazione</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.data_registrazione)}</p>
+                </div>
+              )}
+              {registry.regione && (
+                <div>
+                  <p className="text-xs text-gray-500">Regione</p>
+                  <p className="text-sm font-semibold text-slate-900">{safeStr(registry.regione)}</p>
+                </div>
+              )}
+              {registry.forma_giuridica_codice && (
+                <div>
+                  <p className="text-xs text-gray-500">Cod. Forma Giuridica</p>
+                  <p className="text-sm font-mono font-semibold text-slate-900">{safeStr(registry.forma_giuridica_codice)}</p>
+                </div>
+              )}
+              {registry.gruppo_iva && (
+                <div>
+                  <p className="text-xs text-gray-500">Gruppo IVA</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.gruppo_iva.partecipazione ? (registry.gruppo_iva.leader ? 'Capogruppo' : 'Partecipante') : 'Non partecipa'}</p>
+                </div>
+              )}
+              {typeof registry.gps_lat === 'number' && typeof registry.gps_lng === 'number' && (
+                <div>
+                  <p className="text-xs text-gray-500">Coordinate GPS</p>
+                  <a href={`https://maps.google.com/?q=${registry.gps_lat},${registry.gps_lng}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-700 hover:underline">{registry.gps_lat.toFixed(5)}, {registry.gps_lng.toFixed(5)}</a>
+                </div>
+              )}
+              {registry.ateco_2022 && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">ATECO 2022</p>
+                  <p className="text-sm font-semibold text-slate-900">{registry.ateco_2022.code} — {registry.ateco_2022.description}</p>
+                </div>
+              )}
+              {registry.data_cessazione && (
+                <div>
+                  <p className="text-xs text-gray-500 text-red-500">Data Cessazione</p>
+                  <p className="text-sm font-semibold text-red-700">{safeStr(registry.data_cessazione)}</p>
+                </div>
+              )}
+              {registry.storico_bilanci && (() => {
+                let rows: Array<{anno: number; fatturato?: number; utile?: number; dipendenti?: number; costo_personale?: number}> = []
+                const raw = registry.storico_bilanci
+                if (Array.isArray(raw)) {
+                  rows = raw
+                } else {
+                  try {
+                    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+                    if (parsed.anni && Array.isArray(parsed.anni)) {
+                      rows = parsed.anni.map((anno: string, i: number) => ({
+                        anno: Number(anno),
+                        fatturato: parsed.fatturato?.[i] ? Number(parsed.fatturato[i]) : undefined,
+                        utile: parsed.utile?.[i] ? Number(parsed.utile[i]) : undefined,
+                        costo_personale: parsed.costo_personale?.[i] ? Number(parsed.costo_personale[i]) : undefined,
+                      }))
+                    }
+                  } catch { /* ignore */ }
+                }
+                if (rows.length === 0) return null
+                return (
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-gray-500 mb-2">Storico Bilanci ({rows.length} anni)</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="text-left text-slate-500 border-b border-slate-200">
+                            <th className="py-1 pr-3 font-bold">Anno</th>
+                            <th className="py-1 pr-3 font-bold">Fatturato</th>
+                            <th className="py-1 pr-3 font-bold">Utile</th>
+                            <th className="py-1 pr-3 font-bold">Dipendenti</th>
+                            <th className="py-1 pr-3 font-bold">Costo Pers.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((b: any) => (
+                            <tr key={b.anno} className="border-b border-slate-100 last:border-0">
+                              <td className="py-1 pr-3 font-bold text-slate-800">{b.anno}</td>
+                              <td className="py-1 pr-3 text-slate-700">{b.fatturato ? `€${Number(b.fatturato).toLocaleString('it-IT')}` : '—'}</td>
+                              <td className="py-1 pr-3 text-slate-700">{b.utile !== undefined && b.utile !== null ? `€${Number(b.utile).toLocaleString('it-IT')}` : '—'}</td>
+                              <td className="py-1 pr-3 text-slate-700">{b.dipendenti ?? '—'}</td>
+                              <td className="py-1 pr-3 text-slate-700">{b.costo_personale ? `€${Number(b.costo_personale).toLocaleString('it-IT')}` : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })()}
               {registry.persone?.length > 0 && (
                 <div className="md:col-span-2">
                   <p className="text-xs text-gray-500 mb-1">Persone Chiave</p>
@@ -1575,146 +1637,38 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               )}
             </div>
 
-            {/* Profilo Titolare dettagliato */}
-            {registry.titolare && (registry.bio_titolare || registry.linkedin_titolare || registry.esperienze_titolare || registry.formazione_titolare || registry.competenze_titolare || registry.seniority_titolare) && (
-              <div className="mt-4 rounded-2xl border border-indigo-200 p-5 bg-white shadow-sm">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
-                    {String(registry.titolare).split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{safeStr(registry.titolare)}</p>
-                    <p className="text-[10px] text-slate-500">{safeStr(registry.ruolo_titolare) || 'Titolare / Amministratore'}{registry.seniority_titolare ? ` · ${safeStr(registry.seniority_titolare)}` : ''}</p>
-                  </div>
-                </div>
-                {registry.bio_titolare && (
-                  <p className="text-xs text-slate-600 mb-3 leading-relaxed">{safeStr(registry.bio_titolare)}</p>
-                )}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {registry.linkedin_titolare && (
-                    <div className="bg-indigo-50 rounded-lg p-2.5">
-                      <p className="text-[9px] font-bold text-indigo-400 uppercase">LinkedIn</p>
-                      <a href={String(registry.linkedin_titolare)} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 hover:underline">Profilo LinkedIn</a>
-                    </div>
-                  )}
-                  {registry.instagram_titolare && (
-                    <div className="bg-indigo-50 rounded-lg p-2.5">
-                      <p className="text-[9px] font-bold text-indigo-400 uppercase">Instagram</p>
-                      <a href={String(registry.instagram_titolare)} target="_blank" rel="noreferrer" className="text-xs font-bold text-pink-600 hover:underline">Instagram</a>
-                    </div>
-                  )}
-                  {registry.facebook_titolare && (
-                    <div className="bg-indigo-50 rounded-lg p-2.5">
-                      <p className="text-[9px] font-bold text-indigo-400 uppercase">Facebook</p>
-                      <a href={String(registry.facebook_titolare)} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:underline">Facebook</a>
-                    </div>
-                  )}
-                  {registry.seniority_titolare && (
-                    <div className="bg-indigo-50 rounded-lg p-2.5">
-                      <p className="text-[9px] font-bold text-indigo-400 uppercase">Seniority</p>
-                      <p className="text-xs font-bold text-slate-800 capitalize">{safeStr(registry.seniority_titolare)}</p>
-                    </div>
-                  )}
-                </div>
-                {registry.formazione_titolare && (
-                  <div className="mt-2 bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-[9px] font-bold text-indigo-400 uppercase mb-0.5">Formazione</p>
-                    <p className="text-xs text-slate-700">{safeStr(registry.formazione_titolare)}</p>
-                  </div>
-                )}
-                {registry.esperienze_titolare && Array.isArray(registry.esperienze_titolare) && registry.esperienze_titolare.length > 0 && (
-                  <div className="mt-2 bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-[9px] font-bold text-indigo-400 uppercase mb-0.5">Esperienze Precedenti</p>
-                    <div className="space-y-0.5">
-                      {registry.esperienze_titolare.map((e: any, i: number) => (
-                        <p key={i} className="text-xs text-slate-700">{e.ruolo && e.ruolo !== e.azienda ? `${safeStr(e.ruolo)} @ ` : ''}{safeStr(e.azienda)}{e.periodo ? ` (${safeStr(e.periodo)})` : ''}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {registry.competenze_titolare && Array.isArray(registry.competenze_titolare) && registry.competenze_titolare.length > 0 && (
-                  <div className="mt-2 bg-indigo-50 rounded-lg p-2.5">
-                    <p className="text-[9px] font-bold text-indigo-400 uppercase mb-0.5">Competenze</p>
-                    <div className="flex flex-wrap gap-1">
-                      {registry.competenze_titolare.map((c: string, i: number) => (
-                        <span key={i} className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded font-bold">{c}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Profilo Titolare dettagliato RIMOSSO:
+                bio/formazione/esperienze/competenze/seniority erano dati
+                "curriculum marketing" estratti via Tavily/LinkedIn, spesso
+                rumorosi e senza impatto diretto sulla vendita assicurativa.
+                Nome/CF/età/succession sono ora in Titolare Intelligence (CF).
+                I link social del titolare restano in Clay Enrichment. */}
 
-            {/* Intelligence Assicurativa */}
-            {(registry.certificazioni?.length > 0 || registry.ha_flotta_veicoli || registry.ha_immobili_proprieta || registry.partecipa_appalti_pubblici || registry.rischi_specifici?.length > 0 || registry.note_broker) && (
-              <div className="mt-4 p-4 rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50">
-                <p className="text-xs font-bold text-cyan-800 uppercase mb-3">Intelligence Assicurativa</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {registry.certificazioni?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-cyan-700 font-bold uppercase mb-1">Certificazioni</p>
-                      <div className="flex flex-wrap gap-1">
-                        {registry.certificazioni.map((c: string, i: number) => (
-                          <span key={i} className="text-[10px] bg-cyan-200 text-cyan-900 px-2 py-0.5 rounded font-bold">{c}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {registry.ha_flotta_veicoli && (
-                    <div>
-                      <p className="text-[10px] text-cyan-700 font-bold uppercase">Flotta Veicoli</p>
-                      <p className="text-xs text-slate-800">{registry.numero_veicoli ? `${registry.numero_veicoli} veicoli` : 'Presente'}</p>
-                    </div>
-                  )}
-                  {registry.ha_immobili_proprieta && (
-                    <div>
-                      <p className="text-[10px] text-cyan-700 font-bold uppercase">Immobili di Proprietà</p>
-                      <p className="text-xs text-slate-800">{safeStr(registry.immobili_descrizione) || 'Rilevati'}</p>
-                    </div>
-                  )}
-                  {registry.partecipa_appalti_pubblici && (
-                    <div>
-                      <p className="text-[10px] text-cyan-700 font-bold uppercase">Appalti Pubblici</p>
-                      <p className="text-xs text-slate-800">{safeStr(registry.appalti_info) || 'Partecipa a bandi/appalti'}</p>
-                    </div>
-                  )}
-                  {registry.rischi_specifici?.length > 0 && (
-                    <div className="md:col-span-2">
-                      <p className="text-[10px] text-red-700 font-bold uppercase mb-1">Rischi Specifici</p>
-                      <div className="flex flex-wrap gap-1">
-                        {registry.rischi_specifici.map((r: string, i: number) => (
-                          <span key={i} className="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold">{r}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {registry.note_broker && (
-                    <div className="md:col-span-2 mt-1 p-2 bg-amber-50 rounded-lg border border-amber-200">
-                      <p className="text-[10px] text-amber-700 font-bold uppercase mb-0.5">Note per il Broker</p>
-                      <p className="text-[11px] text-slate-700">{registry.note_broker}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Intelligence Assicurativa GPT-generata RIMOSSA:
+                i campi certificazioni/note_broker/rischi_specifici generati da LLM
+                producevano allucinazioni (es. ISO 9001/SOA su SRLS). La vera
+                intelligence verificata è ora nei blocchi Broker Intelligence
+                più sotto (Trigger Alerts, Financial Intelligence, Titolare
+                Intelligence, Risk Concentration) basati solo su Registro
+                Imprese + bilanci + CF verificabili. */}
           </div>
         ) : null}
       </div>
 
-      {/* Analisi AI */}
+      {/* Segnali esterni verificati */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{
             fontSize: 15, fontWeight: 700, color: '#0F172A',
             fontFamily: 'Syne, sans-serif', margin: '0 0 4px',
           }}>
-            Analisi Rischio & Patrimonio
+            Segnali esterni verificati
           </h2>
           <p style={{
             fontSize: 13, color: '#94A3B8',
             fontFamily: 'DM Sans, sans-serif', margin: 0,
           }}>
-            Rischi settoriali, dati camerali, fatturato, recensioni e insight per la polizza
+            Recensioni Google, presenza social e competitor locali — dati pubblici grezzi
           </p>
         </div>
 
@@ -2107,9 +2061,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     </div>
                   ))}
                 </div>
-                <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200">
-                  <p className="text-[10px] text-blue-700 font-medium">💡 Consiglio: se i competitor sono più strutturati (&gt;50 recensioni), è probabile che abbiano già un broker. Usa questo come leva: offri un check-up coperture gratuito per differenziarti.</p>
-                </div>
               </div>
             ) : (
               <p className="text-gray-400 text-sm">Dati competitor non disponibili</p>
@@ -2239,7 +2190,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
 
             {/* Polizze RACCOMANDATE */}
             <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50">
-              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-2">Polizze Raccomandate</p>
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-2">Coperture raccomandate da verificare</p>
               <ul className="space-y-1.5">
                 {registry.obblighi_assicurativi.polizze_raccomandate.map((p: string, i: number) => (
                   <li key={i} className="flex items-start gap-1.5">
@@ -2278,7 +2229,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 ✓ NORMATIVA REALE
               </span>
               <span className="text-[9px] text-emerald-500">
-                Obblighi basati su codice ATECO e normativa INAIL/IVASS vigente — {registry.obblighi_assicurativi.fonte}
+                Obblighi e coperture settoriali basati su codice ATECO e normativa INAIL/IVASS — non indicano il portafoglio polizze già attivo — {registry.obblighi_assicurativi.fonte}
               </span>
               {registry.ateco_stimato && (
                 <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 border border-amber-200">
@@ -2298,12 +2249,12 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <Target className="w-4 h-4 text-sky-600" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">Bisogni Assicurativi Verificati</h3>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">solo fatti verificati + derivazioni commerciali</p>
+                <h3 className="font-bold text-base text-slate-900">Broker Intelligence Assicurativa</h3>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">fatti verificati separati da opportunità da validare in call</p>
               </div>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Priorità commerciale</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Potenziale consulenziale</p>
               <div className={`mt-1 inline-flex items-center gap-2 rounded-xl px-3 py-2 border ${
                 registry.bisogni_assicurativi_verificati.priorita_commerciale.level === 'altissima' ? 'bg-red-100 border-red-200 text-red-700' :
                 registry.bisogni_assicurativi_verificati.priorita_commerciale.level === 'alta' ? 'bg-orange-100 border-orange-200 text-orange-700' :
@@ -2316,58 +2267,377 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             </div>
           </div>
 
-          {registry.bisogni_assicurativi_verificati.playbook_commerciale && (
-            <div className="mb-4 p-4 rounded-2xl border border-indigo-200 bg-white/90 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-indigo-600" />
+          {/* ── Trigger Alerts (segnali verificati da dati pubblici) ── */}
+          {registry.bisogni_assicurativi_verificati.trigger_alerts?.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  <h4 className="font-bold text-base text-slate-900">Segnali commerciali verificati</h4>
                 </div>
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900">Playbook Commerciale Immediato</h4>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">cosa vendere, a chi, e con che apertura</p>
-                </div>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  {registry.bisogni_assicurativi_verificati.trigger_alerts.length} segnal{registry.bisogni_assicurativi_verificati.trigger_alerts.length === 1 ? 'e' : 'i'} da dati pubblici
+                </span>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <div className="p-3 rounded-xl border border-indigo-100 bg-indigo-50">
-                  <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider mb-1">Prodotto #1</p>
-                  <p className="text-sm font-bold text-slate-900">{registry.bisogni_assicurativi_verificati.playbook_commerciale.prodotto_principale || 'Da definire'}</p>
-                </div>
-                <div className="p-3 rounded-xl border border-sky-100 bg-sky-50">
-                  <p className="text-[10px] font-black text-sky-700 uppercase tracking-wider mb-1">Cross-sell</p>
-                  <p className="text-sm font-bold text-slate-900">{registry.bisogni_assicurativi_verificati.playbook_commerciale.cross_sell || 'Nessun cross-sell prioritario'}</p>
-                </div>
-                <div className="p-3 rounded-xl border border-emerald-100 bg-emerald-50">
-                  <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-1">Decision maker</p>
-                  <p className="text-sm font-bold text-slate-900">{registry.bisogni_assicurativi_verificati.playbook_commerciale.target_principale || 'Titolare / referente da identificare'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">Angolo di attacco</p>
-                  <p className="text-[11px] text-slate-700">{registry.bisogni_assicurativi_verificati.playbook_commerciale.angolo_attacco}</p>
-                </div>
-                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">Apertura call consigliata</p>
-                  <p className="text-[11px] text-slate-700">{registry.bisogni_assicurativi_verificati.playbook_commerciale.apertura_consigliata}</p>
-                </div>
-              </div>
-
-              <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
-                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1">Obiettivo della call</p>
-                <p className="text-[11px] text-slate-800 font-medium">{registry.bisogni_assicurativi_verificati.playbook_commerciale.call_to_action}</p>
+              <div className="space-y-2">
+                {registry.bisogni_assicurativi_verificati.trigger_alerts.map((alert: any) => {
+                  const colors = alert.type === 'red_flag'
+                    ? { border: 'border-red-200', bg: 'bg-red-50', icon: 'text-red-600', title: 'text-red-900', chip: 'bg-red-100 text-red-700' }
+                    : alert.type === 'opportunita'
+                    ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: 'text-emerald-600', title: 'text-emerald-900', chip: 'bg-emerald-100 text-emerald-700' }
+                    : { border: 'border-slate-200', bg: 'bg-slate-50', icon: 'text-slate-600', title: 'text-slate-900', chip: 'bg-slate-100 text-slate-600' }
+                  const sevLabel = alert.severity === 'critico' ? 'CRITICO' : alert.severity === 'alto' ? 'ALTO' : 'MEDIO'
+                  const sevChip = alert.severity === 'critico'
+                    ? 'bg-red-600 text-white'
+                    : alert.severity === 'alto' ? 'bg-orange-500 text-white'
+                    : 'bg-amber-400 text-slate-900'
+                  const typeLabel = alert.type === 'red_flag' ? 'RED FLAG' : alert.type === 'opportunita' ? 'OPPORTUNITÀ' : 'INFO'
+                  return (
+                    <div key={alert.id} className={`p-4 rounded-xl border-2 ${colors.border} ${colors.bg}`}>
+                      <div className="flex items-start gap-3">
+                        <div className="shrink-0">
+                          {alert.type === 'red_flag' ? (
+                            <AlertTriangle className={`w-5 h-5 ${colors.icon}`} />
+                          ) : alert.type === 'opportunita' ? (
+                            <Zap className={`w-5 h-5 ${colors.icon}`} />
+                          ) : (
+                            <Activity className={`w-5 h-5 ${colors.icon}`} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${sevChip}`}>{sevLabel}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colors.chip}`}>{typeLabel}</span>
+                          </div>
+                          <h5 className={`text-[14px] font-black leading-snug ${colors.title}`}>{alert.title}</h5>
+                          <p className="mt-1.5 text-[13px] text-slate-700 leading-relaxed">{alert.description}</p>
+                          <div className="mt-2.5 p-2.5 rounded-lg bg-white/70 border border-slate-200">
+                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Azione broker</p>
+                            <p className="text-[13px] text-slate-800 font-medium leading-relaxed">{alert.action}</p>
+                          </div>
+                          {alert.evidence_ids?.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {alert.evidence_ids.map((id: string) => (
+                                <span key={id} className="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-600">
+                                  fonte: {id.replace(/_/g, ' ')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
 
+          {/* ── Financial Intelligence (trend bilanci verificati) ── */}
+          {registry.bisogni_assicurativi_verificati.financial_intelligence && (
+            <div className="mb-4 p-5 rounded-2xl border border-violet-200 bg-white/90 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-slate-900">Intelligenza finanziaria</h4>
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wider">
+                    calcolata su {registry.bisogni_assicurativi_verificati.financial_intelligence.years_analyzed} bilanci depositati ({registry.bisogni_assicurativi_verificati.financial_intelligence.oldest_year}→{registry.bisogni_assicurativi_verificati.financial_intelligence.latest_year})
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Trend fatturato */}
+                <div className={`p-4 rounded-xl border ${
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'crescita' ? 'border-emerald-200 bg-emerald-50' :
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'declino' ? 'border-red-200 bg-red-50' :
+                  'border-slate-200 bg-slate-50'
+                }`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'crescita' ? (
+                      <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    ) : registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'declino' ? (
+                      <TrendingDown className="w-4 h-4 text-red-600" />
+                    ) : (
+                      <Activity className="w-4 h-4 text-slate-500" />
+                    )}
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fatturato</p>
+                  </div>
+                  <p className={`text-xl font-black ${
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'crescita' ? 'text-emerald-700' :
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'declino' ? 'text-red-700' :
+                    'text-slate-700'
+                  }`}>
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend_pct !== null
+                      ? `${registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend_pct > 0 ? '+' : ''}${registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend_pct}%`
+                      : 'n/d'}
+                  </p>
+                  <p className="text-[12px] text-slate-600 mt-0.5 capitalize">
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend || 'dato singolo'}
+                  </p>
+                </div>
+
+                {/* Utile */}
+                <div className={`p-4 rounded-xl border ${
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'positivo' ? 'border-emerald-200 bg-emerald-50' :
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'negativo' ? 'border-red-200 bg-red-50' :
+                  'border-slate-200 bg-slate-50'
+                }`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <DollarSign className={`w-4 h-4 ${
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'positivo' ? 'text-emerald-600' :
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'negativo' ? 'text-red-600' :
+                      'text-slate-500'
+                    }`} />
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Utile {registry.bisogni_assicurativi_verificati.financial_intelligence.latest_year}</p>
+                  </div>
+                  <p className={`text-xl font-black ${
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'positivo' ? 'text-emerald-700' :
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'negativo' ? 'text-red-700' :
+                    'text-slate-700'
+                  }`}>
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.latest_profit !== null
+                      ? `€${new Intl.NumberFormat('it-IT').format(registry.bisogni_assicurativi_verificati.financial_intelligence.latest_profit)}`
+                      : 'n/d'}
+                  </p>
+                  <p className="text-[12px] text-slate-600 mt-0.5 capitalize">
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status || 'non disponibile'}
+                  </p>
+                </div>
+
+                {/* Solvibilità */}
+                <div className={`p-4 rounded-xl border ${
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'solida' ? 'border-emerald-200 bg-emerald-50' :
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'media' ? 'border-amber-200 bg-amber-50' :
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'bassa' ? 'border-red-200 bg-red-50' :
+                  'border-slate-200 bg-slate-50'
+                }`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Shield className={`w-4 h-4 ${
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'solida' ? 'text-emerald-600' :
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'media' ? 'text-amber-600' :
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'bassa' ? 'text-red-600' :
+                      'text-slate-500'
+                    }`} />
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Solvibilità</p>
+                  </div>
+                  <p className={`text-xl font-black capitalize ${
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'solida' ? 'text-emerald-700' :
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'media' ? 'text-amber-700' :
+                    registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'bassa' ? 'text-red-700' :
+                    'text-slate-700'
+                  }`}>
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level || 'n/d'}
+                  </p>
+                  <p className="text-[12px] text-slate-600 mt-0.5">
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_ratio !== null
+                      ? `PN/Attivo ${Math.round(registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_ratio * 100)}%`
+                      : 'dati incompleti'}
+                  </p>
+                </div>
+
+                {/* Dipendenti trend */}
+                <div className={`p-4 rounded-xl border ${
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'crescita' ? 'border-emerald-200 bg-emerald-50' :
+                  registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'riduzione' ? 'border-red-200 bg-red-50' :
+                  'border-slate-200 bg-slate-50'
+                }`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Users className={`w-4 h-4 ${
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'crescita' ? 'text-emerald-600' :
+                      registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'riduzione' ? 'text-red-600' :
+                      'text-slate-500'
+                    }`} />
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Organico</p>
+                  </div>
+                  <p className="text-xl font-black text-slate-900">
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.latest_headcount !== null
+                      ? registry.bisogni_assicurativi_verificati.financial_intelligence.latest_headcount
+                      : 'n/d'}
+                  </p>
+                  <p className="text-[12px] text-slate-600 mt-0.5 capitalize">
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend || 'dato singolo'}
+                  </p>
+                </div>
+              </div>
+
+              {registry.bisogni_assicurativi_verificati.financial_intelligence.payroll_dependency_ratio !== null && (
+                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                  <p className="text-[12px] text-slate-700">
+                    <span className="font-semibold">Costo personale / fatturato:</span> {Math.round(registry.bisogni_assicurativi_verificati.financial_intelligence.payroll_dependency_ratio * 100)}%
+                    {registry.bisogni_assicurativi_verificati.financial_intelligence.payroll_dependency_ratio > 0.5 && (
+                      <span className="ml-2 text-red-700 font-semibold">⚠ dipendenza personale molto alta</span>
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Titolare Intelligence (età da CF + succession) ── */}
+          {registry.bisogni_assicurativi_verificati.titolare_intelligence && registry.bisogni_assicurativi_verificati.titolare_intelligence.eta !== null && (
+            <div className="mb-4 p-5 rounded-2xl border border-blue-200 bg-white/90 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center">
+                  <UserCheck className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-slate-900">Intelligenza titolare</h4>
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wider">dati estratti dal codice fiscale verificato</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="md:col-span-2 p-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nominativo</p>
+                  <p className="text-[15px] font-bold text-slate-900 leading-snug">{registry.bisogni_assicurativi_verificati.titolare_intelligence.nome || '—'}</p>
+                  {registry.bisogni_assicurativi_verificati.titolare_intelligence.codice_fiscale && (
+                    <p className="text-[11px] font-mono text-slate-500 mt-1">{registry.bisogni_assicurativi_verificati.titolare_intelligence.codice_fiscale}</p>
+                  )}
+                </div>
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Età</p>
+                  <p className="text-[22px] font-black text-slate-900 leading-none">{registry.bisogni_assicurativi_verificati.titolare_intelligence.eta}</p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {registry.bisogni_assicurativi_verificati.titolare_intelligence.sesso === 'F' ? 'Femmina' : registry.bisogni_assicurativi_verificati.titolare_intelligence.sesso === 'M' ? 'Maschio' : '—'}
+                    {registry.bisogni_assicurativi_verificati.titolare_intelligence.data_nascita && ` · nato/a ${registry.bisogni_assicurativi_verificati.titolare_intelligence.data_nascita}`}
+                  </p>
+                </div>
+                <div className={`p-4 rounded-xl border ${
+                  registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk === 'critico' ? 'border-red-200 bg-red-50' :
+                  registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk === 'alto' ? 'border-orange-200 bg-orange-50' :
+                  registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk === 'medio' ? 'border-amber-200 bg-amber-50' :
+                  'border-emerald-200 bg-emerald-50'
+                }`}>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Rischio successione</p>
+                  <p className={`text-[15px] font-black capitalize ${
+                    registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk === 'critico' ? 'text-red-700' :
+                    registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk === 'alto' ? 'text-orange-700' :
+                    registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk === 'medio' ? 'text-amber-700' :
+                    'text-emerald-700'
+                  }`}>
+                    {registry.bisogni_assicurativi_verificati.titolare_intelligence.succession_risk || 'n/d'}
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    {registry.bisogni_assicurativi_verificati.titolare_intelligence.eta >= 65 ? 'finestra pensionamento'
+                      : registry.bisogni_assicurativi_verificati.titolare_intelligence.eta >= 55 ? 'passaggio generazionale'
+                      : registry.bisogni_assicurativi_verificati.titolare_intelligence.eta >= 45 ? 'pianificazione utile'
+                      : 'tema non urgente'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Risk Concentration (socio unico, capitale, patrimonio) ── */}
+          {registry.bisogni_assicurativi_verificati.risk_concentration?.reasons?.length > 0 && (
+            <div className={`mb-4 p-5 rounded-2xl border-2 shadow-sm ${
+              registry.bisogni_assicurativi_verificati.risk_concentration.level === 'critico' ? 'border-red-200 bg-red-50' :
+              registry.bisogni_assicurativi_verificati.risk_concentration.level === 'alto' ? 'border-orange-200 bg-orange-50' :
+              registry.bisogni_assicurativi_verificati.risk_concentration.level === 'medio' ? 'border-amber-200 bg-amber-50' :
+              'border-emerald-200 bg-emerald-50'
+            }`}>
+              <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Shield className={`w-5 h-5 ${
+                    registry.bisogni_assicurativi_verificati.risk_concentration.level === 'critico' ? 'text-red-600' :
+                    registry.bisogni_assicurativi_verificati.risk_concentration.level === 'alto' ? 'text-orange-600' :
+                    registry.bisogni_assicurativi_verificati.risk_concentration.level === 'medio' ? 'text-amber-600' :
+                    'text-emerald-600'
+                  }`} />
+                  <div>
+                    <h4 className="font-bold text-base text-slate-900">Concentrazione rischio aziendale</h4>
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wider">socio unico, capitale, patrimonio, età attività</p>
+                  </div>
+                </div>
+                <span className={`text-[11px] font-black px-3 py-1 rounded-full uppercase ${
+                  registry.bisogni_assicurativi_verificati.risk_concentration.level === 'critico' ? 'bg-red-600 text-white' :
+                  registry.bisogni_assicurativi_verificati.risk_concentration.level === 'alto' ? 'bg-orange-500 text-white' :
+                  registry.bisogni_assicurativi_verificati.risk_concentration.level === 'medio' ? 'bg-amber-400 text-slate-900' :
+                  'bg-emerald-500 text-white'
+                }`}>
+                  livello {registry.bisogni_assicurativi_verificati.risk_concentration.level}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                <div className="p-3 rounded-lg bg-white border border-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase">Quota max socio</p>
+                  <p className="text-lg font-black text-slate-900">{registry.bisogni_assicurativi_verificati.risk_concentration.max_quota || '—'}{registry.bisogni_assicurativi_verificati.risk_concentration.max_quota ? '%' : ''}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-white border border-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase">Numero soci</p>
+                  <p className="text-lg font-black text-slate-900">{registry.bisogni_assicurativi_verificati.risk_concentration.numero_soci || '—'}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-white border border-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase">Socio unico</p>
+                  <p className={`text-lg font-black ${registry.bisogni_assicurativi_verificati.risk_concentration.socio_unico ? 'text-red-700' : 'text-emerald-700'}`}>
+                    {registry.bisogni_assicurativi_verificati.risk_concentration.socio_unico ? 'Sì' : 'No'}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white border border-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase">Anni attività</p>
+                  <p className="text-lg font-black text-slate-900">
+                    {registry.bisogni_assicurativi_verificati.risk_concentration.anni_attivita !== null
+                      ? registry.bisogni_assicurativi_verificati.risk_concentration.anni_attivita
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Indicatori verificati</p>
+                <ul className="space-y-1.5">
+                  {registry.bisogni_assicurativi_verificati.risk_concentration.reasons.map((reason: string, i: number) => (
+                    <li key={i} className="text-[13px] text-slate-700 flex items-start gap-2 leading-relaxed">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+                      {reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {registry.bisogni_assicurativi_verificati.playbook_commerciale && (
+            <div className="mb-4 p-5 rounded-2xl border border-indigo-200 bg-white/90 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-slate-900">Playbook operativo per la prima call</h4>
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wider">opportunità, referente, apertura e obiettivo concreto</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50">
+                  <p className="text-[11px] font-black text-indigo-700 uppercase tracking-wider mb-1.5">Opportunità #1</p>
+                  <p className="text-[15px] font-bold text-slate-900 leading-snug">{registry.bisogni_assicurativi_verificati.playbook_commerciale.prodotto_principale || 'Da definire'}</p>
+                </div>
+                <div className="p-4 rounded-xl border border-sky-100 bg-sky-50">
+                  <p className="text-[11px] font-black text-sky-700 uppercase tracking-wider mb-1.5">Seconda opportunità</p>
+                  <p className="text-[15px] font-bold text-slate-900 leading-snug">{registry.bisogni_assicurativi_verificati.playbook_commerciale.cross_sell || 'Nessun cross-sell prioritario'}</p>
+                </div>
+                <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50">
+                  <p className="text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-1.5">Decision maker</p>
+                  <p className="text-[15px] font-bold text-slate-900 leading-snug">{registry.bisogni_assicurativi_verificati.playbook_commerciale.target_principale || 'Titolare / referente da identificare'}</p>
+                </div>
+              </div>
+
+            </div>
+          )}
+
           {registry.bisogni_assicurativi_verificati.priorita_commerciale.reasons?.length > 0 && (
-            <div className="mb-4 p-3 rounded-xl bg-white/80 border border-sky-100">
-              <p className="text-[10px] font-bold text-sky-700 uppercase tracking-wider mb-2">Perché questo lead è prioritario</p>
-              <div className="space-y-1">
+            <div className="mb-4 p-4 rounded-xl bg-white/80 border border-sky-100">
+              <p className="text-[11px] font-bold text-sky-700 uppercase tracking-wider mb-2">Perché questo lead è prioritario</p>
+              <div className="space-y-1.5">
                 {registry.bisogni_assicurativi_verificati.priorita_commerciale.reasons.map((reason: string, i: number) => (
-                  <p key={i} className="text-[11px] text-slate-700 flex items-start gap-2">
-                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" />
+                  <p key={i} className="text-[13px] text-slate-700 flex items-start gap-2 leading-relaxed">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
                     {reason}
                   </p>
                 ))}
@@ -2377,39 +2647,39 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <div className="p-4 rounded-xl border border-sky-200 bg-white/80">
-              <p className="text-[10px] font-black text-sky-700 uppercase tracking-wider mb-2">Fatti verificati</p>
+              <p className="text-[11px] font-black text-sky-700 uppercase tracking-wider mb-3">Dati verificati disponibili</p>
               <div className="space-y-2">
                 {registry.bisogni_assicurativi_verificati.fatti_verificati?.map((fact: any) => (
-                  <div key={fact.id} className="p-2 rounded-lg border border-slate-200 bg-white">
+                  <div key={fact.id} className="p-3 rounded-lg border border-slate-200 bg-white">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-xs font-bold text-slate-800">{fact.label}</span>
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                      <span className="text-[13px] font-bold text-slate-800">{fact.label}</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
                         fact.confidence === 'alta' ? 'bg-emerald-100 text-emerald-700' :
                         fact.confidence === 'media' ? 'bg-amber-100 text-amber-700' :
                         'bg-slate-100 text-slate-600'
                       }`}>{fact.confidence}</span>
                     </div>
-                    <p className="text-xs text-slate-700 font-medium">{fact.value}</p>
-                    <p className="text-[10px] text-slate-400">{fact.source}</p>
+                    <p className="text-[13px] text-slate-700 font-medium leading-snug">{fact.value}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">{fact.source}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="p-4 rounded-xl border border-cyan-200 bg-white/80">
-              <p className="text-[10px] font-black text-cyan-700 uppercase tracking-wider mb-2">Dati da verificare per aumentare la conversione</p>
+              <p className="text-[11px] font-black text-cyan-700 uppercase tracking-wider mb-3">Dati da verificare per aumentare la conversione</p>
               {registry.bisogni_assicurativi_verificati.dati_da_verificare?.length > 0 ? (
                 <div className="space-y-2">
                   {registry.bisogni_assicurativi_verificati.dati_da_verificare.map((item: any, i: number) => (
-                    <div key={i} className="p-2 rounded-lg border border-amber-200 bg-amber-50">
-                      <p className="text-xs font-bold text-amber-800">{item.field}</p>
-                      <p className="text-[11px] text-slate-700">{item.reason}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Impatto: {item.impact}</p>
+                    <div key={i} className="p-3 rounded-lg border border-amber-200 bg-amber-50">
+                      <p className="text-[13px] font-bold text-amber-800 leading-snug">{item.field}</p>
+                      <p className="text-[13px] text-slate-700 mt-1 leading-relaxed">{item.reason}</p>
+                      <p className="text-[12px] text-slate-600 mt-1"><span className="font-semibold">Impatto:</span> {item.impact}</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-800 font-medium">
+                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-[13px] text-emerald-800 font-medium">
                   Dataset già molto completo per una proposta commerciale mirata.
                 </div>
               )}
@@ -2418,33 +2688,41 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
 
           {registry.bisogni_assicurativi_verificati.bisogni_raccomandati?.length > 0 && (
             <div className="mb-4">
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-2">Cosa vendere esattamente a questa azienda</p>
-              <div className="space-y-2">
+              <p className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-2">Opportunità motivate da validare in call</p>
+              <div className="mb-3 p-4 rounded-xl border border-amber-200 bg-amber-50 text-[13px] text-amber-800 leading-relaxed">
+                Queste opportunità non certificano il portafoglio assicurativo reale: sono priorità consulenziali generate da dati verificati. Il consulente deve validare coperture attive, massimali, esclusioni, franchigie, scoperti e scadenze.
+              </div>
+              <div className="space-y-3">
                 {registry.bisogni_assicurativi_verificati.bisogni_raccomandati.map((need: any) => (
-                  <div key={need.id} className="p-3 rounded-xl border border-slate-200 bg-white">
-                    <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                  <div key={need.id} className="p-4 rounded-xl border border-slate-200 bg-white">
+                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-black text-slate-900">{need.product}</span>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                        <span className="text-[15px] font-black text-slate-900 leading-snug">{need.product}</span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
                           need.priority === 'immediata' ? 'bg-red-100 text-red-700' :
                           need.priority === 'alta' ? 'bg-orange-100 text-orange-700' :
                           'bg-amber-100 text-amber-700'
                         }`}>{need.priority}</span>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
                           need.confidence === 'alta' ? 'bg-emerald-100 text-emerald-700' :
                           need.confidence === 'media' ? 'bg-sky-100 text-sky-700' :
                           'bg-slate-100 text-slate-600'
                         }`}>{need.confidence}</span>
                       </div>
-                      <span className="text-[10px] text-slate-500">Target: {need.target}</span>
+                      <span className="text-[12px] text-slate-600">Target: <span className="font-semibold text-slate-700">{need.target}</span></span>
                     </div>
-                    <p className="text-[11px] text-slate-700 mb-1"><span className="font-semibold">Perché venderla:</span> {need.sales_reason}</p>
-                    <p className="text-[11px] text-emerald-700 font-medium"><span className="font-semibold">Perché adesso:</span> {need.why_now}</p>
+                    <p className="text-[13px] text-slate-700 mb-1.5 leading-relaxed"><span className="font-semibold">Perché proporla:</span> {need.sales_reason}</p>
+                    <p className="text-[13px] text-emerald-700 font-medium leading-relaxed"><span className="font-semibold">Perché adesso:</span> {need.why_now}</p>
+                    {need.conversion_lever && (
+                      <p className="mt-3 text-[13px] text-blue-800 bg-blue-50 border border-blue-100 rounded-lg p-3 leading-relaxed">
+                        <span className="font-semibold">Leva conversione:</span> {need.conversion_lever}
+                      </p>
+                    )}
                     {need.evidence_ids?.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+                      <div className="mt-3 flex flex-wrap gap-1.5">
                         {need.evidence_ids.map((evidenceId: string) => (
-                          <span key={evidenceId} className="text-[10px] font-medium px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
-                            evidenza: {evidenceId.replace(/_/g, ' ')}
+                          <span key={evidenceId} className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+                            basato su: {evidenceId.replace(/_/g, ' ')}
                           </span>
                         ))}
                       </div>
@@ -2455,18 +2733,6 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
             </div>
           )}
 
-          {registry.bisogni_assicurativi_verificati.prossime_domande?.length > 0 && (
-            <div className="pt-3 border-t border-sky-200">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Domande perfette per la prima call</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {registry.bisogni_assicurativi_verificati.prossime_domande.map((question: string, i: number) => (
-                  <div key={i} className="p-2 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-700">
-                    {question}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -2492,7 +2758,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 }`} />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">Gap Analysis Assicurativo</h3>
+                <h3 className="font-bold text-base text-slate-900">Ipotesi Gap Analysis — da validare</h3>
                 <p className="text-xs text-slate-500">{registry.gap_analysis.sommario}</p>
               </div>
             </div>
@@ -2538,96 +2804,58 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
       )}
 
-      {/* ── Stima Premio + Classificazione EU ── */}
-      {registry?.stima_premio && (
-        <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* Stima Premio Annuale */}
-          <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center">
-                <DollarSign className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-slate-900">Stima Premio Annuale</h3>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">{registry.stima_premio.fonte}</p>
-              </div>
+      {/* ── Classificazione PMI ── */}
+      {registry?.classificazione_eu && (
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-slate-600" />
             </div>
-
-            <div className="text-center mb-4 p-3 rounded-xl bg-white border border-indigo-200">
-              <p className="text-2xl font-black text-indigo-700">{registry.stima_premio.totale_stimato}</p>
-              <p className="text-[10px] text-slate-400">premio annuale totale stimato</p>
+            <div>
+              <h3 className="font-bold text-base text-slate-900">{registry.classificazione_eu.label}</h3>
+              <p className="text-[11px] text-slate-500">Reg. UE 651/2014 — classificazione PMI</p>
             </div>
-
-            <div className="space-y-2">
-              {registry.stima_premio.dettaglio.map((d: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/70 border border-indigo-100">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-700 truncate">{d.polizza}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{d.note}</p>
-                  </div>
-                  <span className="text-xs font-bold text-indigo-600 whitespace-nowrap ml-2">
-                    €{new Intl.NumberFormat('it-IT').format(d.premio_min)} - €{new Intl.NumberFormat('it-IT').format(d.premio_max)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <p className="text-[9px] text-slate-400 mt-3 leading-relaxed">{registry.stima_premio.disclaimer}</p>
           </div>
 
-          {/* Classificazione EU */}
-          {registry.classificazione_eu && (
-            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                  <Building2 className="w-4 h-4 text-slate-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">{registry.classificazione_eu.label}</h3>
-                  <p className="text-[10px] text-slate-400">Reg. UE 651/2014 — classificazione PMI</p>
-                </div>
+          <div className={`inline-block text-xs font-black px-3 py-1.5 rounded-full mb-4 ${
+            registry.classificazione_eu.classe === 'grande' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+            registry.classificazione_eu.classe === 'media' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+            registry.classificazione_eu.classe === 'piccola' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+            'bg-slate-100 text-slate-600 border border-slate-200'
+          }`}>
+            {registry.classificazione_eu.classe.toUpperCase()}
+          </div>
+          <p className="text-[13px] text-slate-700 mb-4 leading-relaxed">{registry.classificazione_eu.descrizione}</p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {registry.classificazione_eu.obblighi_extra?.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Obblighi normativi</p>
+                <ul className="space-y-1.5">
+                  {registry.classificazione_eu.obblighi_extra.map((o: string, i: number) => (
+                    <li key={i} className="text-[13px] text-slate-700 flex items-start gap-1.5 leading-relaxed">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                      {o}
+                    </li>
+                  ))}
+                </ul>
               </div>
+            )}
 
-              <div className={`inline-block text-xs font-black px-3 py-1.5 rounded-full mb-4 ${
-                registry.classificazione_eu.classe === 'grande' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
-                registry.classificazione_eu.classe === 'media' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                registry.classificazione_eu.classe === 'piccola' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                'bg-slate-100 text-slate-600 border border-slate-200'
-              }`}>
-                {registry.classificazione_eu.classe.toUpperCase()}
+            {registry.classificazione_eu.opportunita_broker?.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider mb-2">Opportunità commerciali</p>
+                <ul className="space-y-1.5">
+                  {registry.classificazione_eu.opportunita_broker.map((o: string, i: number) => (
+                    <li key={i} className="text-[13px] text-emerald-700 flex items-start gap-1.5 leading-relaxed">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      {o}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className="text-xs text-slate-600 mb-4">{registry.classificazione_eu.descrizione}</p>
-
-              {registry.classificazione_eu.obblighi_extra?.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Obblighi normativi</p>
-                  <ul className="space-y-1">
-                    {registry.classificazione_eu.obblighi_extra.map((o: string, i: number) => (
-                      <li key={i} className="text-[11px] text-slate-600 flex items-start gap-1.5">
-                        <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
-                        {o}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {registry.classificazione_eu.opportunita_broker?.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-2">Opportunità commerciali</p>
-                  <ul className="space-y-1">
-                    {registry.classificazione_eu.opportunita_broker.map((o: string, i: number) => (
-                      <li key={i} className="text-[11px] text-emerald-700 flex items-start gap-1.5">
-                        <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                        {o}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 

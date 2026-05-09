@@ -338,12 +338,12 @@ export default function InsuranceIntelligenceSection(props: InsuranceIntelligenc
           </div>
           <div className="text-left">
             <h3 className={`font-bold text-foreground ${props.compact ? 'text-base' : 'text-lg'}`}>
-              Insurance Intelligence
+              Trigger consulenziali assicurativi
             </h3>
             <p className="text-xs text-muted-foreground">
               {hasFetched && data
                 ? `Hotness ${data.hotnessLabel} (${data.hotnessScore}/100) · ${data.triggers.length} trigger · ${data.recentEvents.length} eventi`
-                : 'Trigger commerciali, news azienda, network, capacità di spesa stimata, gare recenti'}
+                : 'Trigger pubblici, eventi, network e benchmark per preparare la call'}
             </p>
           </div>
         </div>
@@ -366,7 +366,7 @@ export default function InsuranceIntelligenceSection(props: InsuranceIntelligenc
           {loading && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="w-10 h-10 animate-spin text-orange-400 mb-2" />
-              <p className="text-sm font-medium text-foreground">Analisi trigger commerciali...</p>
+              <p className="text-sm font-medium text-foreground">Costruzione trigger consulenziali...</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Sto cercando news azienda, profili LinkedIn pubblici, gare ANAC recenti, cambi lavoro.
                 Tempo: 15-30 secondi.
@@ -413,7 +413,7 @@ export default function InsuranceIntelligenceSection(props: InsuranceIntelligenc
 
               <div className="text-[10px] text-muted-foreground border-t border-border pt-2 flex items-center justify-between flex-wrap gap-2">
                 <span>
-                  Fonti: {data.meta.sourcesUsed.slice(0, 6).join(', ') || 'nessuna fonte aggregata'}
+                  Fonti: {data.meta.sourcesUsed.slice(0, 6).join(', ') || 'nessuna fonte aggregata'} — non include il portafoglio polizze attivo
                 </span>
                 <span>{(data.meta.durationMs / 1000).toFixed(1)}s</span>
               </div>
@@ -452,7 +452,7 @@ function RationaleBox({
       </div>
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-bold text-foreground">Hotness commerciale: {hotnessLabel}</span>
+          <span className="text-sm font-bold text-foreground">Priorità consulenziale: {hotnessLabel}</span>
           <span className="text-xs font-mono text-muted-foreground">{hotnessScore}/100</span>
         </div>
         <p className="text-xs text-foreground/80 leading-relaxed">{rationale}</p>
@@ -466,7 +466,7 @@ function TriggersList({ triggers }: { triggers: CommercialTrigger[] }) {
     <div>
       <h4 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
         <Zap className="w-4 h-4 text-orange-400" />
-        Trigger commerciali ({triggers.length})
+        Trigger da usare in call ({triggers.length})
       </h4>
       <div className="space-y-2">
         {triggers.map((t, i) => (
@@ -498,7 +498,7 @@ function TriggerCard({ trigger }: { trigger: CommercialTrigger }) {
           <p className="text-xs text-foreground/80 mb-2 leading-relaxed">{trigger.description}</p>
           <div className="rounded bg-background/40 border border-border px-2 py-1.5 mb-2">
             <div className="text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
-              Cosa significa
+              Leva assicurativa
             </div>
             <p className="text-[11px] text-foreground/90 leading-relaxed">{trigger.insuranceImplication}</p>
           </div>
@@ -534,12 +534,12 @@ function SpendingCapacityCard({ data }: { data: NonNullable<TriggersOutput['spen
     <div className="rounded-xl border border-border bg-card p-4">
       <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
         <Banknote className="w-4 h-4 text-emerald-400" />
-        Capacità di spesa stimata
+        Benchmark capacità assicurativa
       </h4>
       <div className="space-y-2.5 text-xs">
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5">
           <div className="text-[10px] font-bold uppercase text-emerald-300 mb-0.5">
-            Spesa annua attesa polizze (azienda)
+            Benchmark spesa annua polizze azienda
           </div>
           <div className="text-base font-bold text-foreground">
             {formatRange(data.capacitaTotaleAnnualePolizze)}
@@ -549,14 +549,14 @@ function SpendingCapacityCard({ data }: { data: NonNullable<TriggersOutput['spen
             <span className="font-semibold text-emerald-300">
               {data.propensioneAssicurativa.segmento}
             </span>{' '}
-            · {data.propensioneAssicurativa.percentualeSpesaAttesa}% del fatturato (benchmark ANIA)
+            · {data.propensioneAssicurativa.percentualeSpesaAttesa}% del fatturato come benchmark settoriale
           </div>
         </div>
 
         {data.redditoTitolareStimato && (
           <div className="bg-muted/40 border border-border rounded-lg p-2.5">
             <div className="text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
-              Reddito titolare stimato (lordo annuo)
+              Proxy reddito titolare (lordo annuo)
             </div>
             <div className="text-sm font-bold text-foreground">
               {formatRange(data.redditoTitolareStimato)}
@@ -570,7 +570,7 @@ function SpendingCapacityCard({ data }: { data: NonNullable<TriggersOutput['spen
         {data.patrimonioMobiliareStimato && (
           <div className="bg-muted/40 border border-border rounded-lg p-2.5">
             <div className="text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
-              Patrimonio mobiliare stimato
+              Proxy patrimonio mobiliare
             </div>
             <div className="text-sm font-bold text-foreground">
               {formatRange(data.patrimonioMobiliareStimato)}
@@ -582,6 +582,9 @@ function SpendingCapacityCard({ data }: { data: NonNullable<TriggersOutput['spen
         <div className="text-[10px] text-muted-foreground italic">
           {data.propensioneAssicurativa.rationale}
         </div>
+        <div className="mt-2 p-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-200">
+          Benchmark utile per preparare domande su budget e priorità: non è un dato patrimoniale verificato e non prova polizze possedute o mancanti.
+        </div>
       </div>
     </div>
   )
@@ -592,13 +595,13 @@ function NetworkCard({ network }: { network: TriggersOutput['network'] }) {
     <div className="rounded-xl border border-border bg-card p-4">
       <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
         <Users className="w-4 h-4 text-indigo-400" />
-        Network professionale
+        Network e canali di verifica
       </h4>
 
       {network.colleghiLinkedin.length > 0 ? (
         <div className="mb-3">
           <div className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5">
-            Profili LinkedIn pubblici ({network.colleghiLinkedin.length})
+            Profili LinkedIn pubblici da verificare ({network.colleghiLinkedin.length})
           </div>
           <div className="space-y-1">
             {network.colleghiLinkedin.slice(0, 6).map((c, i) => (
@@ -634,7 +637,7 @@ function NetworkCard({ network }: { network: TriggersOutput['network'] }) {
       {network.albiProfessionali.length > 0 && (
         <div>
           <div className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5">
-            Albi professionali probabili ({network.albiProfessionali.length})
+            Albi professionali da verificare ({network.albiProfessionali.length})
           </div>
           <div className="space-y-1.5">
             {network.albiProfessionali.map((a, i) => {
@@ -679,7 +682,7 @@ function RecentEventsTimeline({ events }: { events: TriggersOutput['recentEvents
     <div className="rounded-xl border border-border bg-card p-4">
       <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
         <Calendar className="w-4 h-4 text-blue-400" />
-        Eventi recenti ({events.length})
+        Eventi pubblici recenti ({events.length})
       </h4>
       <div className="space-y-2">
         {events.slice(0, 8).map((e, i) => {

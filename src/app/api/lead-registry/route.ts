@@ -4,7 +4,7 @@ import { getAtecoInsurance } from '@/lib/ateco-insurance'
 import { classifyCompanySize, estimateAnnualPremium, analyzeInsuranceGaps } from '@/lib/insurance-analysis'
 import { buildInsuranceNeedsProfile } from '@/lib/insurance-needs-engine'
 import { geminiExtractCompanyData, isGeminiEnabled } from '@/lib/gemini-search'
-import { enrichCompanyByPiva, isOpenApiPrimary } from '@/lib/openapi-service'
+import { enrichCompanyByPiva, isOpenApiPrimary, searchByCompanyName } from '@/lib/openapi-service'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://46.225.189.40:8001'
 const OPENAPI_IT_TOKEN = process.env.OPENAPI_IT_TOKEN || ''
@@ -19,6 +19,26 @@ function extractFormaGiuridica(name: string): string | null {
   if (/\bs\.?a\.?s\.?\b/.test(n)) return 'SAS'
   if (/\bs\.?s\.?\b/.test(n) && !n.includes('ss.')) return 'SS'
   return null
+}
+
+// ── Helper: check if returned name matches query (same as company-lookup) ──
+function nameMatches(query: string, returned: string): boolean {
+  if (!query || !returned) return false
+  const clean = (s: string) => s.toLowerCase().replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|di|e|the|srl|srls|spa|snc|sas)\.?\b/gi, '').replace(/[^a-z0-9àèéìòù\s]/g, '').trim()
+  const qWords = clean(query).split(/\s+/).filter(w => w.length >= 2)
+  const rClean = clean(returned)
+  if (qWords.length === 0) return false
+  const matched = qWords.filter(w => rClean.includes(w)).length
+  if (qWords.length <= 2) return matched === qWords.length
+  return matched >= Math.ceil(qWords.length * 0.6)
+}
+
+function isInvalidPersonName(value: unknown): boolean {
+  const s = String(value || '').trim().toLowerCase()
+  if (!s) return true
+  if (/^(non trovato|non disponibile|n\/?a|null|undefined|nessuno|sconosciuto|da verificare)$/i.test(s)) return true
+  if (s.includes('non trovato')) return true
+  return false
 }
 
 const PIVA_RE = [
@@ -397,6 +417,52 @@ async function fetchOpenApiIt(piva: string): Promise<Record<string, any> | null>
   if (typeof enriched.costo_personale === 'number') {
     result.costo_personale = new Intl.NumberFormat('it-IT').format(enriched.costo_personale)
   }
+  if (typeof (enriched as any).utile_netto === 'number') {
+    result.utile_netto = new Intl.NumberFormat('it-IT').format((enriched as any).utile_netto)
+  } else if (enriched.storico_bilanci?.[0]?.utile) {
+    result.utile_netto = new Intl.NumberFormat('it-IT').format(enriched.storico_bilanci[0].utile)
+  }
+  if (typeof enriched.patrimonio_netto === 'number') {
+    result.patrimonio_netto = new Intl.NumberFormat('it-IT').format(enriched.patrimonio_netto)
+  }
+  if (typeof enriched.totale_attivo === 'number') {
+    result.totale_attivo = new Intl.NumberFormat('it-IT').format(enriched.totale_attivo)
+  }
+  if (typeof enriched.ral_medio === 'number') {
+    result.ral_medio = new Intl.NumberFormat('it-IT').format(enriched.ral_medio)
+  }
+  // Storico bilanci (fino a 7 anni)
+  if (enriched.storico_bilanci && enriched.storico_bilanci.length > 0) {
+    result.storico_bilanci = enriched.storico_bilanci
+  }
+  // GPS
+  if (typeof enriched.gps_lat === 'number' && typeof enriched.gps_lng === 'number') {
+    result.gps_lat = enriched.gps_lat
+    result.gps_lng = enriched.gps_lng
+  }
+  // ATECO storico
+  if (enriched.ateco_2022) result.ateco_2022 = enriched.ateco_2022
+  if (enriched.ateco_2007) result.ateco_2007 = enriched.ateco_2007
+  // SDI
+  if (enriched.codice_sdi) {
+    result.codice_sdi = enriched.codice_sdi
+    if (enriched.codice_sdi_timestamp) result.codice_sdi_timestamp = enriched.codice_sdi_timestamp
+  }
+  // Gruppo IVA
+  if (enriched.gruppo_iva) result.gruppo_iva = enriched.gruppo_iva
+  // Extra fields
+  if (enriched.forma_giuridica_codice) result.forma_giuridica_codice = enriched.forma_giuridica_codice
+  if (enriched.regione) result.regione = enriched.regione
+  if (enriched.codice_fiscale) result.codice_fiscale = enriched.codice_fiscale
+  if (enriched.citta) result.citta = enriched.citta
+  if (enriched.provincia) result.provincia = enriched.provincia
+  if (enriched.cap) result.cap = enriched.cap
+  if (enriched.sito_web) result.sito_web = enriched.sito_web
+  if (enriched.data_registrazione) result.data_registrazione = enriched.data_registrazione
+  if (enriched.data_cessazione) result.data_cessazione = enriched.data_cessazione
+  if (enriched.stato_agenzia_entrate) result.stato_agenzia_entrate = enriched.stato_agenzia_entrate
+  // Metadata
+  if (enriched.openapi_id) result.openapi_id = enriched.openapi_id
 
   // NEW: certified titolare + persone (soci + manager)
   if (enriched.titolare_best) {
@@ -432,7 +498,44 @@ async function fetchOpenApiIt(piva: string): Promise<Record<string, any> | null>
       })
     }
   }
-  if (persone.length > 0) result.persone = persone
+  if (persone.length > 0) {
+    result.persone = persone
+    if (!result.titolare) {
+      const ROLE_PRIORITY: [RegExp, number][] = [
+        [/socio\s*unico/i, 100],
+        [/rappresentante\s*legale/i, 95],
+        [/amministratore\s*delegato/i, 90],
+        [/amministratore\s*unico/i, 85],
+        [/presidente/i, 80],
+        [/titolare/i, 75],
+        [/amministratore/i, 60],
+        [/socio/i, 20],
+      ]
+      let bestPerson: any = null
+      let bestScore = 0
+      for (const p of persone) {
+        if (!p?.nome) continue
+        let score = 10
+        for (const [rx, s] of ROLE_PRIORITY) {
+          if (rx.test(String(p.ruolo || ''))) {
+            score = Math.max(score, s)
+            break
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score
+          bestPerson = p
+        }
+      }
+      if (bestPerson) {
+        result.titolare = bestPerson.nome
+        result.ruolo_titolare = bestPerson.ruolo || 'Socio'
+        result.titolare_fonte = 'openapi_shareholders'
+        if (bestPerson.cf) result.codice_fiscale_titolare = bestPerson.cf
+        console.log(`[LEAD-REGISTRY] OpenAPI: promoted titolare from IT-advanced persone: "${bestPerson.nome}" (${bestPerson.ruolo})`)
+      }
+    }
+  }
 
   console.log(`[LEAD-REGISTRY] OpenAPI: cost=€${enriched.cost_incurred_eur.toFixed(3)} (live=${enriched.live_calls}, cache=${enriched.cached_hits}), titolare="${result.titolare || 'n/a'}", persone=${persone.length}`)
 
@@ -446,7 +549,7 @@ export async function POST(req: NextRequest) {
   const { lead } = body
   // Anti-loop flag: callers that will separately run person-lookup (company-lookup, person-lookup itself)
   // pass _skipPersonEnrichment=true so we don't double-call and don't recurse.
-  const skipPersonEnrichment: boolean = !!body?._skipPersonEnrichment
+  const skipPersonEnrichment: boolean = body?._enablePersonEnrichment !== true
 
   const business_name = lead?.nome || lead?.azienda || lead?.business_name || ''
   const city = lead?.citta || lead?.city || ''
@@ -795,15 +898,78 @@ export async function POST(req: NextRequest) {
       const searchHtml = await fetchHtmlSafe(`https://www.companyreports.it/search?q=${searchName}`, 8000)
       if (searchHtml.length > 3000) {
         // Extract P.IVA from search results links (format: /12345678901)
+        // Also extract company names to validate against business_name
         const linkMatches = searchHtml.match(/href="\/(\d{11})"/g) || []
-        if (linkMatches.length > 0 && linkMatches[0]) {
-          const firstPiva = linkMatches[0].match(/(\d{11})/)?.[1]
-          if (firstPiva) {
-            websitePiva = firstPiva
+        // Extract ragione sociale near each link for name validation
+        const nameNearLink = searchHtml.match(/<a[^>]*href="\/\d{11}"[^>]*>([^<]+)<\/a>/gi) || []
+        const cleanBizName = business_name.replace(/['"]/g, '').trim()
+        for (let li = 0; li < linkMatches.length; li++) {
+          const candidatePiva = linkMatches[li].match(/(\d{11})/)?.[1]
+          if (!candidatePiva) continue
+          // If we can extract the name near this link, validate it
+          if (nameNearLink[li]) {
+            const linkText = nameNearLink[li].replace(/<[^>]+>/g, '').trim()
+            if (linkText && !nameMatches(cleanBizName, linkText)) {
+              console.log(`[LEAD-REGISTRY] Step 2c: SKIP CompanyReports P.IVA ${candidatePiva} — name "${linkText}" does not match "${cleanBizName}"`)
+              continue
+            }
           }
+          websitePiva = candidatePiva
+          console.log(`[LEAD-REGISTRY] Step 2c: Found P.IVA ${candidatePiva} from CompanyReports search`)
+          break
         }
       }
     } catch { /* CompanyReports search non raggiungibile */ }
+  }
+
+  // ─── Step 2d: OpenAPI /IT-search fallback for P.IVA by name ──
+  // Google Maps names often contain city + category (e.g. "Fotovoltaico SEASOLAR Padova").
+  // Strip those tokens before searching so the brand name is used (e.g. "SEASOLAR").
+  let pivaFromOpenApiSearch = false
+  if (!websitePiva && business_name && isOpenApiPrimary()) {
+    const queryCity = String(city || '').toLowerCase().trim()
+    const queryCategory = String(category || lead?.categoria || lead?.category || '').toLowerCase().trim()
+    const stripTokens = (name: string): string => {
+      let s = name.replace(/['"]/g, '').trim()
+      // Remove city token (whole word, case-insensitive)
+      if (queryCity) s = s.replace(new RegExp(`\\b${queryCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), ' ')
+      // Remove each word of the category
+      if (queryCategory) {
+        for (const w of queryCategory.split(/\s+/).filter(w => w.length >= 4)) {
+          s = s.replace(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), ' ')
+        }
+      }
+      return s.replace(/\s+/g, ' ').trim()
+    }
+    const searchNameRaw = business_name.replace(/['"]/g, '').trim()
+    const searchNameStripped = stripTokens(business_name)
+    // Try the stripped (brand-only) variant first, then fall back to the full name
+    const searchVariants = Array.from(new Set([searchNameStripped, searchNameRaw].filter(s => s && s.length >= 3)))
+    for (const searchName of searchVariants) {
+      console.log(`[LEAD-REGISTRY] Step 2d: OpenAPI /IT-search for "${searchName}" (P.IVA still missing)`)
+      try {
+        const searchRes = await searchByCompanyName(searchName)
+        if (searchRes.success && searchRes.data?.length) {
+          const hit = searchRes.data.find(h => {
+            if (!nameMatches(searchName, h.ragione_sociale)) return false
+            if (queryCity && h.citta && !h.citta.toLowerCase().includes(queryCity) && !queryCity.includes(h.citta.toLowerCase())) return false
+            return true
+          }) || searchRes.data.find(h => nameMatches(searchName, h.ragione_sociale))
+          if (hit?.partita_iva) {
+            console.log(`[LEAD-REGISTRY] Step 2d: FOUND P.IVA ${hit.partita_iva} for "${hit.ragione_sociale}" (city: ${hit.citta || 'n/a'})`)
+            websitePiva = hit.partita_iva
+            pivaFromOpenApiSearch = true
+            break
+          } else {
+            console.log(`[LEAD-REGISTRY] Step 2d: OpenAPI /IT-search — no matching result for "${searchName}" (${searchRes.data.length} candidates)`)
+          }
+        } else {
+          console.log(`[LEAD-REGISTRY] Step 2d: OpenAPI /IT-search returned 0 results for "${searchName}"`)
+        }
+      } catch (e: any) {
+        console.log(`[LEAD-REGISTRY] Step 2d: OpenAPI /IT-search error: ${e?.message}`)
+      }
+    }
   }
 
   // ─── Step 3: VIES verification (official EU registry) ─────────
@@ -830,7 +996,16 @@ export async function POST(req: NextRequest) {
     const shouldCallPrimary = isOpenApiPrimary()
     const scraperGapsFallback = !crData?.fatturato || !crData?.codice_ateco || !crData?.dipendenti || !riData?.pec
     if (shouldCallPrimary || scraperGapsFallback) {
-      oaData = await fetchOpenApiIt(websitePiva)
+      const rawOa = await fetchOpenApiIt(websitePiva)
+      // P.IVA is the authoritative identifier of the Italian Camera di Commercio registry.
+      // If we queried OpenAPI by P.IVA, the result IS that company — no name guard needed.
+      // Keep only a diagnostic log when ragione sociale diverges significantly (visibility, not rejection).
+      oaData = rawOa
+      if (rawOa && rawOa.ragione_sociale && business_name && !nameMatches(business_name, rawOa.ragione_sociale)) {
+        console.log(`[LEAD-REGISTRY] Step 4b: OpenAPI accepted by P.IVA — names diverge: lead="${business_name}" vs OA="${rawOa.ragione_sociale}"`)
+      } else if (rawOa) {
+        console.log(`[LEAD-REGISTRY] Step 4b: OpenAPI accepted — "${rawOa.ragione_sociale}"`)
+      }
     }
   }
 
@@ -842,8 +1017,8 @@ export async function POST(req: NextRequest) {
     fonte: 'google_maps',
   }
 
-  // Merge: backendData (base) < OpenAPI.it < registroimprese < companyreports — later wins
-  const src = { ...backendData, ...oaData, ...riData, ...crData } as Record<string, any>
+  // Merge: backendData (base) < registroimprese < companyreports < OpenAPI.it — later wins
+  const src = { ...backendData, ...riData, ...crData, ...oaData } as Record<string, any>
 
   // INIPEC PEC (free, always available for Italian companies)
   if (inipecPec && !src.pec) {
@@ -870,6 +1045,42 @@ export async function POST(req: NextRequest) {
   //   2. Privacy policy scraped from the website
   // OpenAPI wins because it's certified Camera di Commercio data; privacy policies
   // are often outdated or list the company name itself as "titolare del trattamento".
+  if (src.persone) profile.persone = src.persone
+  if (!src.titolare && Array.isArray(src.persone) && src.persone.length > 0) {
+    const ROLE_PRIORITY: [RegExp, number][] = [
+      [/socio\s*unico/i, 100],
+      [/rappresentante\s*legale/i, 95],
+      [/amministratore\s*delegato/i, 90],
+      [/amministratore\s*unico/i, 85],
+      [/presidente/i, 80],
+      [/titolare/i, 75],
+      [/amministratore/i, 60],
+      [/socio/i, 20],
+    ]
+    let bestPerson: any = null
+    let bestScore = 0
+    for (const p of src.persone) {
+      if (!p?.nome) continue
+      let score = 10
+      for (const [rx, s] of ROLE_PRIORITY) {
+        if (rx.test(String(p.ruolo || ''))) {
+          score = Math.max(score, s)
+          break
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score
+        bestPerson = p
+      }
+    }
+    if (bestPerson) {
+      src.titolare = bestPerson.nome
+      src.ruolo_titolare = bestPerson.ruolo || 'Socio'
+      src.titolare_fonte = 'openapi_shareholders'
+      if (bestPerson.cf) src.codice_fiscale_titolare = bestPerson.cf
+      console.log(`[LEAD-REGISTRY] Titolare promoted from OpenAPI persone: "${bestPerson.nome}" (${bestPerson.ruolo})`)
+    }
+  }
   if (src.titolare) {
     profile.titolare = src.titolare
     profile.ruolo_titolare = src.ruolo_titolare
@@ -881,7 +1092,6 @@ export async function POST(req: NextRequest) {
     if (src.data_nascita_titolare) profile.titolare_data_nascita = src.data_nascita_titolare
     if (src.eta_titolare) profile.titolare_eta = Number(src.eta_titolare)
     if (src.sesso_titolare) profile.titolare_sesso = src.sesso_titolare
-    if (src.persone) profile.persone = src.persone
     console.log(`[LEAD-REGISTRY] Titolare from OpenAPI (certified): "${src.titolare}" (${src.ruolo_titolare})`)
   }
 
@@ -959,25 +1169,25 @@ export async function POST(req: NextRequest) {
   }
 
   // REAL fatturato & dipendenti — track exact source
-  if (crData?.fatturato) {
-    profile.fatturato = crData.fatturato
-    if (crData.fatturato_anno) profile.fatturato_anno = crData.fatturato_anno
-    profile.fatturato_fonte = 'companyreports.it'
-  } else if (oaData?.fatturato) {
+  if (oaData?.fatturato) {
     profile.fatturato = oaData.fatturato
     if (oaData.fatturato_anno) profile.fatturato_anno = oaData.fatturato_anno
     profile.fatturato_fonte = 'openapi.it'
+  } else if (crData?.fatturato) {
+    profile.fatturato = crData.fatturato
+    if (crData.fatturato_anno) profile.fatturato_anno = crData.fatturato_anno
+    profile.fatturato_fonte = 'companyreports.it'
   } else if (backendData?.fatturato) {
     profile.fatturato = backendData.fatturato
     if (backendData.fatturato_anno) profile.fatturato_anno = backendData.fatturato_anno
     profile.fatturato_fonte = 'registro_imprese'
   }
-  if (crData?.dipendenti) {
-    profile.dipendenti = crData.dipendenti
-    profile.dipendenti_fonte = 'companyreports.it'
-  } else if (oaData?.dipendenti) {
+  if (oaData?.dipendenti) {
     profile.dipendenti = oaData.dipendenti
     profile.dipendenti_fonte = 'openapi.it'
+  } else if (crData?.dipendenti) {
+    profile.dipendenti = crData.dipendenti
+    profile.dipendenti_fonte = 'companyreports.it'
   } else if (riData?.dipendenti) {
     profile.dipendenti = riData.dipendenti
     profile.dipendenti_fonte = 'registro_imprese'
@@ -990,6 +1200,11 @@ export async function POST(req: NextRequest) {
   }
   if (src.costo_personale) profile.costo_personale = src.costo_personale
   if (src.capitale_sociale) profile.capitale_sociale = src.capitale_sociale
+  if (src.utile_netto) profile.utile_netto = src.utile_netto
+  if (src.patrimonio_netto) profile.patrimonio_netto = src.patrimonio_netto
+  if (src.totale_attivo) profile.totale_attivo = src.totale_attivo
+  if (src.ral_medio) profile.ral_medio = src.ral_medio
+  if (src.classe_fatturato) profile.classe_fatturato = src.classe_fatturato
 
   // ATECO (REAL)
   if (src.codice_ateco) {
@@ -1007,6 +1222,31 @@ export async function POST(req: NextRequest) {
   if (src.data_costituzione) profile.data_costituzione = src.data_costituzione
 
   if (src.stato) profile.stato = src.stato
+
+  // ── OpenAPI advanced fields passthrough ──
+  if (src.storico_bilanci) profile.storico_bilanci = src.storico_bilanci
+  if (typeof src.gps_lat === 'number' && typeof src.gps_lng === 'number') {
+    profile.gps_lat = src.gps_lat
+    profile.gps_lng = src.gps_lng
+  }
+  if (src.ateco_2022) profile.ateco_2022 = src.ateco_2022
+  if (src.ateco_2007) profile.ateco_2007 = src.ateco_2007
+  if (src.codice_sdi) {
+    profile.codice_sdi = src.codice_sdi
+    if (src.codice_sdi_timestamp) profile.codice_sdi_timestamp = src.codice_sdi_timestamp
+  }
+  if (src.gruppo_iva) profile.gruppo_iva = src.gruppo_iva
+  if (src.forma_giuridica_codice) profile.forma_giuridica_codice = src.forma_giuridica_codice
+  if (src.regione) profile.regione = src.regione
+  if (src.codice_fiscale && !profile.codice_fiscale) profile.codice_fiscale = src.codice_fiscale
+  if (src.citta && !profile.citta) profile.citta = src.citta
+  if (src.provincia && !profile.provincia) profile.provincia = src.provincia
+  if (src.cap && !profile.cap) profile.cap = src.cap
+  if (src.sito_web && !profile.sito_web) profile.sito_web = src.sito_web
+  if (src.data_registrazione) profile.data_registrazione = src.data_registrazione
+  if (src.data_cessazione) profile.data_cessazione = src.data_cessazione
+  if (src.stato_agenzia_entrate) profile.stato_agenzia_entrate = src.stato_agenzia_entrate
+  if (src.openapi_id) profile.openapi_id = src.openapi_id
 
   // ─── Step 5c: registroaziende.it fallback for ATECO (direct HTML scrape, no GPT) ───
   const pivaForRA = (profile.partita_iva || websitePiva || '').replace(/\D/g, '')
@@ -1097,12 +1337,20 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
   }
 
   // ── OpenAPI "rich" flag: skip expensive Tavily/Gemini when OpenAPI gave core camerale data ──
-  const openApiRich = Boolean(
-    profile.titolare && profile.codice_ateco && profile.fatturato &&
-    oaData && oaData.titolare_best
-  )
+  // Rich = OpenAPI returned at least ONE of the core camerale fields. Titolare may legitimately be
+  // missing for SRLS without filed shareholders, so we don't require it here.
+  const openApiRich = Boolean(oaData && (
+    oaData.codice_ateco || oaData.forma_giuridica || oaData.fatturato || oaData.dipendenti
+  ))
   if (openApiRich) {
-    console.log(`[LEAD-REGISTRY] openApiRich=true — will skip Tavily/Gemini for camerale data`)
+    const richFields = [
+      oaData?.codice_ateco && 'ATECO',
+      oaData?.forma_giuridica && 'forma',
+      oaData?.fatturato && 'fatturato',
+      oaData?.dipendenti && 'dipendenti',
+      oaData?.titolare_best && 'titolare',
+    ].filter(Boolean).join(',')
+    console.log(`[LEAD-REGISTRY] openApiRich=true (${richFields}) — skipping Tavily/Gemini camerale searches`)
   }
 
   // ─── Step 6b: Tavily Deep Enrichment (FREE — 1000 ricerche/mese) ──
@@ -1173,7 +1421,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
     }
 
     // Helper: merge only missing fields — with aggressive junk filtering
-    const JUNK_VALUES = ['nome e cognome', 'nome cognome', 'codice numerico', 'descrizione attività', "descrizione dell'attività", 'tipo di società', 'tipo società', 'importo', 'indirizzo completo', 'indirizzo pec', 'anno o data', 'numero p.iva', 'cf azienda', 'codice fiscale se', 'amministratore/socio', 'numero se noto', 'dettagli', 'eventuali sinistri', 'altre info', 'numero dipendenti', 'importo in euro', 'anno di riferimento', 'es. 100k', 'rischio 1', 'rischio 2', 'iso 9001', 'non divulgato', 'non disponibile', 'n/d', 'null', 'numero p.iva', 'non specificato', 'non noto', 'sconosciuto', 'nessuno', 'none']
+    const JUNK_VALUES = ['nome e cognome', 'nome cognome', 'codice numerico', 'descrizione attività', "descrizione dell'attività", 'tipo di società', 'tipo società', 'importo', 'indirizzo completo', 'indirizzo pec', 'anno o data', 'numero p.iva', 'cf azienda', 'codice fiscale se', 'amministratore/socio', 'numero se noto', 'dettagli', 'eventuali sinistri', 'altre info', 'numero dipendenti', 'importo in euro', 'anno di riferimento', 'es. 100k', 'rischio 1', 'rischio 2', 'iso 9001', 'non trovato', 'non divulgato', 'non disponibile', 'n/d', 'null', 'numero p.iva', 'non specificato', 'non noto', 'sconosciuto', 'nessuno', 'none']
     function isJunkValue(v: any): boolean {
       if (v === null || v === undefined || v === '' || v === 0 || v === '0') return true
       if (typeof v === 'string') {
@@ -1493,65 +1741,19 @@ JSON:
       }
     }
 
-    // ── Search 3: Info per assicuratori (rischi, certificazioni, flotta) ──
-    {
-      const q3 = `"${companyId}" ${city} certificazioni ISO SOA flotta veicoli immobili proprietà bandi appalti`
-      const text3 = await tavilySearch(q3)
-      if (text3.length > 50) {
-        const ext3 = await gptExtract(text3, `Sei un broker assicurativo senior. Estrai SOLO dati verificabili e specifici per "${companyId}", usando anche questi dati reali già noti:
-Ragione sociale: ${profile.ragione_sociale || companyId}
-P.IVA: ${profile.partita_iva || pivaStr || 'N/D'}
-ATECO: ${profile.codice_ateco || 'N/D'} — ${profile.descrizione_ateco || 'N/D'}
-Forma giuridica: ${profile.forma_giuridica || 'N/D'}
-Fatturato: ${profile.fatturato || 'N/D'}
-Dipendenti: ${profile.dipendenti || 'N/D'}
-Sede: ${profile.sede_legale || city || 'N/D'}
+    // ── Search 3 DISABILITATA ──
+    // Era la fonte di allucinazioni GPT (ISO 9001/SOA su SRLS, rischi_specifici
+    // generici, note_broker auto-generate). I campi non sono più mostrati in UI
+    // — tenerla attiva sarebbe solo uno spreco di credito Tavily + token GPT.
+    // L'intelligence reale arriva ora da Registro Imprese (forma giuridica,
+    // bilanci, persone, CF) via computeTrigger/Financial/Titolare/RiskConcentration.
+    // Per riattivarla in futuro servirà verificare le certificazioni contro
+    // Accredia (registro pubblico) prima di mostrarle.
 
-REGOLE:
-- Non scrivere frasi generiche. Ogni rischio deve derivare da ATECO/attività, flotta, immobili, appalti, certificazioni, estero o sinistri trovati.
-- Se un dato non è nel testo o nei dati reali sopra, usa null/false/[].
-- note_broker deve essere concreta e azionabile: 3 frasi con rischi, domande da fare e opportunità polizza basate sui dati reali.
-
-JSON:
-{"certificazioni":["ISO 9001","SOA","ecc"],"ha_flotta_veicoli":true/false,"numero_veicoli":"numero se noto","ha_immobili_proprieta":true/false,"immobili_descrizione":"descrizione verificata","partecipa_appalti_pubblici":true/false,"appalti_info":"dettagli verificati","sinistri_noti":"eventuali sinistri noti","attivita_estero":true/false,"rischi_specifici":["rischio specifico basato su attività/ATECO/dati reali"],"note_broker":"note concrete e azionabili per il broker, non generiche"}`)
-        mergeTavily(ext3)
-        tavilyUsed = true
-      }
-    }
-
-    // ── Search 3b: Social media + contatti azienda (LinkedIn, Instagram, Facebook, telefono) ──
-    if (!profile.linkedin || !profile.telefono) {
-      const q3b = `"${companyId}" ${city || ''} telefono email sito instagram facebook linkedin contatti`
-      const text3b = await tavilySearch(q3b, false, false)
-      if (text3b.length > 50) {
-        const ext3b = await gptExtract(text3b, `Cerca i profili social e i contatti dell'azienda "${companyId}" (NON del titolare, dell'AZIENDA).
-ATTENZIONE: Restituisci SOLO URL e dati TROVATI ESPLICITAMENTE nel testo. NON inventare URL.
-JSON:
-{"linkedin":"URL pagina LinkedIn AZIENDALE (company page, NON profilo personale)","instagram":"URL profilo Instagram aziendale","facebook":"URL pagina Facebook aziendale","twitter":"URL account Twitter/X aziendale","youtube":"URL canale YouTube","telefono":"numero di telefono fisso o cellulare dell'azienda","email":"email di contatto aziendale","sito_web":"sito web ufficiale se trovato"}`)
-        if (ext3b.linkedin && typeof ext3b.linkedin === 'string' && ext3b.linkedin.includes('linkedin.com/') && !isJunkValue(ext3b.linkedin) && !profile.linkedin) {
-          profile.linkedin = ext3b.linkedin
-        }
-        if (ext3b.instagram && typeof ext3b.instagram === 'string' && ext3b.instagram.includes('instagram.com') && !isJunkValue(ext3b.instagram) && !profile.instagram) {
-          profile.instagram = ext3b.instagram
-        }
-        if (ext3b.facebook && typeof ext3b.facebook === 'string' && ext3b.facebook.includes('facebook.com') && !isJunkValue(ext3b.facebook) && !profile.facebook) {
-          profile.facebook = ext3b.facebook
-        }
-        if (ext3b.twitter && typeof ext3b.twitter === 'string' && !isJunkValue(ext3b.twitter) && !profile.twitter) {
-          profile.twitter = ext3b.twitter
-        }
-        if (ext3b.youtube && typeof ext3b.youtube === 'string' && ext3b.youtube.includes('youtube.com') && !isJunkValue(ext3b.youtube) && !profile.youtube) {
-          profile.youtube = ext3b.youtube
-        }
-        if (ext3b.telefono && !isJunkValue(ext3b.telefono) && !profile.telefono) {
-          profile.telefono = ext3b.telefono
-          profile.telefono_fonte = 'tavily'
-        }
-        if (ext3b.email && !isJunkValue(ext3b.email) && !profile.email && !profile.email_privacy) {
-          profile.email = ext3b.email
-        }
-        tavilyUsed = true
-      }
+    if (isInvalidPersonName(profile.titolare)) {
+      delete profile.titolare
+      delete profile.ruolo_titolare
+      delete profile.titolare_fonte
     }
 
     // If titolare was found but not in persone array, add them (same logic as company-lookup)
@@ -1567,7 +1769,7 @@ JSON:
 
     // ── Search 4: Titolare profile enrichment (LinkedIn, background professionale) ──
     console.log(`[LEAD-REGISTRY] Search 4 check: titolare="${profile.titolare}" tavilyKey=${!!tavilyKey} openaiKey=${!!openaiKey}`)
-    if (profile.titolare && tavilyKey && openaiKey) {
+    if (profile.titolare && !isInvalidPersonName(profile.titolare) && tavilyKey && openaiKey) {
       const titName = String(profile.titolare)
       const compId = profile.ragione_sociale || business_name || ''
       const q4 = `"${titName}" "${compId}" linkedin profilo professionale curriculum`
@@ -1575,10 +1777,10 @@ JSON:
       const text4 = await tavilySearch(q4)
       console.log(`[LEAD-REGISTRY] Search 4: text4 length=${text4.length}`)
       if (text4.length > 50) {
-        const ext4 = await gptExtract(text4, `Cerca il profilo professionale di "${titName}" che lavora presso "${compId}".
-ATTENZIONE: Restituisci SOLO dati trovati ESPLICITAMENTE nel testo. NON inventare URL LinkedIn.
+        const ext4 = await gptExtract(text4, `Cerca il profilo LinkedIn di "${titName}" che lavora presso "${compId}".
+ATTENZIONE: Restituisci SOLO dati trovati ESPLICITAMENTE nel testo. NON inventare URL LinkedIn. Se non trovi il profilo LinkedIn, lascia null.
 JSON:
-{"linkedin":"URL LinkedIn TROVATO nel testo o null","ruolo":"ruolo attuale preciso","seniority":"junior/mid/senior/executive/c-level (stima basata su ruolo e esperienza)","bio":"breve descrizione professionale se trovata","esperienze_precedenti":[{"azienda":"nome","ruolo":"ruolo","periodo":"periodo"}],"formazione":"università/titolo di studio se trovato","competenze":["competenza1","competenza2"],"instagram":"URL Instagram personale se trovato","facebook":"URL Facebook personale se trovato"}`)
+{"linkedin":"URL LinkedIn TROVATO nel testo o null","ruolo":"ruolo/carica attuale (es. Amministratore Unico, Socio Accomandatario, CEO) se esplicito o null"}`)
         if (ext4.linkedin && typeof ext4.linkedin === 'string' && ext4.linkedin.includes('linkedin.com/') && !isJunkValue(ext4.linkedin)) {
           if (validateLinkedInWithContext(String(ext4.linkedin), titName, { text: text4, companyName: compId, piva: pivaStr, city })) {
             profile.linkedin_titolare = ext4.linkedin
@@ -1587,53 +1789,34 @@ JSON:
           }
         }
         if (ext4.ruolo && !isJunkValue(ext4.ruolo)) profile.ruolo_titolare = ext4.ruolo
-        if (ext4.bio && !isJunkValue(ext4.bio) && typeof ext4.bio === 'string' && ext4.bio.length > 10) profile.bio_titolare = ext4.bio
-        if (Array.isArray(ext4.esperienze_precedenti) && ext4.esperienze_precedenti.length > 0) {
-          const clean = ext4.esperienze_precedenti.filter((e: any) => e?.azienda && !isJunkValue(e.azienda))
-          if (clean.length > 0) profile.esperienze_titolare = clean
-        }
-        if (ext4.formazione && !isJunkValue(ext4.formazione)) profile.formazione_titolare = ext4.formazione
-        if (Array.isArray(ext4.competenze) && ext4.competenze.length > 0) profile.competenze_titolare = ext4.competenze
-        if (ext4.seniority && !isJunkValue(ext4.seniority)) profile.seniority_titolare = ext4.seniority
-        if (ext4.instagram && typeof ext4.instagram === 'string' && ext4.instagram.includes('instagram.com') && !isJunkValue(ext4.instagram)) {
-          profile.instagram_titolare = ext4.instagram
-        }
-        if (ext4.facebook && typeof ext4.facebook === 'string' && ext4.facebook.includes('facebook.com') && !isJunkValue(ext4.facebook)) {
-          profile.facebook_titolare = ext4.facebook
-        }
-        console.log(`[LEAD-REGISTRY] Search 4 results: linkedin=${profile.linkedin_titolare || 'none'} bio=${!!profile.bio_titolare} formazione=${!!profile.formazione_titolare} esperienze=${!!profile.esperienze_titolare} seniority=${profile.seniority_titolare || 'none'}`)
+        // bio/seniority/formazione/esperienze/competenze/instagram/facebook del
+        // titolare RIMOSSI: dati curriculum marketing, non consulenziali per un
+        // broker assicurativo. Età/CF/succession ora derivati da Titolare CF.
+        console.log(`[LEAD-REGISTRY] Search 4 results: linkedin=${profile.linkedin_titolare || 'none'} ruolo=${profile.ruolo_titolare || 'none'}`)
         tavilyUsed = true
       }
 
-      // ── Search 4b: LinkedIn-specific search if not found yet ──
-      if (!profile.linkedin_titolare || !profile.bio_titolare) {
+      // ── Search 4b: LinkedIn-specific fallback solo se LinkedIn non ancora trovato ──
+      if (!profile.linkedin_titolare) {
         const q4b = `site:linkedin.com/in "${titName}" "${compId}"`
         console.log(`[LEAD-REGISTRY] Search 4b: LinkedIn-specific query="${q4b}"`)
         const text4b = await tavilySearch(q4b)
         console.log(`[LEAD-REGISTRY] Search 4b: text4b length=${text4b.length}`)
         if (text4b.length > 50) {
-          const ext4b = await gptExtract(text4b, `Trova il profilo LinkedIn di "${titName}" che lavora presso "${compId}".
+          const ext4b = await gptExtract(text4b, `Trova SOLO il profilo LinkedIn di "${titName}" che lavora presso "${compId}".
 ATTENZIONE: Restituisci SOLO l'URL LinkedIn ESATTO trovato nel testo. NON inventare URL.
 JSON:
-{"linkedin":"URL LinkedIn completo (https://www.linkedin.com/in/...)","bio":"headline o descrizione professionale dal profilo","ruolo":"titolo lavorativo attuale","esperienze_precedenti":[{"azienda":"nome","ruolo":"ruolo","periodo":"periodo"}],"formazione":"università/titolo di studio","competenze":["competenza1","competenza2"]}`)
-          if (ext4b.linkedin && typeof ext4b.linkedin === 'string' && ext4b.linkedin.includes('linkedin.com/in/') && !isJunkValue(ext4b.linkedin) && !profile.linkedin_titolare) {
+{"linkedin":"URL LinkedIn completo (https://www.linkedin.com/in/...)","ruolo":"titolo lavorativo attuale se esplicito o null"}`)
+          if (ext4b.linkedin && typeof ext4b.linkedin === 'string' && ext4b.linkedin.includes('linkedin.com/in/') && !isJunkValue(ext4b.linkedin)) {
             if (validateLinkedInWithContext(String(ext4b.linkedin), titName, { text: text4b, companyName: compId, piva: pivaStr, city })) {
               profile.linkedin_titolare = ext4b.linkedin
             } else {
               console.log(`[LEAD-REGISTRY] Search 4b: REJECTED unrelated LinkedIn URL "${ext4b.linkedin}" for "${titName}" — name/country/company mismatch`)
             }
           }
-          if (ext4b.bio && !isJunkValue(ext4b.bio) && typeof ext4b.bio === 'string' && ext4b.bio.length > 10 && !profile.bio_titolare) {
-            profile.bio_titolare = ext4b.bio
-          }
           if (ext4b.ruolo && !isJunkValue(ext4b.ruolo) && !profile.ruolo_titolare) profile.ruolo_titolare = ext4b.ruolo
-          if (Array.isArray(ext4b.esperienze_precedenti) && ext4b.esperienze_precedenti.length > 0 && !profile.esperienze_titolare) {
-            const clean = ext4b.esperienze_precedenti.filter((e: any) => e?.azienda && !isJunkValue(e.azienda))
-            if (clean.length > 0) profile.esperienze_titolare = clean
-          }
-          if (ext4b.formazione && !isJunkValue(ext4b.formazione) && !profile.formazione_titolare) profile.formazione_titolare = ext4b.formazione
-          if (Array.isArray(ext4b.competenze) && ext4b.competenze.length > 0 && !profile.competenze_titolare) profile.competenze_titolare = ext4b.competenze
-          console.log(`[LEAD-REGISTRY] Search 4b results: linkedin=${profile.linkedin_titolare || 'none'} bio=${!!profile.bio_titolare}`)
+          // bio/esperienze/formazione/competenze RIMOSSE (non più mostrate in UI).
+          console.log(`[LEAD-REGISTRY] Search 4b results: linkedin=${profile.linkedin_titolare || 'none'}`)
         }
         tavilyUsed = true
       }
@@ -1697,14 +1880,10 @@ JSON:
     !!website,
   )
 
-  // Stima premio annuale
-  profile.stima_premio = estimateAnnualPremium(
-    fatNum,
-    dipNum,
-    atecoIns?.classe_inail || null,
-    profile.rischio_territoriale?.zona_sismica || null,
-    atecoIns?.settore || null,
-  )
+  // stima_premio RIMOSSA: era benchmark ATECO×INAIL grezzo senza valore
+  // consulenziale reale (un broker medio ha tariffari interni più precisi).
+  // La priorità commerciale sostituiva il benchmark è ora in
+  // bisogni_assicurativi_verificati.priorita_commerciale con score + reasons.
 
   profile.bisogni_assicurativi_verificati = buildInsuranceNeedsProfile({
     profile,
@@ -1746,7 +1925,7 @@ JSON:
   // Brings: trigger_finanziari, segnali_comportamentali, stima_capacita, social titolare,
   // legami_familiari, proprieta_immobiliari, ambiti_protection, priorita_commerciale, ecc.
   // Skipped when called from company-lookup / person-lookup (they handle enrichment separately).
-  if (!skipPersonEnrichment && profile.titolare && typeof profile.titolare === 'string') {
+  if (!skipPersonEnrichment && profile.titolare && typeof profile.titolare === 'string' && !isInvalidPersonName(profile.titolare)) {
     const titName = profile.titolare.trim()
     const compName = profile.ragione_sociale || business_name || ''
     if (titName.length >= 3) {
@@ -1777,22 +1956,12 @@ JSON:
             const matchesCompany = compWords.length === 0 || compWords.some((w: string) => plCheckText.includes(w))
 
             if (matchesCompany) {
-              // Profile fields (titolare)
+              // Profile fields (titolare) — solo dati essenziali e actionable
               if (nj(plData.linkedin) && !profile.linkedin_titolare) profile.linkedin_titolare = plData.linkedin
-              if (nj(plData.descrizione) && !profile.bio_titolare) profile.bio_titolare = plData.descrizione
               if (nj(plData.ruolo) && !profile.ruolo_titolare) profile.ruolo_titolare = plData.ruolo
-              if (nj(plData.seniority) && !profile.seniority_titolare) profile.seniority_titolare = plData.seniority
-              if (nj(plData.formazione) && !profile.formazione_titolare) profile.formazione_titolare = plData.formazione
-              if (nj(plData.esperienze_precedenti) && !profile.esperienze_titolare) profile.esperienze_titolare = plData.esperienze_precedenti
-              if (nj(plData.competenze) && !profile.competenze_titolare) {
-                const c = plData.competenze
-                profile.competenze_titolare = typeof c === 'string' ? c.split(',').map((s: string) => s.trim()).filter(Boolean) : c
-              }
-              if (nj(plData.anni_esperienza) && !profile.anni_esperienza_titolare) profile.anni_esperienza_titolare = plData.anni_esperienza
-              if (nj(plData.tipo_lavoro) && !profile.tipo_lavoro_titolare) profile.tipo_lavoro_titolare = plData.tipo_lavoro
-              if (nj(plData.instagram) && !profile.instagram_titolare) profile.instagram_titolare = plData.instagram
-              if (nj(plData.facebook) && !profile.facebook_titolare) profile.facebook_titolare = plData.facebook
-              if (nj(plData.twitter_x) && !profile.twitter_titolare) profile.twitter_titolare = plData.twitter_x
+              // bio/seniority/formazione/esperienze/competenze/anni_esperienza/
+              // tipo_lavoro/instagram/facebook/twitter RIMOSSI dal merge:
+              // erano dati curriculum/marketing senza valore assicurativo diretto.
               if (nj(plData.legami_familiari) && !profile.legami_familiari_titolare) profile.legami_familiari_titolare = plData.legami_familiari
               if (nj(plData.stato_civile) && !profile.stato_civile_titolare) profile.stato_civile_titolare = plData.stato_civile
               if (nj(plData.figli) && !profile.figli_titolare) profile.figli_titolare = plData.figli
