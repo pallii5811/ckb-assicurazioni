@@ -2056,7 +2056,12 @@ export async function POST(req: NextRequest) {
             })
           }
           for (const m of (oa.managers || [])) {
-            if (!personeOa.find(p => String(p.nome).toLowerCase() === m.nomeCompleto.toLowerCase())) {
+            if (!personeOa.find(p => {
+              const pName = String(p.nome).toLowerCase()
+              const mName = String(m.nomeCompleto).toLowerCase()
+              const mNameReversed = mName.split(' ').reverse().join(' ')
+              return pName === mName || pName === mNameReversed
+            })) {
               personeOa.push({
                 nome: m.nomeCompleto,
                 ruolo: m.isLegalRep ? `${m.ruolo} (Legale Rappresentante)` : (m.ruolo || 'Dirigente'),
@@ -2365,7 +2370,7 @@ export async function POST(req: NextRequest) {
     const compWords = String(compNameForSite).toLowerCase()
       .replace(/[^a-z0-9\s]/gi, ' ')
       .split(/\s+/)
-      .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|group|italia|italy|associati|associates|studio|consulting|consulenza)$/i.test(w))
+      .filter((w: string) => w.length >= 4 && !/^(srl|srls|spa|sas|snc|società|societa|societa|group|italia|italy|associati|associates|studio|consulting|consulenza|responsabilita|responsabilità|limitata|limitato|azioni|accomandita|semplice|agenzia|impresa|ditta|commerciale|industriale|artigiana)$/i.test(w))
     // ★ Detect dotted acronyms in company name (e.g. "G.E.M" → "gem", "A.B.C." → "abc")
     // These are often the domain name (gem.it, abc.it) but get lost when dots are stripped.
     const acronymMatches = String(compNameForSite).match(/\b(?:[A-Za-zÀ-ú]\.){2,}[A-Za-zÀ-ú]?\b/g) || []
@@ -3811,6 +3816,12 @@ JSON:
             const core = digits.startsWith('39') ? digits.slice(2) : digits
             // Italian fixed line starts with 0; mobile with 3
             if (/^0\d{8,10}$/.test(core)) {
+              // Don't accept phone that is actually the P.IVA
+              const pivaDigits2b3 = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+              if (pivaDigits2b3 && core === pivaDigits2b3) {
+                console.log(`[COMPANY-LOOKUP] Search 2b3: REJECTED phone "${ph}" — matches P.IVA`)
+                continue
+              }
               const prevPhone = result.telefono ? String(result.telefono) : ''
               const prevDigits = prevPhone.replace(/\D/g, '')
               const prevCore = prevDigits.startsWith('39') ? prevDigits.slice(2) : prevDigits
@@ -4804,7 +4815,7 @@ JSON:
             // Validate: Maps result name must share tokens with our company name
             const mapsName = String(lead.name || '').toLowerCase().replace(/[^a-zà-ù0-9\s]/gi, ' ')
             const ourName = companyNameNow.toLowerCase().replace(/[^a-zà-ù0-9\s]/gi, ' ')
-            const ourTokens = ourName.split(/\s+/).filter(t => t.length >= 3 && !/^(srl|srls|spa|sas|snc|di|del|della|dei|degli|delle|il|la|lo|le|gli|un|una|per|con|tra|fra)$/i.test(t))
+            const ourTokens = ourName.split(/\s+/).filter(t => t.length >= 3 && !/^(srl|srls|spa|sas|snc|di|del|della|dei|degli|delle|il|la|lo|le|gli|un|una|per|con|tra|fra|societa|società|responsabilita|responsabilità|limitata|limitato|azioni|accomandita|semplice|agenzia|impresa|ditta|commerciale|industriale|artigiana)$/i.test(t))
             const mapsTokens = mapsName.split(/\s+/).filter(t => t.length >= 3)
             const sharedTokens = ourTokens.filter(t => mapsTokens.some(mt => mt.includes(t) || t.includes(mt)))
             // For short personal names (2 tokens like "Manzo Marina"), require BOTH tokens to match
@@ -4834,6 +4845,14 @@ JSON:
       const pvd = String(result.partita_iva).replace(/\D/g, '')
       if (pd === pvd) { console.log(`[COMPANY-LOOKUP] REMOVED phone (matched P.IVA)`); delete result.telefono }
     }
+    // Round 2a cleanup: cellulare != P.IVA (with or without leading 0)
+    if (result.cellulare && result.partita_iva) {
+      const cd = String(result.cellulare).replace(/\D/g, '')
+      const pvd = String(result.partita_iva).replace(/\D/g, '')
+      if (cd === pvd || ('0' + cd) === pvd || cd === pvd.replace(/^0/, '')) {
+        console.log(`[COMPANY-LOOKUP] REMOVED cellulare "${result.cellulare}" (matched P.IVA)`); delete result.cellulare
+      }
+    }
 
     // Round 2b: Scrape company website with the same deep scraper used by category/city
     if (result.sito && (!result.email || !result.telefono || !result.cellulare || !result.instagram || !result.linkedin || !result.facebook)) {
@@ -4848,6 +4867,14 @@ JSON:
           const digits = numero.replace(/\D/g, '')
           if (digits.length === 11 && pivaDigitsForPhone && digits === pivaDigitsForPhone) return true
           if (/^\d{11}$/.test(numero.trim())) return true
+          // Also catch P.IVA with leading 0 stripped (e.g. "3653120240" from P.IVA "03653120240")
+          if (pivaDigitsForPhone && pivaDigitsForPhone.startsWith('0')) {
+            const pivaNoLeadingZero = pivaDigitsForPhone.slice(1)
+            if (digits === pivaNoLeadingZero) return true
+            if (digits.endsWith(pivaNoLeadingZero)) return true
+          }
+          // Or if adding a 0 matches the P.IVA
+          if (pivaDigitsForPhone && ('0' + digits) === pivaDigitsForPhone) return true
           return false
         }
         if (!result.telefono) {
@@ -4914,34 +4941,34 @@ JSON:
     }
   }
 
+  // ─── Shared Phone Prefix Dictionary ───
+  const PROV_PREFIX: Record<string, string[]> = {
+    'MI':['02'],'RM':['06'],'NA':['081'],'TO':['011'],'GE':['010'],
+    'BO':['051'],'FI':['055'],'PA':['091'],'CT':['095'],'BA':['080'],
+    'VE':['041'],'VR':['045'],'PD':['049'],'BS':['030'],'BG':['035'],
+    'VI':['0444','0445'],'ME':['090','0941'],'RC':['0965'],'CS':['0984'],'CZ':['0961'],
+  }
+  const CITY_PREFIX: Record<string, string[]> = {
+    'milano':['02'],'roma':['06'],'napoli':['081'],'torino':['011'],'genova':['010'],
+    'bologna':['051'],'firenze':['055'],'palermo':['091'],'catania':['095'],'bari':['080'],
+    'venezia':['041'],'verona':['045'],'padova':['049'],'brescia':['030'],'bergamo':['035'],
+    'vicenza':['0444','0445'],'messina':['090','0941'],'reggio calabria':['0965'],'cosenza':['0984'],'catanzaro':['0961'],
+  }
+  const provUp5a = String(result.provincia || '').toUpperCase().trim()
+  const cityLow5a = String(result.citta || queryCityHint || '').toLowerCase().trim()
+  const expectedPrefixes5a = PROV_PREFIX[provUp5a] || CITY_PREFIX[cityLow5a]
+
   // ─── Pre-Step 5a: Phone Prefix Sanity Check ───
   // Clear phones that have blatantly wrong area codes for the known city/province
-  if (result.telefono) {
-    const PROV_PREFIX: Record<string, string[]> = {
-      'MI':['02'],'RM':['06'],'NA':['081'],'TO':['011'],'GE':['010'],
-      'BO':['051'],'FI':['055'],'PA':['091'],'CT':['095'],'BA':['080'],
-      'VE':['041'],'VR':['045'],'PD':['049'],'BS':['030'],'BG':['035'],
-      'VI':['0444','0445'],'ME':['090','0941'],'RC':['0965'],'CS':['0984'],'CZ':['0961'],
-    }
-    const CITY_PREFIX: Record<string, string[]> = {
-      'milano':['02'],'roma':['06'],'napoli':['081'],'torino':['011'],'genova':['010'],
-      'bologna':['051'],'firenze':['055'],'palermo':['091'],'catania':['095'],'bari':['080'],
-      'venezia':['041'],'verona':['045'],'padova':['049'],'brescia':['030'],'bergamo':['035'],
-      'vicenza':['0444','0445'],'messina':['090','0941'],'reggio calabria':['0965'],'cosenza':['0984'],'catanzaro':['0961'],
-    }
-    const provUp = String(result.provincia || '').toUpperCase().trim()
-    const cityLow = String(result.citta || queryCityHint || '').toLowerCase().trim()
-    const expectedPrefixes = PROV_PREFIX[provUp] || CITY_PREFIX[cityLow]
-    if (expectedPrefixes) {
-      const phoneClean = String(result.telefono).replace(/\D/g, '').replace(/^(0039|39)/, '')
-      // Only check landlines (starting with 0)
-      if (phoneClean.startsWith('0')) {
-        const prefixOk = expectedPrefixes.some(p => phoneClean.startsWith(p))
-        if (!prefixOk) {
-          console.log(`[COMPANY-LOOKUP] Pre-Step 5a: phone "${result.telefono}" area code does NOT match province/city "${provUp || cityLow}" — clearing wrong phone`)
-          delete result.telefono
-          delete (result as any).telefono_fonte
-        }
+  if (result.telefono && expectedPrefixes5a) {
+    const phoneClean = String(result.telefono).replace(/\D/g, '').replace(/^(0039|39)/, '')
+    // Only check landlines (starting with 0)
+    if (phoneClean.startsWith('0')) {
+      const prefixOk = expectedPrefixes5a.some(p => phoneClean.startsWith(p))
+      if (!prefixOk) {
+        console.log(`[COMPANY-LOOKUP] Pre-Step 5a: phone "${result.telefono}" area code does NOT match province/city "${provUp5a || cityLow5a}" — clearing wrong phone`)
+        delete result.telefono
+        delete (result as any).telefono_fonte
       }
     }
   }
@@ -5041,6 +5068,13 @@ JSON:
             const digits = ph.replace(/\D/g, '')
             const core = digits.startsWith('39') ? digits.slice(2) : digits
             if (/^0\d{8,10}$/.test(core)) {
+              if (expectedPrefixes5a) {
+                const prefixOk = expectedPrefixes5a.some(p => core.startsWith(p))
+                if (!prefixOk) {
+                  console.log(`[COMPANY-LOOKUP] Step 5a: skipped discovered phone ${ph} because area code does NOT match province/city "${provUp5a || cityLow5a}"`)
+                  continue
+                }
+              }
               const srcDomain = pq.includes('reteimprese') ? 'Reteimprese.it' : pq.includes('paginegialle') ? 'PagineGialle.it' : 'PagineBianche.it'
               result.telefono = ph
               result.telefono_fonte = srcDomain
@@ -5181,7 +5215,12 @@ JSON:
             personeOaCatchup.push({ nome, ruolo: (oa.shareholders?.length === 1) ? 'Socio Unico' : 'Socio', cf: sh.taxCode, quota: typeof sh.percentShare === 'number' ? `${sh.percentShare}%` : undefined })
           }
           for (const m of (oa.managers || [])) {
-            if (!personeOaCatchup.find(p => String(p.nome).toLowerCase() === m.nomeCompleto.toLowerCase())) {
+            if (!personeOaCatchup.find(p => {
+              const pName = String(p.nome).toLowerCase()
+              const mName = String(m.nomeCompleto).toLowerCase()
+              const mNameReversed = mName.split(' ').reverse().join(' ')
+              return pName === mName || pName === mNameReversed
+            })) {
               personeOaCatchup.push({ nome: m.nomeCompleto, ruolo: m.isLegalRep ? `${m.ruolo} (Legale Rappresentante)` : (m.ruolo || 'Dirigente'), cf: m.taxCode, data_nascita: m.dataNascita, eta: typeof m.eta === 'number' ? String(m.eta) : undefined, sesso: m.sesso })
             }
           }
@@ -5651,6 +5690,13 @@ JSON:
               const digits = ph.replace(/\D/g, '')
               const core = digits.startsWith('39') ? digits.slice(2) : digits
               if (/^0\d{8,10}$/.test(core)) {
+                if (expectedPrefixes5a) {
+                  const prefixOk = expectedPrefixes5a.some(p => core.startsWith(p))
+                  if (!prefixOk) {
+                    console.log(`[COMPANY-LOOKUP] Step 6e+: skipped discovered phone ${ph} because area code does NOT match province/city`)
+                    continue
+                  }
+                }
                 result.telefono = ph
                 const srcDomain = rq.includes('reteimprese') ? 'Reteimprese.it' : rq.includes('paginegialle') ? 'PagineGialle.it' : 'PagineBianche.it'
                 ;(result as any).telefono_fonte = srcDomain

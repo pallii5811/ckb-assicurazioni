@@ -487,7 +487,12 @@ async function fetchOpenApiIt(piva: string): Promise<Record<string, any> | null>
     })
   }
   for (const m of (enriched.managers || [])) {
-    if (!persone.find(p => String(p.nome).toLowerCase() === m.nomeCompleto.toLowerCase())) {
+    if (!persone.find(p => {
+      const pName = String(p.nome).toLowerCase()
+      const mName = String(m.nomeCompleto).toLowerCase()
+      const mNameReversed = mName.split(' ').reverse().join(' ')
+      return pName === mName || pName === mNameReversed
+    })) {
       persone.push({
         nome: m.nomeCompleto,
         ruolo: m.isLegalRep ? `${m.ruolo} (Legale Rappresentante)` : (m.ruolo || 'Dirigente'),
