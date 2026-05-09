@@ -1221,14 +1221,13 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
           <table className="w-full table-fixed text-left text-xs font-medium">
             <thead className="sticky top-0 z-10 bg-slate-100 border-b-2 border-slate-200">
               <tr>
-                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azienda</th>
+                <th className="w-[22%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azienda</th>
                 <th className="w-[6%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Score</th>
-                <th className="w-[16%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Contatti & PEC</th>
-                <th className="w-[8%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Città</th>
-                <th className="w-[12%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Categoria</th>
-                <th className="w-[18%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Rischi & Polizze</th>
-                <th className="w-[5%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Rating</th>
-                <th className="w-[17%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azioni</th>
+                <th className="w-[20%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Contatti & PEC</th>
+                <th className="w-[10%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Città</th>
+                <th className="w-[14%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Categoria</th>
+                <th className="w-[8%] px-2 py-3 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">Rating</th>
+                <th className="w-[20%] px-2 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Azioni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -1370,12 +1369,7 @@ const ResultsTable = ({ query, results, isLoading, isScraping, searchId, filters
 
                       {/* Colonna Categoria - solo il settore dell'azienda */}
 
-                      <td className="px-2 py-3 align-middle text-[11px] leading-tight">
-                        {(() => {
-                          const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-                          return getRiskBadges(obj, query)
-                        })()}
-                      </td>
+
 
                           <td className="px-2 py-3 align-middle text-center">
                             {(() => {

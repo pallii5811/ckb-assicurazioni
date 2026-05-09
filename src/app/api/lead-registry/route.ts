@@ -49,6 +49,7 @@ const PIVA_RE = [
 ]
 
 function extractPivaFromHtml(html: string): string | null {
+  // Try raw HTML first (handles cases where P.IVA text is in a single element)
   for (const re of PIVA_RE) {
     re.lastIndex = 0
     const m = re.exec(html)
@@ -57,6 +58,26 @@ function extractPivaFromHtml(html: string): string | null {
   const area = html.match(/(?:P\.?\s*I\.?V\.?A|P\.?\s?I\.?\s|Partita\s*IVA|codice\s*fiscale).{0,100}/gi)
   if (area) {
     for (const a of area) {
+      const d = a.match(/\b(\d{11})\b/)
+      if (d?.[1]) return d[1]
+    }
+  }
+  // ★ Strip HTML tags and retry — catches "P.I." and number split across <span> tags
+  // e.g. <span>P.I.</span> <span>04999090287</span>
+  const plainText = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+  for (const re of PIVA_RE) {
+    re.lastIndex = 0
+    const m = re.exec(plainText)
+    if (m?.[1]) return m[1]
+  }
+  const areaText = plainText.match(/(?:P\.?\s*I\.?V\.?A|P\.?\s?I\.?\s|Partita\s*IVA|codice\s*fiscale).{0,100}/gi)
+  if (areaText) {
+    for (const a of areaText) {
       const d = a.match(/\b(\d{11})\b/)
       if (d?.[1]) return d[1]
     }
