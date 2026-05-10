@@ -326,40 +326,12 @@ export function estimateSpendingCapacity(input: SpendingCapacityInput): Spending
   const capacitaMin = Math.round(capacitaMid * 0.65)
   const capacitaMax = Math.round(capacitaMid * 1.55)
 
-  // Reddito titolare stimato (proxy)
-  let redditoStimato: SpendingCapacity['redditoTitolareStimato']
-  if (input.ruolo === 'titolare' || input.ruolo === 'amministratore') {
-    if (segmento === 'enterprise') redditoStimato = { min: 200_000, max: 600_000, mid: 350_000 }
-    else if (segmento === 'mid-market') redditoStimato = { min: 100_000, max: 250_000, mid: 150_000 }
-    else if (segmento === 'sme') redditoStimato = { min: 60_000, max: 150_000, mid: 90_000 }
-    else if (segmento === 'micro') redditoStimato = { min: 35_000, max: 80_000, mid: 50_000 }
-  } else if (input.ruolo === 'libero_professionista') {
-    redditoStimato = { min: 40_000, max: 120_000, mid: 70_000 }
-  } else if (input.ruolo === 'dipendente') {
-    if (dip >= 250) redditoStimato = { min: 35_000, max: 80_000, mid: 50_000 }
-    else if (dip >= 50) redditoStimato = { min: 30_000, max: 65_000, mid: 42_000 }
-    else redditoStimato = { min: 25_000, max: 55_000, mid: 35_000 }
-  }
-
-  // Patrimonio mobiliare stimato (proxy: 5-10x reddito annuo per imprenditori, 2-4x per dipendenti)
-  let patrimonioMobiliareStimato: SpendingCapacity['patrimonioMobiliareStimato']
-  if (redditoStimato) {
-    const isImprenditore = input.ruolo === 'titolare' || input.ruolo === 'amministratore'
-    const mult = isImprenditore ? [4, 10] : [1.5, 3.5]
-    patrimonioMobiliareStimato = {
-      min: Math.round(redditoStimato.min * mult[0]),
-      max: Math.round(redditoStimato.max * mult[1]),
-    }
-  }
-
   const rationale =
     `Segmento ${segmento}` +
     (sectorRisk !== 'medium' ? ` · settore ${sectorRisk === 'high' ? 'alto rischio (+50% spesa)' : 'basso rischio (-20%)'}` : '') +
     ` · benchmark ANIA: ${pctFinal}% del fatturato`
 
   return {
-    redditoTitolareStimato: redditoStimato,
-    patrimonioMobiliareStimato,
     propensioneAssicurativa: {
       percentualeSpesaAttesa: pctFinal,
       segmento,
@@ -619,15 +591,15 @@ export function buildPivaAgeTrigger(
   if (ageMonths <= 6) {
     severity = 'alto'
     title = 'P.IVA aperta da meno di 6 mesi'
-    description = `Costituita ${costituzioneAnno}: setup polizze ancora vergine, finestra di acquisizione massima.`
+    description = `Costituita ${costituzioneAnno}: fase iniziale in cui scadenziario, massimali e coperture operative sono spesso ancora da strutturare.`
   } else if (ageMonths <= 12) {
     severity = 'medio'
     title = 'P.IVA con meno di 12 mesi'
-    description = `Costituita ${costituzioneAnno}: probabilmente coperture base mancanti.`
+    description = `Costituita ${costituzioneAnno}: momento utile per verificare se il portafoglio iniziale copre già responsabilità, persone chiave e beni operativi.`
   } else if (ageMonths <= 24) {
     severity = 'basso'
     title = 'Azienda giovane (<2 anni)'
-    description = `Costituita ${costituzioneAnno}: possibili gap su D&O, Cyber, Welfare.`
+    description = `Costituita ${costituzioneAnno}: opportunità di revisione su responsabilità, continuità operativa, cyber e welfare se presenti dipendenti.`
   } else {
     severity = 'info'
     title = 'Azienda giovane (<3 anni)'
@@ -640,11 +612,11 @@ export function buildPivaAgeTrigger(
     title,
     description,
     insuranceImplication:
-      'Le aziende neonate hanno la più alta percentuale di gap assicurativo: RCT/RCO, INAIL, polizze obbligatorie del settore, cyber.',
+      'Azienda giovane: non certifica assenza di coperture, ma crea una finestra commerciale forte per verificare portafoglio attivo, scadenze, massimali e priorità settoriali.',
     suggestedActions: [
-      'Proporre kit base: RCT/O + RC professionale (se ATECO regolato) + Cyber',
-      'Verificare adempimento INAIL (obbligatorio dal primo dipendente)',
-      'Setup welfare per agevolare prima assunzione (premio deducibile)',
+      'Verificare portafoglio attivo: RCT/O, eventuale RC professionale se ATECO regolato, property e cyber',
+      'Verificare adempimenti lavoratori/INAIL se presenti dipendenti',
+      'Qualificare scadenze, massimali, franchigie e coperture già sottoscritte nella fase di avvio',
     ],
   }
 }
@@ -669,15 +641,15 @@ export function buildTenderTrigger(input: {
   else severity = 'basso'
 
   const actions: string[] = [
-    `Cauzione definitiva 10% (€${Math.round(imp * 0.1).toLocaleString('it-IT')}) — obbligatoria ex art.103 D.Lgs.50/2016`,
+    `Verificare garanzia definitiva/cauzione richiesta dal disciplinare: benchmark 10% circa (€${Math.round(imp * 0.1).toLocaleString('it-IT')}) da confermare su contratto e Codice Appalti`,
   ]
   if (input.categoria === 'lavori' && imp >= 500_000) {
     actions.push(
-      `Decennale postuma (€${Math.round(imp * 0.05).toLocaleString('it-IT')}) — obbligatoria sopra 500k€`,
+      `Verificare obbligo di decennale postuma/CAR per lavori: benchmark esposizione €${Math.round(imp * 0.05).toLocaleString('it-IT')} da confermare sul bando`,
     )
   }
   if (input.categoria === 'lavori') {
-    actions.push('Polizza CAR (Contractors All Risks) cantiere — fortemente raccomandata')
+    actions.push('Verificare CAR/EAR cantiere, RCT/RCO, subappalti, danni a terzi e clausole del committente')
   }
   if (input.categoria === 'servizi') {
     actions.push('RC Professionale + RCT/O — verifica massimali contrattuali')
@@ -693,7 +665,7 @@ export function buildTenderTrigger(input: {
     date: input.dataAggiudicazione,
     source: input.fonte,
     insuranceImplication:
-      'Aggiudicazione recente: cauzioni e RC sono obbligatorie da contratto. Finestra di vendita: 7-30 giorni dall\u2019aggiudicazione.',
+      'Aggiudicazione recente: bando e contratto possono richiedere garanzie, cauzioni, RC e coperture cantiere/servizi. Finestra utile per verificare subito requisiti assicurativi e scadenze.',
     suggestedActions: actions.slice(0, 3),
   }
 }

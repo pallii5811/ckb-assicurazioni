@@ -152,6 +152,21 @@ function parseInteger(value: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+function sameAmount(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return false
+  return Math.abs(a - b) <= Math.max(1, Math.abs(a) * 0.001)
+}
+
+function hasReliableNetWorth(profile: InsuranceNeedsSourceProfile, latestProfit: number | null = null): boolean {
+  const pn = parseNumber(profile.patrimonio_netto, true, true)
+  if (pn === null) return false
+  const explicitProfit = parseNumber(profile.utile_netto, true, true)
+  const storico = Array.isArray(profile.storico_bilanci) ? profile.storico_bilanci : []
+  const hasHistoricNetWorth = storico.some((b) => parseNumber((b as Record<string, unknown>)?.patrimonio_netto, true, true) !== null)
+  if (!hasHistoricNetWorth && (sameAmount(pn, explicitProfit) || sameAmount(pn, latestProfit))) return false
+  return true
+}
+
 function hasAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text))
 }
@@ -216,19 +231,19 @@ function enrichNeedForBroker(need: InsuranceNeedRecommendation, ctx: BrokerConte
   const decisionMaker = ctx.titolare || need.target
   const byNeed: Record<string, string | null> = {
     key_man_microimpresa: ctx.titolare
-      ? `Azienda con persona chiave identificata (${decisionMaker}). Leva reale: dipendenza economica dal titolare in assenza di seconde figure operative.`
+      ? `Persona chiave identificata (${decisionMaker}) + struttura micro: leva reale su quanti giorni l’azienda regge senza il titolare operativo.`
       : null,
     rc_commercio_prodotti_tutela: ctx.sectorText
       ? `Attività commerciale rilevata (ATECO ${need.evidence_ids.includes('ateco') ? 'verificato' : 'stimato'}): leva reale su RC prodotti, incaricati e tutela legale.`
       : null,
     cyber_risk: ctx.website
-      ? `Presenza web verificata (${ctx.website}): leva reale su email aziendali, dati clienti, pagamenti e backup.`
+      ? `Presenza web verificata (${ctx.website}): leva reale su dati clienti, email aziendali, pagamenti, backup e procedure GDPR.`
       : null,
     property_all_risks: ctx.totalAssets !== null
       ? `Totale attivo verificato: €${new Intl.NumberFormat('it-IT').format(ctx.totalAssets)}. Leva su valori assicurati, business interruption e sottolimiti.`
       : null,
     do_amministratori: ctx.legalForm
-      ? `Forma giuridica ${ctx.legalForm}: l'amministratore risponde personalmente per mala gestio. Leva su D&O e protezione patrimonio.`
+      ? `Forma giuridica ${ctx.legalForm}${ctx.revenue !== null ? ` + fatturato ${fmtMoneyValue(ctx.revenue)}` : ''}: leva su responsabilità amministratori, difesa legale e protezione patrimonio personale.`
       : null,
     employee_benefits: ctx.employees !== null && ctx.employees >= 10
       ? `${ctx.employees} dipendenti verificati da Registro Imprese: leva su welfare, sanitaria collettiva e infortuni extraprofessionali.`
@@ -300,7 +315,7 @@ function computeFinancialIntelligence(profile: InsuranceNeedsSourceProfile): Fin
   const latestProfit = profits[0] ?? null
   const profitStatus: FinancialIntelligence['profit_status'] = latestProfit !== null ? (latestProfit >= 0 ? 'positivo' : 'negativo') : null
 
-  const pn = parseNumber(profile.patrimonio_netto, true, true)
+  const pn = hasReliableNetWorth(profile, latestProfit) ? parseNumber(profile.patrimonio_netto, true, true) : null
   const ta = parseNumber(profile.totale_attivo)
   let solvencyRatio: number | null = null
   let solvencyLevel: FinancialIntelligence['solvency_level'] = null
@@ -320,6 +335,9 @@ function computeFinancialIntelligence(profile: InsuranceNeedsSourceProfile): Fin
   if (latestHc !== null && oldestHc !== null && headcounts.length >= 2) {
     headcountTrend = latestHc > oldestHc ? 'crescita' : latestHc < oldestHc ? 'riduzione' : 'stabile'
   }
+
+  const hasActionableSignal = revTrendPct !== null || latestProfit !== null || solvencyRatio !== null || payrollDep !== null || latestHc !== null || headcountTrend !== null
+  if (!hasActionableSignal) return null
 
   return {
     revenue_trend: revTrend,
@@ -374,12 +392,12 @@ function computeRiskConcentration(profile: InsuranceNeedsSourceProfile): RiskCon
   }
   const socioUnico = maxQuota >= 99 || (soci.length === 1 && persone.length <= 2)
   const titolari = persone.filter(p => /titolare|amministratore/i.test(String(p.ruolo_normalizzato || p.ruolo || '')))
-  const titolareUnico = titolari.length <= 1
+  const titolareUnico = titolari.length === 1
 
   const legalForm = String(profile.forma_giuridica || '').toUpperCase()
   const capitaleSociale = parseNumber(profile.capitale_sociale)
   const capitaleMinimo = /SRLS/.test(legalForm) || (capitaleSociale !== null && capitaleSociale <= 10000)
-  const patrimonio = parseNumber(profile.patrimonio_netto, true, true)
+  const patrimonio = hasReliableNetWorth(profile) ? parseNumber(profile.patrimonio_netto, true, true) : null
   const patrimonioEsposto = patrimonio !== null && patrimonio < 10000
 
   let anniAttivita: number | null = null
@@ -433,8 +451,8 @@ function computeTriggerAlerts(
       type: 'opportunita',
       severity: 'medio',
       title: `Azienda costituita da ${conc.anni_attivita} anni`,
-      description: `Imprese con meno di 2 anni di attività hanno tipicamente coperture base, assenti o improvvisate. Finestra massima per impostare il portafoglio assicurativo prima che abitudini e scadenze si cristallizzino.`,
-      action: 'Proporre audit di impostazione iniziale completa (RC, infortuni, property, cyber). Offrire ruolo di consulente di fiducia dall\'inizio.',
+      description: `Impresa molto giovane: portafoglio assicurativo, massimali e scadenze sono ancora da consolidare. È una finestra utile per impostare metodo, scadenziario e priorità prima che il cliente si abitui a coperture scelte solo per prezzo.`,
+      action: 'Proporre audit iniziale su rischi base, scadenze, massimali e franchigie. Obiettivo: diventare consulente assicurativo di riferimento prima del primo rinnovo strutturato.',
       evidence_ids: ['data_costituzione'],
     })
   }
@@ -447,8 +465,8 @@ function computeTriggerAlerts(
       type: 'red_flag',
       severity: absPct > 25 ? 'critico' : 'alto',
       title: `Fatturato in declino ${fin.revenue_trend_pct}% (${fin.oldest_year}→${fin.latest_year})`,
-      description: `Il fatturato è passato da €${new Intl.NumberFormat('it-IT').format(fin.oldest_revenue || 0)} a €${new Intl.NumberFormat('it-IT').format(fin.latest_revenue || 0)}. L'azienda è probabilmente in fase di razionalizzazione spese: evitare upsell, concentrarsi su audit delle coperture esistenti per ottimizzazione premi.`,
-      action: 'Proporre revisione portafoglio in ottica risparmio + tutela legale rafforzata (contenziosi più probabili in fase critica).',
+      description: `Il fatturato è passato da €${new Intl.NumberFormat('it-IT').format(fin.oldest_revenue || 0)} a €${new Intl.NumberFormat('it-IT').format(fin.latest_revenue || 0)}. Il segnale suggerisce di qualificare in call se l'azienda sta riducendo costi, marginalità o commesse.`,
+      action: 'Aprire con revisione portafoglio in ottica efficienza: premi, duplicazioni, franchigie, scoperti e tutela legale contrattuale.',
       evidence_ids: ['storico_bilanci', 'fatturato'],
     })
   }
@@ -460,8 +478,8 @@ function computeTriggerAlerts(
       type: 'opportunita',
       severity: 'alto',
       title: `Fatturato in crescita +${fin.revenue_trend_pct}% (${fin.oldest_year}→${fin.latest_year})`,
-      description: `Crescita significativa del fatturato: le coperture assicurative impostate in passato sono probabilmente sotto-dimensionate rispetto all'esposizione attuale (massimali RC, valori property, cyber).`,
-      action: 'Audit massimali e valori assicurati con focus su adeguamento. Probabile upgrade RC, property e introduzione D&O se non presente.',
+      description: `Crescita significativa del fatturato: massimali RC, valori assicurati, business interruption e cyber vanno riallineati all'esposizione attuale se erano stati impostati su dimensioni precedenti.`,
+      action: 'Audit massimali e valori assicurati con focus su adeguamento a fatturato attuale, commesse, beni e dati gestiti.',
       evidence_ids: ['storico_bilanci', 'fatturato'],
     })
   }
@@ -473,8 +491,8 @@ function computeTriggerAlerts(
       type: 'red_flag',
       severity: 'alto',
       title: `Ultimo bilancio in perdita (€${new Intl.NumberFormat('it-IT').format(fin.latest_profit)})`,
-      description: `L'esercizio ${fin.latest_year} chiude in perdita. Esposizione aumentata su D&O (azioni di responsabilità da soci/creditori), tutela legale (contenziosi fornitori), credito (sofferenze bancarie → garanzie personali del titolare).`,
-      action: 'Prioritizzare D&O con retroattività e postuma, tutela legale contrattuale, verifica polizza vita titolare se garanzie personali attive.',
+      description: `L'esercizio ${fin.latest_year} chiude in perdita. Il dato rende prioritario qualificare tensione finanziaria, garanzie personali, esposizione verso soci/creditori e contenziosi contrattuali.`,
+      action: 'Prioritizzare D&O, tutela legale contrattuale e verifica garanzie personali/fideiussioni prima di proporre cross-sell non essenziali.',
       evidence_ids: ['utile_netto', 'storico_bilanci'],
     })
   }
@@ -486,8 +504,8 @@ function computeTriggerAlerts(
       type: 'red_flag',
       severity: 'alto',
       title: `Solvibilità bassa: PN copre solo il ${Math.round(fin.solvency_ratio * 100)}% del totale attivo`,
-      description: `Il patrimonio netto è una frazione minima del totale attivo: azienda fortemente indebitata o sottocapitalizzata. Il titolare è quasi certamente esposto con garanzie personali/fideiussioni bancarie.`,
-      action: 'Key Man e polizza vita diventano critici per proteggere la famiglia da garanzie personali. Chiedere esplicitamente in call di fideiussioni attive.',
+      description: `Il patrimonio netto è una frazione minima del totale attivo: possibile sottocapitalizzazione o leva finanziaria elevata. In call va qualificata l'eventuale presenza di garanzie personali o fideiussioni.`,
+      action: 'Chiedere esplicitamente se esistono fideiussioni o garanzie personali. Se sì, aprire tema Key Man, TCM e protezione famiglia/soci.',
       evidence_ids: ['patrimonio_netto', 'totale_attivo'],
     })
   }
@@ -499,8 +517,8 @@ function computeTriggerAlerts(
       type: 'opportunita',
       severity: 'critico',
       title: `Socio unico con capitale ridotto — patrimonio personale esposto`,
-      description: `${companyName} ha un unico centro decisionale con capitale sociale minimo. In caso di debiti aziendali, contenziosi o garanzie personali, il patrimonio familiare del titolare è direttamente esposto.`,
-      action: 'Leva commerciale forte su: protezione patrimonio personale, polizza vita, TCM, Key Man. Discutere separazione famiglia/azienda e protezione quote.',
+      description: `${companyName} concentra decisione e capitale in poche mani. Questo non prova garanzie personali, ma crea una leva consulenziale forte su continuità, successione, quote e tutela del patrimonio familiare.`,
+      action: 'Qualificare garanzie personali, quote, continuità operativa e piano di successione. Se emergono esposizioni personali, proporre Key Man/TCM e protezione soci.',
       evidence_ids: ['forma_giuridica', 'capitale_sociale', 'persone_chiave'],
     })
   }
@@ -529,8 +547,8 @@ function computeTriggerAlerts(
       type: 'opportunita',
       severity: 'medio',
       title: `Organico in crescita: ${fin.latest_headcount} dipendenti (trend positivo)`,
-      description: `L'azienda sta assumendo. Momento ottimale per introdurre welfare aziendale, sanitaria collettiva e infortuni extraprofessionali: retention dipendenti e benefit fiscale immediato.`,
-      action: 'Proporre pacchetto welfare + sanitaria collettiva. Leva su costo deducibile al 100% e defiscalizzato per il dipendente.',
+      description: `I bilanci mostrano organico in aumento. È un segnale concreto per qualificare retention, costo del personale, CCNL applicato e benefit già presenti.`,
+      action: 'Proporre verifica welfare/sanitaria collettiva/infortuni extraprofessionali partendo da CCNL, turnover e budget HR reale.',
       evidence_ids: ['dipendenti', 'storico_bilanci'],
     })
   }
@@ -542,8 +560,8 @@ function computeTriggerAlerts(
       type: 'red_flag',
       severity: 'medio',
       title: `Organico in riduzione`,
-      description: `Numero dipendenti in calo: possibile fase di ristrutturazione, contenziosi lavoro o ricorso a collaboratori esterni. Aumenta il rischio contenzioso giuslavoristico e RC verso ex dipendenti.`,
-      action: 'Priorità a tutela legale giuslavoristica e verifica RC/D&O contro azioni di responsabilità post-uscita.',
+      description: `Numero dipendenti in calo: segnale da qualificare, non diagnosi. Può dipendere da riorganizzazione, stagionalità, esternalizzazioni o riduzione commesse.`,
+      action: 'Chiedere motivo della riduzione e verificare tutela legale lavoro, gestione collaboratori esterni, D&O e responsabilità verso ex dipendenti.',
       evidence_ids: ['dipendenti', 'storico_bilanci'],
     })
   }
@@ -572,7 +590,7 @@ export function buildInsuranceNeedsProfile({
   const revenue = parseNumber(profile.fatturato)
   const employees = parseInteger(profile.dipendenti)
   const totalAssets = parseNumber(profile.totale_attivo)
-  const netWorth = parseNumber(profile.patrimonio_netto, true)
+  const netWorth = hasReliableNetWorth(profile) ? parseNumber(profile.patrimonio_netto, true) : null
   const payroll = parseNumber(profile.costo_personale)
   const hasWebsite = Boolean(website)
   const hasPec = Boolean(profile.pec)
@@ -687,7 +705,7 @@ export function buildInsuranceNeedsProfile({
     confidence: 'alta',
   } : null)
 
-  pushFact(facts, hasValue(profile.patrimonio_netto) ? {
+  pushFact(facts, netWorth !== null ? {
     id: 'patrimonio_netto',
     label: 'Patrimonio netto',
     value: fmtEuro(profile.patrimonio_netto),
@@ -841,41 +859,49 @@ export function buildInsuranceNeedsProfile({
   const isCapitalCompany = /SRL|SPA|SRLS/.test(legalForm)
   const isPeopleCompany = /SNC|SAS/.test(legalForm)
   const isMicroCompany = employees !== null ? employees <= 3 : /micro/i.test(classificationText)
-  const isProfessional = mandatoryPolicies.includes('rc professionale') || hasAny(sectorText, [/avvocat/, /commerciali/, /notai/, /architett/, /ingegner/, /consulen/, /profession/])
-  const isHealthcare = mandatoryPolicies.includes('sanitaria') || hasAny(sectorText, [/medic/, /dentist/, /clinic/, /veterinar/, /farmaci/])
-  const isConstruction = mandatoryPolicies.includes('car/ear') || hasAny(sectorText, [/costruzion/, /edili/, /cantier/, /ristruttur/])
-  const isTransport = mandatoryPolicies.includes('vettoriale') || hasAny(sectorText, [/trasport/, /logistic/, /autotrasport/, /magazzin/])
   const descText = String(profile.descrizione_ateco || '').toLowerCase()
-  const isTechnicalMaintenance = /^33/.test(atecoDigits) || hasAny(`${sectorText} ${descText}`, [/riparaz/, /manutenz/, /estintor/, /antincendio/, /macchinar/])
+  const isPlantInstallation = /^432/.test(atecoDigits) || hasAny(descText, [/installazione.*impiant/, /impianti elettrici/, /impianti idraulici/])
+  const isConstruction = !isPlantInstallation && (mandatoryPolicies.includes('car/ear') || hasAny(sectorText, [/costruzion/, /edili/, /cantier/, /ristruttur/]))
+  const isHealthcare = mandatoryPolicies.includes('sanitaria') || hasAny(sectorText, [/medic/, /dentist/, /clinic/, /veterinar/, /farmaci/])
+  const isProfessionalAteco = /^(69|70|71|72|73|74|75)/.test(atecoDigits)
+  const isProfessional = !isConstruction && !isHealthcare && (
+    isProfessionalAteco || hasAny(sectorText, [/avvocat/, /commerciali/, /notai/, /architett/, /ingegner/, /consulen/, /profession/])
+  )
+  const isTransport = mandatoryPolicies.includes('vettoriale') || hasAny(sectorText, [/trasport/, /logistic/, /autotrasport/, /magazzin/])
+  const isTechnicalMaintenance = isPlantInstallation || /^33/.test(atecoDigits) || hasAny(`${sectorText} ${descText}`, [/riparaz/, /manutenz/, /estintor/, /antincendio/, /macchinar/])
   const isFireSafetyMaintenance = /^331255/.test(atecoDigits) || hasAny(`${sectorText} ${descText}`, [/estintor/, /antincendio/, /impianti antincendio/])
   const isManufacturing = !isTechnicalMaintenance && hasAny(sectorText, [/manifatt/, /produzion/, /industr/, /aliment/, /chimic/])
   const isRetailTrade = /^4[5-7]/.test(atecoDigits) || hasAny(`${sectorText} ${profile.descrizione_ateco || ''}`, [/commerc/, /vendit/, /retail/, /negoz/, /porta a porta/, /e-commerce/, /dettaglio/, /ingrosso/])
   const hasPhysicalRisk = isConstruction || isTransport || isManufacturing || isRetailTrade || isTechnicalMaintenance || hasAny(sectorText, [/ristoraz/, /bar/, /hotel/, /officina/])
+  const hasGovernanceEvidence = revenue !== null || hasValue(profile.capitale_sociale) || keyPeople.length > 0
+  const hasOperationalScaleEvidence = revenue !== null || employees !== null || totalAssets !== null
 
-  if (isCapitalCompany) {
+  if (isCapitalCompany && hasGovernanceEvidence) {
     pushNeed(needs, {
       id: 'do_amministratori',
       product: 'D&O Amministratori',
       target: 'Amministratore / CdA',
       priority: revenue !== null && revenue >= 2_000_000 ? 'immediata' : 'alta',
       confidence: 'alta',
-      sales_reason: 'La forma giuridica espone amministratori e organi sociali a responsabilità personali per scelte gestionali.',
-      why_now: revenue !== null && revenue >= 2_000_000 ? 'Dimensione aziendale già sufficiente per proporre revisione D&O strutturata.' : 'Lead con bisogno tipico e molto comprensibile in fase di consulenza.',
-      evidence_ids: ['forma_giuridica', ...(revenue !== null ? ['fatturato'] : [])],
+      sales_reason: revenue !== null
+        ? `Società di capitali con fatturato verificato ${fmtMoneyValue(revenue)}: la D&O diventa un tavolo concreto su responsabilità gestionali, difesa legale e patrimonio personale degli amministratori.`
+        : 'Società di capitali con dati governance/registro disponibili: D&O da qualificare su cariche, deleghe, quote, patrimonio e garanzie personali.',
+      why_now: revenue !== null && revenue >= 2_000_000 ? 'Dimensione aziendale sufficiente per proporre revisione D&O strutturata con massimale serio.' : 'Da aprire come check-up tecnico, non come polizza generica: cariche, deleghe, retroattività, postuma, creditori e soci.',
+      evidence_ids: ['forma_giuridica', ...(revenue !== null ? ['fatturato'] : []), ...(hasValue(profile.capitale_sociale) ? ['capitale_sociale'] : []), ...(keyPeople.length > 0 ? ['persone_chiave'] : [])],
     })
-    commercialReasons.push('Società di capitali: D&O è una porta d’ingresso forte e credibile')
+    commercialReasons.push(revenue !== null ? `Società di capitali con fatturato ${fmtMoneyValue(revenue)}: leva D&O concreta` : 'Società di capitali con governance verificabile: leva D&O da qualificare')
     nextQuestions.push('L’amministratore ha già una D&O? Con quale massimale e con quali esclusioni?')
   }
 
-  if (isMicroCompany && profile.titolare) {
+  if (isMicroCompany && profile.titolare && hasOperationalScaleEvidence) {
     pushNeed(needs, {
       id: 'key_man_microimpresa',
       product: 'Key Man / Infortuni titolare / diaria da fermo attività',
       target: String(profile.titolare),
       priority: 'alta',
       confidence: employees !== null ? 'alta' : 'media',
-      sales_reason: `${profile.titolare} è il referente operativo identificato e l’azienda è micro: il rischio più concreto è la dipendenza economica da una persona chiave.`,
-      why_now: 'Prima ancora di parlare di prezzo, il consulente può quantificare quanti giorni l’impresa regge se il titolare non lavora.',
+      sales_reason: `${profile.titolare} è il referente operativo identificato e la struttura risulta micro: il tema non è “vendere infortuni”, ma quantificare continuità operativa e giorni di autonomia se la persona chiave si ferma.`,
+      why_now: revenue !== null ? `Fatturato verificato ${fmtMoneyValue(revenue)}: la diaria/Key Man può essere dimensionata su numeri reali.` : 'Prima del prodotto, il consulente può mappare sostituibilità del titolare, costi fissi e autonomia finanziaria.',
       evidence_ids: ['titolare', ...(employees !== null ? ['dipendenti'] : []), ...(revenue !== null ? ['fatturato'] : [])],
     })
     commercialReasons.push('Micro impresa con persona chiave identificata: leva Key Man molto forte')
@@ -956,24 +982,34 @@ export function buildInsuranceNeedsProfile({
   if (isTechnicalMaintenance) {
     pushNeed(needs, {
       id: 'rc_postuma_manutentore',
-      product: isFireSafetyMaintenance
+      product: isPlantInstallation
+        ? 'RC Installatore / RC post-intervento / Tutela legale tecnica'
+        : isFireSafetyMaintenance
         ? 'RC Postuma / RC Professionale Manutentore Antincendio'
         : 'RC Postuma / RC Professionale Manutentore Tecnico',
       target: 'Titolare / responsabile tecnico / amministratore',
       priority: isFireSafetyMaintenance ? 'immediata' : 'alta',
       confidence: atecoEstimated ? 'media' : 'alta',
-      sales_reason: isFireSafetyMaintenance
+      sales_reason: isPlantInstallation
+        ? 'Installazione impianti: la leva assicurativa più aderente è responsabilità tecnica dopo intervento, danni a terzi, conformità DM 37/2008 e contestazioni del committente.'
+        : isFireSafetyMaintenance
         ? 'Manutenzione estintori/antincendio: il rischio commerciale non è produrre un bene, ma che un presidio manutentato non funzioni quando serve. La leva corretta è RC postuma del manutentore + tutela legale su contestazioni tecniche.'
         : 'Riparazione/manutenzione tecnica: il rischio chiave è il danno dopo l’intervento, quando il macchinario/impianto del cliente si ferma o causa danni a terzi.',
-      why_now: isFireSafetyMaintenance
+      why_now: isPlantInstallation
+        ? 'ATECO coerente con impianti: verificare subito abilitazioni, dichiarazioni di conformità, clausole dei contratti e copertura danni post-intervento.'
+        : isFireSafetyMaintenance
         ? 'ATECO coerente con manutenzione estintori: aprire subito il tema UNI 9994, registri manutenzione, contratti ricorrenti e massimali post-intervento.'
         : 'Il bisogno nasce direttamente dal servizio tecnico svolto presso o per conto del cliente.',
       evidence_ids: ['ateco', ...(revenue !== null ? ['fatturato'] : []), ...(employees !== null ? ['dipendenti'] : [])],
     })
-    commercialReasons.push(isFireSafetyMaintenance
+    commercialReasons.push(isPlantInstallation
+      ? 'Installazione impianti: leva concreta su RC post-intervento, conformità e tutela legale tecnica'
+      : isFireSafetyMaintenance
       ? 'Manutenzione antincendio: leva ad alto valore su RC postuma e responsabilità tecnica'
       : 'Manutenzione tecnica: leva concreta su danno post-intervento e beni in consegna')
-    nextQuestions.push(isFireSafetyMaintenance
+    nextQuestions.push(isPlantInstallation
+      ? 'Installate o manutenzionate impianti presso clienti/cantieri? La RC attuale copre danni dopo l’intervento, errori di installazione e contestazioni sulle dichiarazioni di conformità?'
+      : isFireSafetyMaintenance
       ? 'Manutenete estintori o impianti antincendio? Avete registri UNI 9994 aggiornati, contratti ricorrenti e copertura postuma per malfunzionamento dopo intervento?'
       : 'Gli interventi avvengono presso il cliente o in officina? La RC attuale copre danni dopo la riconsegna/intervento?')
   }
@@ -1015,44 +1051,50 @@ export function buildInsuranceNeedsProfile({
       priority: employees >= 50 ? 'immediata' : 'alta',
       confidence: 'alta',
       sales_reason: 'La dimensione dell’organico rende vendibile un’offerta di welfare e coperture collettive.',
-      why_now: employees >= 50 ? 'Organico importante: alta probabilità di bisogno attuale o imminente.' : 'Il numero di dipendenti giustifica una proposta benefits credibile.',
+      why_now: employees >= 50 ? 'Organico importante: welfare, sanitaria collettiva e infortuni collettivi meritano una verifica strutturata su CCNL, budget HR e benefit già attivi.' : 'Il numero di dipendenti giustifica una proposta benefits credibile.',
       evidence_ids: ['dipendenti'],
     })
     commercialReasons.push('Numero dipendenti sufficiente per pacchetti collettivi')
     nextQuestions.push('Applicate un CCNL con sanità integrativa o avete già un piano welfare?')
   }
 
-  if (hasWebsite && ((employees !== null && employees >= 1) || (revenue !== null && revenue >= 50_000) || isProfessional || isHealthcare || isRetailTrade)) {
+  if (hasWebsite && (isHealthcare || isProfessional || (employees !== null && employees >= 5) || (revenue !== null && revenue >= 300_000))) {
     pushNeed(needs, {
       id: 'cyber_risk',
       product: 'Cyber Risk',
       target: 'Titolare / amministratore / IT / privacy',
-      priority: isHealthcare || isProfessional ? 'alta' : 'media',
+      priority: isHealthcare || isProfessional || (revenue !== null && revenue >= 1_000_000) ? 'alta' : 'media',
       confidence: 'media',
-      sales_reason: 'Presenza digitale e trattamento di dati aumentano il valore di una proposta cyber ben impostata.',
-      why_now: isHealthcare || isProfessional ? 'Settore con dati sensibili o dati cliente critici.' : 'Presenza web/contatti digitali: verificare gestione dati clienti, email, pagamenti e backup.',
+      sales_reason: hasWebsite && (isHealthcare || isProfessional)
+        ? 'Sito verificato + settore con dati cliente/sensibili: cyber da qualificare su GDPR, backup, ransomware e responsabilità privacy.'
+        : 'Presenza web + scala aziendale sufficiente: cyber da qualificare su email, dati clienti, pagamenti, backup e fermo IT.',
+      why_now: isHealthcare || isProfessional ? 'Il settore rende la gestione del dato una leva consulenziale primaria.' : 'Non è cyber generico: parte da sito, dipendenti/fatturato e processi digitali da verificare.',
       evidence_ids: ['website', ...(employees !== null ? ['dipendenti'] : []), ...(revenue !== null ? ['fatturato'] : [])],
     })
   }
 
-  if (hasPhysicalRisk) {
+  if (hasPhysicalRisk && (totalAssets !== null || revenue !== null || (zonaSismica && Number(zonaSismica) <= 2) || rischioIdro === 'alto')) {
     pushNeed(needs, {
       id: 'property_all_risks',
       product: 'Property / Incendio / All Risks / Business Interruption',
       target: 'Titolare / amministratore',
       priority: zonaSismica && Number(zonaSismica) <= 2 ? 'alta' : 'media',
-      confidence: 'media',
-      sales_reason: 'Il business sembra dipendere da beni, locali, attrezzature o continuità operativa.',
-      why_now: zonaSismica && Number(zonaSismica) <= 2 ? 'Rischio territoriale e continuità operativa aumentano la rilevanza della proposta.' : 'Ottima per revisione consulenziale: valori assicurati, merci, attrezzature, esclusioni e business interruption.',
-      evidence_ids: ['ateco', ...(facts.some((f) => f.id === 'zona_sismica') ? ['zona_sismica'] : []), ...(facts.some((f) => f.id === 'rischio_idro') ? ['rischio_idro'] : [])],
+      confidence: totalAssets !== null || revenue !== null ? 'alta' : 'media',
+      sales_reason: totalAssets !== null
+        ? `Totale attivo verificato ${fmtMoneyValue(totalAssets)}: il broker può parlare di valori assicurati, beni strumentali, sottolimiti e business interruption su base numerica.`
+        : revenue !== null
+        ? `Fatturato verificato ${fmtMoneyValue(revenue)} in attività operativa: la continuità aziendale va qualificata su beni, locali, merci e fermo attività.`
+        : 'Rischio operativo/territoriale rilevato: property e business interruption da qualificare su beni e ubicazioni reali.',
+      why_now: zonaSismica && Number(zonaSismica) <= 2 ? 'Rischio territoriale e continuità operativa aumentano la rilevanza della proposta.' : 'Revisione consulenziale concreta: valori assicurati, merci, attrezzature, esclusioni e business interruption.',
+      evidence_ids: ['ateco', ...(totalAssets !== null ? ['totale_attivo'] : []), ...(revenue !== null ? ['fatturato'] : []), ...(facts.some((f) => f.id === 'zona_sismica') ? ['zona_sismica'] : []), ...(facts.some((f) => f.id === 'rischio_idro') ? ['rischio_idro'] : [])],
     })
     nextQuestions.push('Qual è il valore reale di merci, attrezzature e beni strumentali assicurati oggi? La polizza copre danni indiretti/fermo attività?')
   }
 
   if (gapAnalysis?.gaps?.length) {
     const topGap = gapAnalysis.gaps.find((gap) => gap.gravita === 'critico') || gapAnalysis.gaps[0]
-    if (topGap) {
-      commercialReasons.push(`Gap prioritario rilevato: ${topGap.area}`)
+    if (topGap && (topGap.gravita === 'critico' || topGap.gravita === 'alto')) {
+      commercialReasons.push(`Ipotesi prioritaria da validare: ${topGap.area}`)
       nextQuestions.push(`Avete già una copertura attiva per ${topGap.area}?`) 
     }
   }
@@ -1063,10 +1105,10 @@ export function buildInsuranceNeedsProfile({
 
   if (revenue !== null && revenue >= 2_000_000) commercialScore += 10
   if (employees !== null && employees >= 10) commercialScore += 8
-  if (gapAnalysis?.livello_rischio === 'critico') commercialScore += 10
-  if (gapAnalysis?.livello_rischio === 'alto') commercialScore += 6
+  if (gapAnalysis?.livello_rischio === 'critico') commercialScore += 6
+  if (gapAnalysis?.livello_rischio === 'alto') commercialScore += 3
 
-  commercialScore = Math.max(0, Math.min(100, commercialScore))
+  commercialScore = Math.max(0, Math.min(95, commercialScore))
 
   const commercialLevel: CommercialPriorityProfile['level'] =
     commercialScore >= 75 ? 'altissima'

@@ -2155,6 +2155,39 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ─── Step 1a4: Maps single-business call for P.IVA queries ───
+  // Maps was skipped at Step 0a (isPiva=true). Now we have ragione_sociale from OpenAPI/CR,
+  // so we can search Maps by name to get sito/telefono/indirizzo BEFORE Tavily name search
+  // (which often finds wrong sites for generic names like "Rocco Stefano").
+  if (isPiva && result.ragione_sociale && (!result.sito || !result.telefono)) {
+    const mapsCity = (result.citta || queryCityHint || '') as string
+    const mapsName = String(result.ragione_sociale)
+    console.log(`[COMPANY-LOOKUP] Step 1a4: Maps for P.IVA query — searching "${mapsName}" city="${mapsCity}"`)
+    try {
+      const mapsRes = await fetch(`${backendUrl}/search-maps-single`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_name: mapsName, city: mapsCity, max_results: 1 }),
+        signal: AbortSignal.timeout(15000),
+      }).catch(() => null)
+      if (mapsRes && mapsRes.ok) {
+        const mapsData = await mapsRes.json().catch(() => null) as any
+        const leads = (mapsData && Array.isArray(mapsData.results)) ? mapsData.results : []
+        const lead = leads[0]
+        if (lead && typeof lead === 'object') {
+          console.log(`[COMPANY-LOOKUP] Step 1a4: Maps found "${lead.name}" — sito=${lead.website || 'N/A'}, tel=${lead.phone || 'N/A'}`)
+          if (lead.website && !result.sito) result.sito = lead.website
+          if (lead.phone && !result.telefono) { result.telefono = lead.phone; result.telefono_fonte = 'Google Maps' }
+          if (lead.address && !result.indirizzo) result.indirizzo = lead.address
+          if (lead.category && !result.categoria) result.categoria = lead.category
+          if (lead.rating) result.rating = lead.rating
+          if (lead.reviews) result.reviews_count = lead.reviews
+          if ((result.sito || result.telefono) && !fonti.includes('Google Maps')) fonti.push('Google Maps')
+        }
+      }
+    } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 1a4: Maps error: ${e?.message}`) }
+  }
+
   // ─── Step 2b: Call lead-registry for camerale data + titolare (NO person-lookup = no deadlock) ───
   const companyNameForLR = (result.ragione_sociale || query) as string
   let leadRegistryDone = false
@@ -2418,23 +2451,26 @@ export async function POST(req: NextRequest) {
       return null
     }
 
-    // 2.1 — Name-based search (city hint added to disambiguate omonimie)
-    const nameQuery = cityForSite ? `"${compNameForSite}" ${cityForSite} sito ufficiale` : `"${compNameForSite}" sito ufficiale`
-    console.log(`[COMPANY-LOOKUP] Step 2c: Tavily search by name "${nameQuery}"`)
-    const fromName = await tryTavily(nameQuery, true)
-    if (fromName) {
-      result.sito = fromName
-      console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(name) found website: ${result.sito}`)
-    }
-
-    // 2.2 — P.IVA-based search (the website's footer almost always lists the P.IVA → very reliable)
+    // 2.0 — P.IVA-based search FIRST (the website's footer almost always lists the P.IVA → most reliable)
+    // For P.IVA queries this runs first; generic name searches for "Rocco Stefano" can find wrong sites.
     if (!result.sito && pivaForSite.length === 11) {
       const pivaQuery = `"${pivaForSite}" sito ufficiale azienda contatti`
-      console.log(`[COMPANY-LOOKUP] Step 2c: Tavily fallback by P.IVA "${pivaForSite}"`)
+      console.log(`[COMPANY-LOOKUP] Step 2c: Tavily search by P.IVA "${pivaForSite}"`)
       const fromPiva = await tryTavily(pivaQuery, false)
       if (fromPiva) {
         result.sito = fromPiva
         console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(P.IVA) found website: ${result.sito}`)
+      }
+    }
+
+    // 2.1 — Name-based search (city hint added to disambiguate omonimie) — only if P.IVA search didn't find a site
+    if (!result.sito) {
+      const nameQuery = cityForSite ? `"${compNameForSite}" ${cityForSite} sito ufficiale` : `"${compNameForSite}" sito ufficiale`
+      console.log(`[COMPANY-LOOKUP] Step 2c: Tavily search by name "${nameQuery}"`)
+      const fromName = await tryTavily(nameQuery, true)
+      if (fromName) {
+        result.sito = fromName
+        console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(name) found website: ${result.sito}`)
       }
     }
   }
@@ -5606,6 +5642,69 @@ JSON:
         delete (result as any).telefono_fonte
       }
     }
+  }
+
+  // ─── Step 6e++ site RECOVERY via Maps after wrong-site was cleared ───
+  // If Step 6e cleared the site, retry Maps with company name + city to find the real website.
+  // Maps is authoritative: if a business is listed, its website link is almost always correct.
+  if (!result.sito && result.ragione_sociale) {
+    const recCompName = String(result.ragione_sociale)
+    const recCity = String(result.citta || queryCityHint || '')
+    console.log(`[COMPANY-LOOKUP] Step 6e++: site cleared — retrying Maps for "${recCompName}" city="${recCity}"`)
+    try {
+      const mapsRecRes = await fetch(`${backendUrl}/search-maps-single`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_name: recCompName, city: recCity, max_results: 1 }),
+        signal: AbortSignal.timeout(15000),
+      }).catch(() => null)
+      if (mapsRecRes && mapsRecRes.ok) {
+        const mapsRecData = await mapsRecRes.json().catch(() => null) as any
+        const mapsRecLeads = (mapsRecData && Array.isArray(mapsRecData.results)) ? mapsRecData.results : []
+        const mapsRecLead = mapsRecLeads[0]
+        if (mapsRecLead && mapsRecLead.website) {
+          console.log(`[COMPANY-LOOKUP] Step 6e++: Maps found "${mapsRecLead.name}" → site=${mapsRecLead.website}`)
+          result.sito = mapsRecLead.website
+          if (mapsRecLead.phone && !result.telefono) { result.telefono = mapsRecLead.phone; (result as any).telefono_fonte = 'Google Maps' }
+          if (mapsRecLead.address && !result.indirizzo) result.indirizzo = mapsRecLead.address
+          if (!fonti.includes('Google Maps')) fonti.push('Google Maps')
+          // Scrape the recovered site for contacts, email, social
+          try {
+            const recSiteUrl = String(result.sito).startsWith('http') ? String(result.sito) : `https://${result.sito}`
+            console.log(`[COMPANY-LOOKUP] Step 6e++: scrapeWebsiteDeep on recovered site ${recSiteUrl}`)
+            const recDeep = await scrapeWebsiteDeep(recSiteUrl)
+            console.log(`[COMPANY-LOOKUP] Step 6e++: scrape done (${recDeep.pagesScraped} pages, ${recDeep.emails.length} emails, ${recDeep.phones.length} phones)`)
+            // Emails
+            if (recDeep.emails?.length) {
+              for (const em of recDeep.emails) {
+                const emLow = String(em.email).toLowerCase()
+                if (emLow.includes('noreply') || emLow.includes('example') || emLow.includes('sentry') || emLow.includes('wix') || emLow.includes('wordpress')) continue
+                if (!result.email) { result.email = emLow; (result as any).email_fonte = 'sito_ufficiale' }
+                break
+              }
+            }
+            // Phones
+            for (const ph of (recDeep.phones || [])) {
+              const digits = String(ph.number).replace(/\D/g, '')
+              const core = digits.startsWith('39') ? digits.slice(2) : digits
+              if (/^0\d{8,10}$/.test(core) && !result.telefono) {
+                result.telefono = ph.number; (result as any).telefono_fonte = 'sito_ufficiale'
+              }
+              if (/^3\d{8,9}$/.test(core) && !result.cellulare) {
+                result.cellulare = ph.number; (result as any).cellulare_fonte = 'sito_ufficiale'
+              }
+            }
+            // Social
+            if (recDeep.socialLinks?.facebook && !result.facebook) result.facebook = recDeep.socialLinks.facebook
+            if (recDeep.socialLinks?.instagram && !result.instagram) result.instagram = recDeep.socialLinks.instagram
+            if (recDeep.socialLinks?.linkedin && !result.linkedin) result.linkedin = recDeep.socialLinks.linkedin
+            if (recDeep.socialLinks?.twitter && !result.twitter) result.twitter = recDeep.socialLinks.twitter
+          } catch (scrErr: any) {
+            console.log(`[COMPANY-LOOKUP] Step 6e++: scrape error: ${scrErr?.message}`)
+          }
+        }
+      }
+    } catch { /* Maps recovery failed — continue */ }
   }
 
   // ─── Step 6e+: Reteimprese phone RECOVERY after wrong-site phone was cleared ───

@@ -126,6 +126,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   // Primary source: the exact lead saved when user clicked "Dettaglio Lead"
   // This bypasses any index mismatch between filtered display and unfiltered Supabase array
   const [sessionLead, setSessionLead] = useState<any>(null)
+  const [leadResolved, setLeadResolved] = useState(false)
   useEffect(() => {
     try {
       // 1. Check for the exact lead saved on click (most reliable)
@@ -134,6 +135,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         const parsed = JSON.parse(activeLead)
         if (parsed && typeof parsed === 'object') {
           setSessionLead(parsed)
+          setLeadResolved(true)
           return
         }
       }
@@ -144,10 +146,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           const parsed = JSON.parse(raw)
           if (Array.isArray(parsed) && parsed[leadIndex]) {
             setSessionLead(parsed[leadIndex])
+            setLeadResolved(true)
+            return
           }
         }
       }
     } catch {}
+    // Always mark resolved (even if sessionStorage is empty — fallback to leadProp)
+    setLeadResolved(true)
   }, [leadProp, leadIndex])
 
   // sessionLead (from click) takes priority over server prop (may have wrong index)
@@ -277,6 +283,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const secondaryFetchedRef = useRef(false)
 
   useEffect(() => {
+    if (!leadResolved) return
     if (!lead) return
     if (primaryFetchedRef.current) return
     primaryFetchedRef.current = true
@@ -383,10 +390,11 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       .then((d) => setClayData(d))
       .catch(() => setClayData(null))
       .finally(() => setLoadingClay(false))
-  }, [lead, category])
+  }, [lead, leadResolved, category])
 
   // Fetch B2B triggers once registry data is available
   useEffect(() => {
+    if (!leadResolved) return
     if (!lead || loadingRegistry) return
     if (secondaryFetchedRef.current) return
     secondaryFetchedRef.current = true
@@ -1349,10 +1357,8 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <div className="md:col-span-2">
                   <p className="text-xs text-gray-500">
                     Titolare / Referente
-                    {registry.titolare_fonte === 'privacy_policy_sito' ? (
-                      <span className="ml-1.5 text-blue-600 font-semibold">✓ Privacy Policy</span>
-                    ) : registry.titolare_fonte === 'tavily' ? (
-                      <span className="ml-1.5 text-cyan-600 font-semibold">✓ Tavily</span>
+                    {registry.titolare_fonte ? (
+                      <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificato</span>
                     ) : null}
                   </p>
                   <p className="text-sm font-bold text-slate-900">
@@ -1397,9 +1403,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <p className="text-xs text-gray-500">
                     Fatturato
                     {registry.fatturato_fonte ? (
-                      <span className={`ml-1.5 font-semibold ${registry.fatturato_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                        ✓ {registry.fatturato_fonte === 'companyreports.it' ? 'CompanyReports.it' : registry.fatturato_fonte === 'openapi.it' ? 'OpenAPI.it' : registry.fatturato_fonte === 'tavily' ? 'Tavily' : 'Registro Imprese'}
-                      </span>
+                      <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificato</span>
                     ) : null}
                   </p>
                   <p className="text-sm font-bold text-slate-900">
@@ -1413,9 +1417,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <p className="text-xs text-gray-500">
                     Dipendenti
                     {registry.dipendenti_fonte ? (
-                      <span className={`ml-1.5 font-semibold ${registry.dipendenti_fonte === 'registro_imprese' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                        ✓ {registry.dipendenti_fonte === 'ufficio_camerale' ? 'Ufficio Camerale' : registry.dipendenti_fonte === 'companyreports.it' ? 'CompanyReports.it' : registry.dipendenti_fonte === 'openapi.it' ? 'OpenAPI.it' : registry.dipendenti_fonte === 'tavily' ? 'Tavily' : 'Registro Imprese'}
-                      </span>
+                      <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificato</span>
                     ) : null}
                   </p>
                   <p className="text-sm font-bold text-slate-900">{safeStr(registry.dipendenti)}</p>
@@ -1469,7 +1471,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                 <div className="md:col-span-2">
                   <p className="text-xs text-gray-500">
                     Sede legale
-                    {registry.sede_legale_verificata ? <span className="ml-1.5 text-emerald-600 font-semibold">✓ VIES</span> : null}
+                    {registry.sede_legale_verificata ? <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificato</span> : null}
                   </p>
                   <p className="text-sm font-semibold text-slate-900">{safeStr(registry.sede_legale)}</p>
                 </div>
@@ -1479,7 +1481,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   <p className="text-xs text-gray-500">
                     PEC
                     {registry.pec_fonte ? (
-                      <span className="ml-1.5 text-emerald-600 font-semibold">✓ {registry.pec_fonte === 'inipec' ? 'INIPEC' : registry.pec_fonte === 'openapi.it' ? 'OpenAPI.it' : 'Registro Imprese'}</span>
+                      <span className="ml-1.5 text-emerald-600 font-semibold">✓ Verificato</span>
                     ) : null}
                   </p>
                   <p className="text-sm font-semibold text-blue-700">{safeStr(registry.pec)}</p>
@@ -1631,7 +1633,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               {registry.partita_iva && !registry.fatturato && !registry.dipendenti && (
                 <div className="md:col-span-2 mt-1 p-2.5 rounded-lg border border-amber-200 bg-amber-50">
                   <p className="text-[11px] text-amber-800 font-medium">
-                    Fatturato e dipendenti non disponibili — probabilmente ditta individuale o micro impresa senza obbligo di deposito bilancio pubblico.
+                    Fatturato e dipendenti non disponibili — può indicare ditta individuale, micro impresa o assenza di bilancio pubblico depositato.
                   </p>
                 </div>
               )}
@@ -2149,6 +2151,90 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
         </div>
       )}
 
+      {registry?.insurance_intelligence && (() => {
+        const intel = registry.insurance_intelligence
+        return (
+          <div className="mb-6 space-y-4">
+            {intel.vulnerabilita?.length > 0 && (
+              <div className="rounded-2xl border border-red-200 bg-white shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-3">
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Vulnerabilità specifiche ({intel.vulnerabilita.length})
+                  </h3>
+                  <p className="text-[10px] text-red-100 mt-0.5">Aree di rischio motivate da dati pubblici e normativa — da validare sul portafoglio reale</p>
+                </div>
+                <div className="p-4 space-y-3">
+                  {intel.vulnerabilita.map((v: any, i: number) => (
+                    <div key={i} className={`p-4 rounded-xl border-l-4 ${v.gravita === 'critica' ? 'border-l-red-500 bg-red-50' : v.gravita === 'alta' ? 'border-l-orange-500 bg-orange-50' : 'border-l-amber-400 bg-amber-50'}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${v.gravita === 'critica' ? 'bg-red-200 text-red-800' : v.gravita === 'alta' ? 'bg-orange-200 text-orange-800' : 'bg-amber-200 text-amber-800'}`}>{v.gravita}</span>
+                        <p className="text-sm font-black text-slate-900">{v.titolo}</p>
+                      </div>
+                      <p className="text-[12px] text-slate-700 leading-relaxed"><span className="font-semibold">Base verificabile:</span> {v.fatto}</p>
+                      <p className="text-[12px] text-red-700 leading-relaxed mt-1"><span className="font-semibold">Conseguenza:</span> {v.conseguenza}</p>
+                      <p className="text-[12px] text-emerald-700 leading-relaxed mt-1"><span className="font-semibold">Azione consulenziale:</span> {v.soluzione}</p>
+                      {v.domanda_killer && (
+                        <div className="mt-3 p-3 rounded-lg bg-white/80 border border-blue-100">
+                          <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1">Domanda per il cliente</p>
+                          <p className="text-[12px] text-blue-900 italic leading-relaxed">{v.domanda_killer}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {intel.obblighi?.length > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3">
+                  <h3 className="font-bold text-sm text-white">Obblighi e responsabilità da verificare ({intel.obblighi.length})</h3>
+                  <p className="text-[10px] text-amber-100 mt-0.5">Aspetti normativi e contrattuali specifici dell’azienda — non indicano polizze già attive o assenti</p>
+                </div>
+                <div className="p-4 space-y-2">
+                  {intel.obblighi.map((o: any, i: number) => (
+                    <div key={i} className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                        <span className="text-sm font-bold text-slate-900">{o.polizza}</span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{o.norma}</span>
+                      </div>
+                      <p className="text-[12px] text-slate-700 leading-relaxed">{o.descrizione}</p>
+                      <p className="text-[12px] text-red-700 mt-1"><span className="font-semibold">Rischio:</span> {o.sanzione}</p>
+                      <p className="text-[12px] text-blue-700 font-semibold mt-1">{o.azione_broker}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {intel.opportunita?.length > 0 && (
+              <div className="rounded-2xl border border-emerald-200 bg-white shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-5 py-3">
+                  <h3 className="font-bold text-sm text-white">Opportunità consulenziali ({intel.opportunita.length})</h3>
+                  <p className="text-[10px] text-emerald-100 mt-0.5">Da validare in call con il cliente</p>
+                </div>
+                <div className="p-4 space-y-3">
+                  {intel.opportunita.map((op: any, i: number) => (
+                    <div key={i} className="p-4 rounded-xl bg-gradient-to-br from-white to-emerald-50 border border-emerald-200">
+                      <p className="text-sm font-bold text-slate-900 mb-1.5">{op.polizza}</p>
+                      <p className="text-[12px] text-slate-700 mb-1 leading-relaxed"><span className="font-semibold">Perché:</span> {op.motivo_specifico}</p>
+                      <p className="text-[12px] text-emerald-700 font-medium leading-relaxed"><span className="font-semibold">Valore per il cliente:</span> {op.valore_per_cliente}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {intel.fonti_normative?.length > 0 && (
+              <p className="text-[10px] text-slate-400">
+                Fonti normative: {intel.fonti_normative.join(' · ')}
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Obblighi Assicurativi ATECO (normativa INAIL/IVASS) ── */}
       {registry?.obblighi_assicurativi && (
         <div className="mb-6 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 p-6 shadow-sm">
@@ -2157,7 +2243,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               <Scale className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-900">Obblighi Assicurativi — {registry.obblighi_assicurativi.settore}</h3>
+              <h3 className="font-bold text-base text-slate-900">Profilo assicurativo settoriale — {registry.obblighi_assicurativi.settore}</h3>
               <p className="text-[10px] text-slate-400 uppercase tracking-wider">{registry.obblighi_assicurativi.fonte}</p>
             </div>
           </div>
@@ -2177,7 +2263,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Polizze OBBLIGATORIE */}
             <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50">
-              <p className="text-[10px] font-black text-red-700 uppercase tracking-wider mb-2">Polizze Obbligatorie per Legge</p>
+              <p className="text-[10px] font-black text-red-700 uppercase tracking-wider mb-2">Obblighi / responsabilità da verificare</p>
               <ul className="space-y-1.5">
                 {registry.obblighi_assicurativi.polizze_obbligatorie.map((p: string, i: number) => (
                   <li key={i} className="flex items-start gap-1.5">
@@ -2334,147 +2420,138 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
           )}
 
           {/* ── Financial Intelligence (trend bilanci verificati) ── */}
-          {registry.bisogni_assicurativi_verificati.financial_intelligence && (
-            <div className="mb-4 p-5 rounded-2xl border border-violet-200 bg-white/90 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-violet-600" />
+          {registry.bisogni_assicurativi_verificati.financial_intelligence && (() => {
+            const fin = registry.bisogni_assicurativi_verificati.financial_intelligence
+            const showFinancial = fin.revenue_trend_pct !== null || fin.latest_profit !== null || fin.solvency_ratio !== null || fin.latest_headcount !== null || fin.payroll_dependency_ratio !== null
+            if (!showFinancial) return null
+            return (
+              <div className="mb-4 p-5 rounded-2xl border border-violet-200 bg-white/90 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-9 h-9 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-violet-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-base text-slate-900">Intelligenza finanziaria</h4>
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wider">
+                      calcolata su {fin.years_analyzed} bilanci depositati ({fin.oldest_year}→{fin.latest_year})
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-base text-slate-900">Intelligenza finanziaria</h4>
-                  <p className="text-[11px] text-slate-500 uppercase tracking-wider">
-                    calcolata su {registry.bisogni_assicurativi_verificati.financial_intelligence.years_analyzed} bilanci depositati ({registry.bisogni_assicurativi_verificati.financial_intelligence.oldest_year}→{registry.bisogni_assicurativi_verificati.financial_intelligence.latest_year})
-                  </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {fin.revenue_trend_pct !== null && (
+                    <div className={`p-4 rounded-xl border ${
+                      fin.revenue_trend === 'crescita' ? 'border-emerald-200 bg-emerald-50' :
+                      fin.revenue_trend === 'declino' ? 'border-red-200 bg-red-50' :
+                      'border-slate-200 bg-slate-50'
+                    }`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {fin.revenue_trend === 'crescita' ? (
+                          <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        ) : fin.revenue_trend === 'declino' ? (
+                          <TrendingDown className="w-4 h-4 text-red-600" />
+                        ) : (
+                          <Activity className="w-4 h-4 text-slate-500" />
+                        )}
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fatturato</p>
+                      </div>
+                      <p className={`text-xl font-black ${
+                        fin.revenue_trend === 'crescita' ? 'text-emerald-700' :
+                        fin.revenue_trend === 'declino' ? 'text-red-700' :
+                        'text-slate-700'
+                      }`}>
+                        {`${fin.revenue_trend_pct > 0 ? '+' : ''}${fin.revenue_trend_pct}%`}
+                      </p>
+                      <p className="text-[12px] text-slate-600 mt-0.5 capitalize">{fin.revenue_trend}</p>
+                    </div>
+                  )}
+
+                  {fin.latest_profit !== null && (
+                    <div className={`p-4 rounded-xl border ${
+                      fin.profit_status === 'positivo' ? 'border-emerald-200 bg-emerald-50' :
+                      fin.profit_status === 'negativo' ? 'border-red-200 bg-red-50' :
+                      'border-slate-200 bg-slate-50'
+                    }`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <DollarSign className={`w-4 h-4 ${
+                          fin.profit_status === 'positivo' ? 'text-emerald-600' :
+                          fin.profit_status === 'negativo' ? 'text-red-600' :
+                          'text-slate-500'
+                        }`} />
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Utile {fin.latest_year}</p>
+                      </div>
+                      <p className={`text-xl font-black ${
+                        fin.profit_status === 'positivo' ? 'text-emerald-700' :
+                        fin.profit_status === 'negativo' ? 'text-red-700' :
+                        'text-slate-700'
+                      }`}>
+                        €{new Intl.NumberFormat('it-IT').format(fin.latest_profit)}
+                      </p>
+                      <p className="text-[12px] text-slate-600 mt-0.5 capitalize">{fin.profit_status}</p>
+                    </div>
+                  )}
+
+                  {fin.solvency_ratio !== null && (
+                    <div className={`p-4 rounded-xl border ${
+                      fin.solvency_level === 'solida' ? 'border-emerald-200 bg-emerald-50' :
+                      fin.solvency_level === 'media' ? 'border-amber-200 bg-amber-50' :
+                      fin.solvency_level === 'bassa' ? 'border-red-200 bg-red-50' :
+                      'border-slate-200 bg-slate-50'
+                    }`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Shield className={`w-4 h-4 ${
+                          fin.solvency_level === 'solida' ? 'text-emerald-600' :
+                          fin.solvency_level === 'media' ? 'text-amber-600' :
+                          fin.solvency_level === 'bassa' ? 'text-red-600' :
+                          'text-slate-500'
+                        }`} />
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Solvibilità</p>
+                      </div>
+                      <p className={`text-xl font-black capitalize ${
+                        fin.solvency_level === 'solida' ? 'text-emerald-700' :
+                        fin.solvency_level === 'media' ? 'text-amber-700' :
+                        fin.solvency_level === 'bassa' ? 'text-red-700' :
+                        'text-slate-700'
+                      }`}>
+                        {fin.solvency_level}
+                      </p>
+                      <p className="text-[12px] text-slate-600 mt-0.5">PN/Attivo {Math.round(fin.solvency_ratio * 100)}%</p>
+                    </div>
+                  )}
+
+                  {fin.latest_headcount !== null && (
+                    <div className={`p-4 rounded-xl border ${
+                      fin.headcount_trend === 'crescita' ? 'border-emerald-200 bg-emerald-50' :
+                      fin.headcount_trend === 'riduzione' ? 'border-red-200 bg-red-50' :
+                      'border-slate-200 bg-slate-50'
+                    }`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Users className={`w-4 h-4 ${
+                          fin.headcount_trend === 'crescita' ? 'text-emerald-600' :
+                          fin.headcount_trend === 'riduzione' ? 'text-red-600' :
+                          'text-slate-500'
+                        }`} />
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Organico</p>
+                      </div>
+                      <p className="text-xl font-black text-slate-900">{fin.latest_headcount}</p>
+                      <p className="text-[12px] text-slate-600 mt-0.5 capitalize">{fin.headcount_trend || 'ultimo bilancio'}</p>
+                    </div>
+                  )}
                 </div>
+
+                {fin.payroll_dependency_ratio !== null && (
+                  <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                    <p className="text-[12px] text-slate-700">
+                      <span className="font-semibold">Costo personale / fatturato:</span> {Math.round(fin.payroll_dependency_ratio * 100)}%
+                      {fin.payroll_dependency_ratio > 0.5 && (
+                        <span className="ml-2 text-red-700 font-semibold">dipendenza personale molto alta</span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Trend fatturato */}
-                <div className={`p-4 rounded-xl border ${
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'crescita' ? 'border-emerald-200 bg-emerald-50' :
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'declino' ? 'border-red-200 bg-red-50' :
-                  'border-slate-200 bg-slate-50'
-                }`}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'crescita' ? (
-                      <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    ) : registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'declino' ? (
-                      <TrendingDown className="w-4 h-4 text-red-600" />
-                    ) : (
-                      <Activity className="w-4 h-4 text-slate-500" />
-                    )}
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fatturato</p>
-                  </div>
-                  <p className={`text-xl font-black ${
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'crescita' ? 'text-emerald-700' :
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend === 'declino' ? 'text-red-700' :
-                    'text-slate-700'
-                  }`}>
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend_pct !== null
-                      ? `${registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend_pct > 0 ? '+' : ''}${registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend_pct}%`
-                      : 'n/d'}
-                  </p>
-                  <p className="text-[12px] text-slate-600 mt-0.5 capitalize">
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.revenue_trend || 'dato singolo'}
-                  </p>
-                </div>
-
-                {/* Utile */}
-                <div className={`p-4 rounded-xl border ${
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'positivo' ? 'border-emerald-200 bg-emerald-50' :
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'negativo' ? 'border-red-200 bg-red-50' :
-                  'border-slate-200 bg-slate-50'
-                }`}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <DollarSign className={`w-4 h-4 ${
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'positivo' ? 'text-emerald-600' :
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'negativo' ? 'text-red-600' :
-                      'text-slate-500'
-                    }`} />
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Utile {registry.bisogni_assicurativi_verificati.financial_intelligence.latest_year}</p>
-                  </div>
-                  <p className={`text-xl font-black ${
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'positivo' ? 'text-emerald-700' :
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status === 'negativo' ? 'text-red-700' :
-                    'text-slate-700'
-                  }`}>
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.latest_profit !== null
-                      ? `€${new Intl.NumberFormat('it-IT').format(registry.bisogni_assicurativi_verificati.financial_intelligence.latest_profit)}`
-                      : 'n/d'}
-                  </p>
-                  <p className="text-[12px] text-slate-600 mt-0.5 capitalize">
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.profit_status || 'non disponibile'}
-                  </p>
-                </div>
-
-                {/* Solvibilità */}
-                <div className={`p-4 rounded-xl border ${
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'solida' ? 'border-emerald-200 bg-emerald-50' :
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'media' ? 'border-amber-200 bg-amber-50' :
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'bassa' ? 'border-red-200 bg-red-50' :
-                  'border-slate-200 bg-slate-50'
-                }`}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Shield className={`w-4 h-4 ${
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'solida' ? 'text-emerald-600' :
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'media' ? 'text-amber-600' :
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'bassa' ? 'text-red-600' :
-                      'text-slate-500'
-                    }`} />
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Solvibilità</p>
-                  </div>
-                  <p className={`text-xl font-black capitalize ${
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'solida' ? 'text-emerald-700' :
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'media' ? 'text-amber-700' :
-                    registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level === 'bassa' ? 'text-red-700' :
-                    'text-slate-700'
-                  }`}>
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_level || 'n/d'}
-                  </p>
-                  <p className="text-[12px] text-slate-600 mt-0.5">
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_ratio !== null
-                      ? `PN/Attivo ${Math.round(registry.bisogni_assicurativi_verificati.financial_intelligence.solvency_ratio * 100)}%`
-                      : 'dati incompleti'}
-                  </p>
-                </div>
-
-                {/* Dipendenti trend */}
-                <div className={`p-4 rounded-xl border ${
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'crescita' ? 'border-emerald-200 bg-emerald-50' :
-                  registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'riduzione' ? 'border-red-200 bg-red-50' :
-                  'border-slate-200 bg-slate-50'
-                }`}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Users className={`w-4 h-4 ${
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'crescita' ? 'text-emerald-600' :
-                      registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend === 'riduzione' ? 'text-red-600' :
-                      'text-slate-500'
-                    }`} />
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Organico</p>
-                  </div>
-                  <p className="text-xl font-black text-slate-900">
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.latest_headcount !== null
-                      ? registry.bisogni_assicurativi_verificati.financial_intelligence.latest_headcount
-                      : 'n/d'}
-                  </p>
-                  <p className="text-[12px] text-slate-600 mt-0.5 capitalize">
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.headcount_trend || 'dato singolo'}
-                  </p>
-                </div>
-              </div>
-
-              {registry.bisogni_assicurativi_verificati.financial_intelligence.payroll_dependency_ratio !== null && (
-                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
-                  <p className="text-[12px] text-slate-700">
-                    <span className="font-semibold">Costo personale / fatturato:</span> {Math.round(registry.bisogni_assicurativi_verificati.financial_intelligence.payroll_dependency_ratio * 100)}%
-                    {registry.bisogni_assicurativi_verificati.financial_intelligence.payroll_dependency_ratio > 0.5 && (
-                      <span className="ml-2 text-red-700 font-semibold">⚠ dipendenza personale molto alta</span>
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+            )
+          })()}
 
           {/* ── Titolare Intelligence (età da CF + succession) ── */}
           {registry.bisogni_assicurativi_verificati.titolare_intelligence && registry.bisogni_assicurativi_verificati.titolare_intelligence.eta !== null && (
@@ -2737,7 +2814,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       )}
 
       {/* ── Gap Analysis Assicurativo ── */}
-      {registry?.gap_analysis && registry.gap_analysis.gaps?.length > 0 && (
+      {registry?.gap_analysis && !registry?.bisogni_assicurativi_verificati && registry.gap_analysis.gaps?.length > 0 && (
         <div className={`mb-6 rounded-2xl border-2 p-6 shadow-sm ${
           registry.gap_analysis.livello_rischio === 'critico' ? 'border-red-300 bg-gradient-to-br from-red-50 to-rose-50' :
           registry.gap_analysis.livello_rischio === 'alto' ? 'border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50' :

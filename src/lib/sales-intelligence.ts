@@ -232,11 +232,11 @@ export function generateSalesScript(
   const proposta: string[] = []
 
   proposta.push(`Le propongo un check-up assicurativo gratuito e senza impegno per ${companyName}`)
-  proposta.push('Analizzo le polizze attuali e verifico: coperture mancanti, massimali inadeguati, esclusioni pericolose')
+  proposta.push('Analizzo le polizze attuali e verifico: portafoglio attivo, massimali, franchigie, scoperti, esclusioni e scadenze')
   proposta.push('Le presento un report con le opportunità di risparmio e di miglioramento delle coperture')
 
   if (fat && fat >= 2_000_000) {
-    proposta.push(`Con un fatturato di €${fmt(fat)}, ci sono sicuramente margini per ottimizzare il programma assicurativo`)
+    proposta.push(`Con un fatturato di €${fmt(fat)}, ha senso verificare se massimali, valori assicurati e franchigie sono ancora coerenti con la dimensione attuale`)
   }
 
   // ── Chiusura ──
@@ -406,11 +406,11 @@ export function generateEmailTemplate(
 
 mi permetto di contattarLa perché, analizzando le aziende del settore ${cat} nella vostra zona, ho identificato alcune opportunità assicurative specifiche per ${companyName} che potrebbero interessarLe.
 
-${topGaps.length > 0 ? `In particolare, ho riscontrato potenziali aree di miglioramento su: ${topGaps.join(', ')}.` : 'Molte aziende del vostro settore scoprono di avere coperture insufficienti solo al momento del sinistro.'}
+${topGaps.length > 0 ? `In particolare, ho riscontrato potenziali aree da verificare su: ${topGaps.join(', ')}.` : 'Una revisione periodica aiuta a verificare massimali, esclusioni e scadenze prima del rinnovo.'}
 
 ${triggers.length > 0 ? `Ho notato inoltre che ${triggers[0].title.toLowerCase()} — questo è spesso il momento migliore per una revisione delle polizze.\n` : ''}Le propongo un check-up assicurativo completamente gratuito e senza impegno:
 • Analisi delle polizze attuali
-• Verifica coperture mancanti e massimali
+• Verifica portafoglio attivo, massimali, franchigie, scoperti e scadenze
 • Confronto con i parametri del vostro settore
 • Report personalizzato con opportunità di ottimizzazione
 

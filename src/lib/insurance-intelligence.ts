@@ -111,11 +111,12 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   const fgCode = (profile.forma_giuridica_codice || '').toUpperCase()
   const fat = profile.fatturato || 0
   const dip = profile.dipendenti || 0
+  const dipLabel = dip >= 50 ? `almeno ${dip}` : String(dip)
   const cap = profile.capitale_sociale || 0
   const nome = profile.ragione_sociale || ''
   const isDI = /\bDI\b|INDIVIDUALE|DITTA INDIVID/i.test(fg) || fgCode === 'DI'
-  const isSRL = /SRL|SRLS|S\.R\.L/i.test(fg)
-  const isSPA = /SPA|S\.P\.A/i.test(fg)
+  const isSRL = /SRL|SRLS|S\.R\.L|RESPONSABILIT[ÀA]'?\s+LIMITATA/i.test(fg) || fgCode === 'SR' || fgCode === 'SRL'
+  const isSPA = /SPA|S\.P\.A|PER AZIONI/i.test(fg) || fgCode === 'SP' || fgCode === 'SPA'
   const isSocietaCapitali = isSRL || isSPA
   const isSocietaPersone = /SAS|SNC|S\.A\.S|S\.N\.C/i.test(fg)
   const hasDip = dip > 0
@@ -131,9 +132,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       polizza: 'Rivalsa INAIL / RC Operai (RCO)',
       tipo: 'obbligo_legge',
       norma: 'D.Lgs. 81/2008, art. 18; DPR 1124/1965 (Azione di Regresso)',
-      descrizione: `${dip} dipendente/i registrato/i. L'INAIL copre l'infortunio, MA se c'è responsabilità del datore di lavoro (es. violazione norme sicurezza), l'INAIL esercita l'azione di Rivalsa (Regresso) chiedendo i soldi indietro all'azienda.`,
+      descrizione: `${dipLabel} dipendente/i registrato/i. L'INAIL copre l'infortunio, MA se c'è responsabilità del datore di lavoro (es. violazione norme sicurezza), l'INAIL esercita l'azione di Rivalsa (Regresso) chiedendo i soldi indietro all'azienda.`,
       sanzione: 'Esposizione finanziaria totale del patrimonio aziendale (e personale per le DI/SNC) per rimborsare l\'INAIL in caso di infortunio grave o mortale del dipendente',
-      azione_broker: 'Vendita immediata RC Operai (RCO) a copertura della Rivalsa INAIL. Verificare massimali RCO: minimo €1.000.000 per sinistro e €500.000 per persona lavoratrice.',
+      azione_broker: 'Verificare presenza RCO, massimali per sinistro/persona, sottolimiti, franchigie ed esclusioni. Dimensionare il benchmark su numero addetti, attività di cantiere e gravità potenziale del sinistro.',
     })
     fontiNormative.add('DPR 1124/1965 — Testo Unico INAIL (Azione di Regresso)')
     fontiNormative.add('D.Lgs. 81/2008 — Testo Unico Sicurezza Lavoro')
@@ -145,7 +146,7 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       polizza: 'Documento Valutazione Rischi (DVR)',
       tipo: 'obbligo_legge',
       norma: 'D.Lgs. 81/2008, art. 17 e 28',
-      descrizione: `Con ${dip} dipendente/i, il DVR è obbligatorio e non delegabile dal datore di lavoro.${dip <= 10 ? ' Può utilizzare procedure standardizzate (art. 29 comma 5).' : ''}`,
+      descrizione: `Con ${dipLabel} dipendente/i, il DVR è obbligatorio e non delegabile dal datore di lavoro.${dip <= 10 ? ' Può utilizzare procedure standardizzate (art. 29 comma 5).' : ''}`,
       sanzione: 'Arresto da 3 a 6 mesi o ammenda da €3.071 a €7.862',
       azione_broker: 'Chiedere se il DVR è aggiornato. Se no, proporre servizio di consulenza sicurezza + polizza RC Datore di Lavoro.',
     })
@@ -169,12 +170,12 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   // COSTRUZIONI / EDILIZIA (41-43)
   if (/^4[1-3]/.test(atecoPrefix2)) {
     obblighi.push({
-      polizza: 'RC verso Terzi e Prestatori d\'Opera',
+      polizza: 'Responsabilità civile cantiere / RCT-RCO da verificare',
       tipo: 'obbligo_settoriale',
       norma: 'D.Lgs. 81/2008; Art. 2043-2055 Codice Civile',
-      descrizione: `ATECO ${ateco}: attività di ${profile.descrizione_ateco || 'costruzioni/installazioni'}. Il rischio di danni a terzi durante i lavori è intrinseco all'attività.`,
-      sanzione: 'Responsabilità illimitata del patrimonio personale del titolare/amministratore per danni a terzi',
-      azione_broker: 'Verificare massimale attuale. Per installazioni elettriche (43.21) il massimale minimo raccomandato è €500.000.',
+      descrizione: `ATECO ${ateco}: attività di ${profile.descrizione_ateco || 'costruzioni/installazioni'}. La responsabilità per danni a terzi, committenti e prestatori durante i lavori è intrinseca all'attività.`,
+      sanzione: 'Responsabilità patrimoniale per danni a terzi o prestatori, con possibile esposizione personale nelle ditte individuali e società di persone',
+      azione_broker: /^43\.?2/.test(ateco) ? 'Verificare massimale RCT/RCO e copertura danni post-intervento per installazioni/impianti.' : 'Verificare presenza, massimale ed esclusioni RCT/RCO per cantieri, subappalti e danni a terzi.',
     })
 
     if (/^43\.2/.test(ateco)) {
@@ -183,9 +184,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
         polizza: 'Abilitazione DM 37/2008 + RC Installatore',
         tipo: 'obbligo_legge',
         norma: 'DM 37/2008 (ex L. 46/1990)',
-        descrizione: `L'installazione di impianti elettrici (ATECO ${ateco}) richiede l'abilitazione ai sensi del DM 37/2008. La dichiarazione di conformità implica responsabilità decennale sull'impianto.`,
-        sanzione: 'Sanzione da €516 a €5.164 + nullità della dichiarazione di conformità + responsabilità civile e penale per difetti',
-        azione_broker: 'La responsabilità sull\'impianto dura 10 ANNI dalla dichiarazione di conformità. Ogni impianto installato è un\'esposizione aperta. Servono: RC Professionale Installatore + Decennale Postuma.',
+        descrizione: `L'installazione di impianti elettrici (ATECO ${ateco}) richiede requisiti tecnico-professionali e abilitazione ai sensi del DM 37/2008 per gli ambiti applicabili. Le dichiarazioni di conformità aprono responsabilità tecniche e civili da qualificare.`,
+        sanzione: 'Possibili sanzioni amministrative, contestazioni sulla conformità dell’impianto e responsabilità civile/penale in caso di difetti o danni.',
+        azione_broker: 'Verificare abilitazione DM 37/2008, lettere abilitative, dichiarazioni di conformità, RC installatore/post-intervento, tutela legale tecnica ed eventuali garanzie postume richieste da contratto o committente.',
       })
       fontiNormative.add('DM 37/2008 — Sicurezza Impianti')
     }
@@ -226,7 +227,7 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       norma: 'L. 24/2017, art. 10 (Legge Gelli-Bianco)',
       descrizione: 'Struttura sanitaria o professionista sanitario. L\'obbligo di assicurazione per RC sanitaria è previsto dalla Legge Gelli-Bianco.',
       sanzione: 'Divieto di esercizio dell\'attività sanitaria + responsabilità personale illimitata',
-      azione_broker: 'Verificare: massimale minimo €2.000.000, retroattività, estensione colpa grave, tutela legale.',
+      azione_broker: 'Verificare massimale, retroattività, postuma, estensione colpa grave, esclusioni e tutela legale.',
     })
     fontiNormative.add('L. 24/2017 — Legge Gelli-Bianco')
   }
@@ -262,12 +263,12 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   // Ditta individuale — il titolare NON è coperto INAIL
   if (isDI) {
     vulnerabilita.push({
-      titolo: 'TITOLARE SENZA COPERTURA INAIL',
+      titolo: 'TITOLARE DI DITTA INDIVIDUALE — COPERTURA PERSONALE DA VERIFICARE',
       gravita: 'critica',
-      fatto: `${nome} è una Ditta Individuale (DI). Per legge (DPR 1124/1965, art. 4), il titolare di una DI NON è assicurato INAIL. L'INAIL copre solo i lavoratori subordinati.${profile.titolare ? ` Il titolare ${profile.titolare} lavora direttamente` : ''}.`,
-      conseguenza: `Se ${profile.titolare || 'il titolare'} si infortuna${settore.rischio_infortunio ? ` (settore ${settore.nome}: rischio ${settore.rischio_infortunio})` : ''}, l'attività si ferma completamente. Zero reddito, zero copertura sanitaria INAIL, zero indennità.`,
-      soluzione: 'Polizza Infortuni Titolare con indennità giornaliera + invalidità permanente + caso morte. Massimale minimo: reddito annuo lordo.',
-      domanda_killer: `"${profile.titolare || 'Sig. Titolare'}, se domani si rompe un braccio sul lavoro, chi paga le sue spese e chi manda avanti l'azienda? L'INAIL non la copre perché lei è titolare di ditta individuale."`,
+      fatto: `${nome} è una Ditta Individuale (DI). Il titolare e l'eventuale posizione INAIL/artigiana vanno verificati separatamente rispetto ai dipendenti.${profile.titolare ? ` Il referente operativo identificato è ${profile.titolare}` : ''}.`,
+      conseguenza: `Se ${profile.titolare || 'il titolare'} si infortuna${settore.rischio_infortunio ? ` (settore ${settore.nome}: rischio ${settore.rischio_infortunio})` : ''}, l'attività può subire fermo operativo e perdita di reddito. Anche dove esiste tutela obbligatoria, diaria, invalidità, scoperti e continuità aziendale restano da verificare.`,
+      soluzione: 'Verificare posizione INAIL del titolare/artigiano + proporre Infortuni Titolare/Key Man con diaria da fermo attività, invalidità permanente e caso morte.',
+      domanda_killer: `"${profile.titolare || 'Sig. Titolare'}, se domani si fa male in cantiere e non può lavorare per 60 giorni, quale tutela mantiene reddito e continuità dell'attività?"`,
     })
   }
 
@@ -277,10 +278,10 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     vulnerabilita.push({
       titolo: 'RESPONSABILITÀ PATRIMONIALE AMMINISTRATORI',
       gravita: fat > 2_000_000 ? 'critica' : 'alta',
-      fatto: `${nome} è una ${isSRL ? 'S.R.L.' : 'S.P.A.'}. Gli amministratori rispondono personalmente con il PROPRIO patrimonio per danni causati alla società, ai soci e ai creditori (art. 2476 c.c. per SRL, art. 2392 c.c. per SPA).${fat > 0 ? ` Con €${fmtNum(fat)} di fatturato, l'esposizione patrimoniale è significativa.` : ''}`,
-      conseguenza: `In caso di azione di responsabilità (da soci, creditori, curatore fallimentare), l'amministratore risponde con casa, conti, beni personali. La responsabilità è solidale e non si prescrive prima di 5 anni.`,
-      soluzione: `Polizza D&O (Directors & Officers) con massimale minimo €${fmtNum(Math.max(500_000, esposizione))}. Deve includere: difesa legale, responsabilità verso creditori, copertura anche dopo cessazione carica.`,
-      domanda_killer: `"Se un fornitore o un cliente vi fa causa per €${fmtNum(Math.max(100_000, fat * 0.1))}, sa che l'amministratore risponde con il proprio patrimonio personale? Ha una polizza D&O?"`,
+      fatto: `${nome} è una ${isSRL ? 'S.R.L.' : 'S.P.A.'}. Gli amministratori possono essere chiamati a rispondere per danni verso società, soci e creditori (art. 2476 c.c. per SRL, art. 2392 c.c. per SPA).${fat > 0 ? ` Con €${fmtNum(fat)} di fatturato, il tema merita una verifica tecnica.` : ''}`,
+      conseguenza: `In caso di azione di responsabilità, difesa legale, patrimonio personale, cariche cessate, creditori e soci diventano aree da qualificare.`,
+      soluzione: `Verificare presenza D&O, massimale, retroattività, postuma, esclusioni e copertura costi di difesa. Benchmark massimale da discutere: circa €${fmtNum(Math.max(500_000, esposizione || 500_000))}.`,
+      domanda_killer: `"Avete già verificato se amministratori e cariche sociali sono coperti per responsabilità verso soci, creditori e terzi? Con quale massimale e retroattività?"`,
     })
     fontiNormative.add('Art. 2476 c.c. — Responsabilità amministratori SRL')
   }
@@ -292,10 +293,10 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       vulnerabilita.push({
         titolo: `OBBLIGHI CCNL ${ccnl.nome}`,
         gravita: 'alta',
-        fatto: `ATECO ${ateco} → CCNL ${ccnl.nome}. Questo contratto collettivo prevede obblighi specifici: ${ccnl.obblighi_assicurativi.join(', ')}.`,
-        conseguenza: 'Il mancato rispetto degli obblighi CCNL espone a vertenze sindacali, sanzioni ispettorato e risarcimento danni ai lavoratori.',
-        soluzione: `Verificare che tutte le coperture previste dal CCNL ${ccnl.nome} siano attive e conformi.`,
-        domanda_killer: `"Il vostro CCNL ${ccnl.nome} prevede ${ccnl.obblighi_assicurativi[0]}. Ce l'avete? È conforme ai minimi contrattuali?"`,
+        fatto: `ATECO ${ateco} → probabile area CCNL ${ccnl.nome}. Gli istituti collegati da verificare sono: ${ccnl.obblighi_assicurativi.join(', ')}.`,
+        conseguenza: 'CCNL applicato, Cassa/Fondi, formazione e coperture integrative incidono su vertenze, ispezioni, costo lavoro e responsabilità del datore.',
+        soluzione: `Verificare quale CCNL è realmente applicato e se gli istituti collegati al ${ccnl.nome} sono attivi e conformi.`,
+        domanda_killer: `"Che CCNL applicate davvero ai dipendenti? Avete già verificato Cassa/Fondi, formazione e coperture integrative previste?"`,
       })
     }
   }
@@ -305,9 +306,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     vulnerabilita.push({
       titolo: 'RISCHIO KEY MAN — CONCENTRAZIONE SU UNA PERSONA',
       gravita: 'critica',
-      fatto: `${nome} ha ${dip} dipendente/i. L'intera attività dipende da ${profile.titolare}. Se questa persona non può lavorare, l'azienda si ferma.${fat > 0 ? ` Fatturato a rischio: €${fmtNum(fat)}.` : ''}`,
-      conseguenza: `Fermo attività = zero fatturato + costi fissi che continuano (affitto, utenze, rate, stipendi). Stima costo fermo: €${fmtNum(Math.max(100, Math.round((fat || 100_000) / 220)))}/giorno lavorativo.`,
-      soluzione: 'Polizza Key Man: invalidità temporanea + permanente + caso morte. Massimale: almeno 2 anni di fatturato.',
+      fatto: `${nome} ha ${dipLabel} dipendente/i. La struttura è molto concentrata su ${profile.titolare}.${fat > 0 ? ` Fatturato annuo rilevato: €${fmtNum(fat)}.` : ' Fatturato non disponibile: impatto economico da quantificare in call.'}`,
+      conseguenza: fat > 0 ? `Fermo attività = mancata produzione + costi fissi che continuano. Benchmark operativo: circa €${fmtNum(Math.max(100, Math.round(fat / 220)))}/giorno lavorativo di fatturato esposto.` : 'Se la persona chiave non lavora, il broker deve quantificare in call giorni di autonomia, costi fissi e commesse in corso.',
+      soluzione: 'Polizza Key Man/Infortuni: invalidità temporanea, permanente e caso morte. Massimale da tarare su fatturato reale, costi fissi e durata massima di fermo sostenibile.',
       domanda_killer: `"${profile.titolare}, se lei domani non può più lavorare per 3 mesi, quanto perde l'azienda? Chi copre i costi fissi che continuano a correre?"`,
     })
   }
@@ -318,9 +319,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       titolo: `ZONA SISMICA ${profile.zona_sismica} — RISCHIO TERREMOTO`,
       gravita: profile.zona_sismica === 1 ? 'critica' : 'alta',
       fatto: `La sede di ${profile.citta || 'N/D'} è classificata in Zona Sismica ${profile.zona_sismica} (${profile.zona_sismica === 1 ? 'massima pericolosità' : 'alta pericolosità'}). Classificazione OPCM 3274/2003.`,
-      conseguenza: 'Le polizze property standard ESCLUDONO il terremoto. In caso di evento sismico, tutti i danni a immobile, attrezzature e merci NON sono coperti.',
-      soluzione: 'Estensione terremoto sulla polizza property. Verificare congruità del valore assicurato (valore a nuovo vs valore commerciale).',
-      domanda_killer: `"Sa che la sua polizza incendio quasi certamente NON copre il terremoto? ${profile.citta || 'La sua sede'} è in zona sismica ${profile.zona_sismica}. Ha mai verificato?"`,
+      conseguenza: 'La garanzia terremoto non va mai presunta: spesso è un’estensione specifica con limiti, scoperti e franchigie dedicate.',
+      soluzione: 'Verificare se la property include terremoto, valore assicurato, scoperto/franchigia, limite di indennizzo e ubicazioni coperte.',
+      domanda_killer: `"${profile.citta || 'La sua sede'} è in zona sismica ${profile.zona_sismica}. La vostra property include esplicitamente terremoto? Con quale limite e franchigia?"`,
     })
     fontiNormative.add('OPCM 3274/2003 — Classificazione Sismica')
   }
@@ -330,10 +331,10 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     vulnerabilita.push({
       titolo: 'ZONA AD ALTO RISCHIO IDROGEOLOGICO',
       gravita: 'alta',
-      fatto: `La sede è in area classificata ad alto rischio idrogeologico (fonte: ISPRA). Rischio alluvione/frana concreto.`,
-      conseguenza: 'I danni da alluvione sono spesso ESCLUSI dalle polizze property base o soggetti a franchigie elevatissime.',
-      soluzione: 'Verificare polizza property: estensione "eventi atmosferici" e "allagamento" devono essere esplicitamente inclusi, con franchigia accettabile.',
-      domanda_killer: '"La sua sede è in zona ad alto rischio alluvione secondo ISPRA. La sua polizza copre esplicitamente i danni da acqua? Con quale franchigia?"',
+      fatto: `La sede è in area classificata ad alto rischio idrogeologico (fonte: ISPRA/mapping territoriale).`,
+      conseguenza: 'Alluvione, allagamento, eventi atmosferici e danni da acqua hanno spesso sottolimiti, scoperti o condizioni specifiche da leggere in polizza.',
+      soluzione: 'Verificare property: eventi atmosferici, allagamento, acqua condotta, franchigie, scoperti, limiti di indennizzo e ubicazioni coperte.',
+      domanda_killer: '"La vostra property include esplicitamente allagamento/eventi atmosferici per questa ubicazione? Con quale limite, scoperto e franchigia?"',
     })
     fontiNormative.add('D.Lgs. 152/2006 — Codice Ambiente')
   }
@@ -341,12 +342,12 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   // Azienda giovane (< 3 anni)
   if (anniAttivita !== null && anniAttivita <= 3) {
     vulnerabilita.push({
-      titolo: 'AZIENDA GIOVANE — PROFILO RISCHIO ELEVATO',
+      titolo: 'AZIENDA GIOVANE — PORTAFOGLIO DA STRUTTURARE',
       gravita: 'media',
-      fatto: `Costituita il ${profile.data_costituzione} — ${anniAttivita} anni di attività. Le statistiche CERVED mostrano che il ${anniAttivita <= 1 ? '25%' : '20%'} delle imprese italiane chiude entro i primi 3 anni.`,
-      conseguenza: 'Rischio di sottovalutazione delle coperture assicurative. Spesso le startup/nuove imprese risparmiano sull\'assicurazione, esponendosi a rischi catastrofici.',
-      soluzione: 'Pacchetto assicurativo "starter" completo: RC + Incendio + Infortuni titolare. Fondamentale coprire subito i rischi base.',
-      domanda_killer: '"L\'azienda è giovane. Avete già strutturato un programma assicurativo completo o state ancora con le coperture minime?"',
+      fatto: `Costituita il ${profile.data_costituzione} — circa ${anniAttivita} anni di attività.`,
+      conseguenza: 'Nelle imprese giovani scadenziario, massimali e priorità assicurative sono spesso ancora da consolidare.',
+      soluzione: 'Audit starter: responsabilità civile, persona chiave, attrezzature, tutela legale, cyber se rilevante e continuità operativa.',
+      domanda_killer: '"Avete già uno scadenziario unico con massimali, franchigie, esclusioni e priorità per il primo rinnovo?"',
     })
   }
 
@@ -356,18 +357,18 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   if (/^4[1-3]/.test(atecoPrefix2)) {
     opportunita.push({
       polizza: 'Polizza CAR/EAR (Contractor All Risks)',
-      motivo_specifico: `ATECO ${ateco}: ogni cantiere aperto è un'esposizione. La CAR copre danni all'opera in costruzione, materiali, attrezzature. Spesso RICHIESTA dal committente per contratto.`,
-      valore_per_cliente: 'Protegge l\'investimento dell\'opera + è spesso condizione per ottenere il lavoro dal committente.',
-      trigger_vendita: '"Quanti cantieri avete aperti in questo momento? Per ognuno vi serve una CAR specifica. Ve la gestisco io così non dovete pensarci."',
+      motivo_specifico: `ATECO ${ateco}: ogni cantiere può generare esposizioni su opera in corso, materiali, attrezzature, subappalti e danni accidentali. La CAR/EAR è spesso richiesta dal committente per contratto.`,
+      valore_per_cliente: 'Protegge l\'investimento dell\'opera e può diventare requisito commerciale per ottenere o mantenere commesse.',
+      trigger_vendita: '"Quanti cantieri avete aperti o in partenza? Per quali contratti il committente richiede CAR/EAR o garanzie specifiche?"',
       premio_indicativo: `0,3%-0,8% del valore dell'opera (es. opera da €100.000 → premio €300-800)`,
-      fonte_dato: 'Tariffario ANIA — ramo Rischi Tecnologici',
+      fonte_dato: 'Prassi mercato assicurativo — ramo Rischi Tecnologici',
     })
 
     opportunita.push({
       polizza: 'Polizza Decennale Postuma',
-      motivo_specifico: `Per lavori strutturali su edifici, la garanzia decennale postuma copre difetti che si manifestano nei 10 anni successivi alla consegna.${/^43\.2/.test(ateco) ? ' Per installazioni impiantistiche, la responsabilità ex DM 37/2008 dura 10 anni.' : ''}`,
-      valore_per_cliente: 'Protegge da richieste di risarcimento che arrivano ANNI dopo aver finito il lavoro. Senza questa polizza, il patrimonio dell\'impresa resta esposto per un decennio.',
-      trigger_vendita: '"Sa che per ogni impianto che installa, lei è responsabile per 10 anni? Se tra 7 anni un suo impianto causa un incendio, chi paga?"',
+      motivo_specifico: `Per nuove costruzioni, opere strutturali o lavori soggetti a responsabilità ex art. 1669 c.c., la decennale/postuma può coprire difetti gravi che emergono dopo la consegna.${/^43\.2/.test(ateco) ? " Per installazioni impiantistiche va verificata anche la responsabilità post-intervento collegata alla conformità dell'impianto." : ''}`,
+      valore_per_cliente: 'Trasforma un rischio di responsabilità pluriennale in una copertura discutibile in modo tecnico con committente e consulente.',
+      trigger_vendita: '"Per lavori strutturali, nuove costruzioni o impianti, avete già verificato responsabilità post-consegna, decennale/postuma e limiti della RC attuale?"',
       premio_indicativo: '1,5%-3% del valore dell\'opera, pagamento una tantum',
       fonte_dato: 'Art. 1669 c.c. — Responsabilità decennale appaltatore',
     })
@@ -377,9 +378,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   if (profile.sito && (dip >= 3 || fat >= 300_000)) {
     opportunita.push({
       polizza: 'Polizza Cyber Risk',
-      motivo_specifico: `${nome} ha un sito web (${profile.sito})${dip > 0 ? ` e ${dip} dipendenti con accesso a sistemi informatici` : ''}. Gestisce dati di clienti/fornitori soggetti a GDPR.`,
-      valore_per_cliente: 'Copre: costi di ripristino sistemi, notifica data breach al Garante, danni da ransomware, perdita di fatturato per fermo IT.',
-      trigger_vendita: '"Avete mai subito un attacco informatico? Un ransomware medio costa €42.000 a una PMI italiana (fonte: Clusit 2024). Quanto vi costerebbe stare fermi 3 giorni?"',
+      motivo_specifico: `${nome} ha un sito web (${profile.sito})${dip > 0 ? ` e ${dipLabel} dipendenti con accesso a sistemi informatici` : ''}. Gestisce dati di clienti/fornitori soggetti a GDPR.`,
+      valore_per_cliente: 'Può coprire costi di ripristino sistemi, gestione data breach, responsabilità privacy, ransomware e perdita di fatturato da fermo IT.',
+      trigger_vendita: '"Se email, gestionale o sito restano fermi 3 giorni, quanto impatta su ordini, clienti e fatturazione? Avete backup e incident response formalizzati?"',
       premio_indicativo: `€${fmtNum(Math.max(500, Math.round(fat * 0.001)))} - €${fmtNum(Math.max(2000, Math.round(fat * 0.003)))} annui`,
       fonte_dato: 'Report Clusit 2024 — Sicurezza ICT Italia',
     })
@@ -390,9 +391,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   if (isDI || (dip <= 2 && profile.titolare)) {
     opportunita.push({
       polizza: 'Polizza Infortuni Titolare / Key Man',
-      motivo_specifico: `${profile.titolare || 'Il titolare'} è la figura centrale dell'azienda.${isDI ? ' Come titolare di DI, NON è coperto INAIL.' : ''} Se non lavora, l'azienda si ferma.`,
-      valore_per_cliente: `Garantisce un reddito durante il periodo di inabilità. Indennità giornaliera di €${Math.max(50, Math.round((fat || 100_000) / 220 * 0.8))}-${Math.max(100, Math.round((fat || 100_000) / 220))}/giorno per inabilità temporanea.`,
-      trigger_vendita: `"${profile.titolare || 'Sig. Titolare'}, quanto guadagna al giorno? Se si fa male, l'INAIL NON la copre. Posso garantirle lo stesso reddito anche durante un infortunio, per meno di €2 al giorno."`,
+      motivo_specifico: `${profile.titolare || 'Il titolare'} è la figura centrale dell'azienda.${isDI ? " Per una DI va verificata la posizione personale del titolare e l'eventuale differenza tra tutele obbligatorie e reddito reale." : ''} Se non lavora, continuità e liquidità vanno quantificate.`,
+      valore_per_cliente: fat > 0 ? `Può garantire liquidità durante il periodo di inabilità. Range diario da tarare sul fatturato: circa €${Math.max(50, Math.round(fat / 220 * 0.8))}-${Math.max(100, Math.round(fat / 220))}/giorno come base di discussione.` : 'Può garantire liquidità durante il periodo di inabilità. La diaria va costruita in call su reddito, costi fissi e autonomia finanziaria.',
+      trigger_vendita: `"${profile.titolare || 'Sig. Titolare'}, se si fa male e resta fermo due mesi, quale copertura mantiene reddito, costi fissi e continuità delle commesse?"`,
       premio_indicativo: `€400-1.200/anno per massimale morte/IP €200.000 + ITT €80-150/giorno`,
       fonte_dato: 'Tariffario ANIA — Ramo Infortuni',
     })
@@ -402,8 +403,8 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   if (profile.ha_immobili_proprieta || fat >= 200_000) {
     opportunita.push({
       polizza: 'Polizza Property / All Risks',
-      motivo_specifico: `${profile.ha_immobili_proprieta ? 'L\'azienda possiede immobili' : `Con un fatturato di €${fmtNum(fat)}, l'azienda ha sicuramente attrezzature, macchinari, merci`}. Tutto esposto a incendio, furto, eventi atmosferici.`,
-      valore_per_cliente: 'Copre la ricostruzione/sostituzione di tutto ciò che serve per lavorare: immobile, attrezzature, scorte, macchinari.',
+      motivo_specifico: `${profile.ha_immobili_proprieta ? 'L\'azienda possiede immobili' : `Con un fatturato di €${fmtNum(fat)}, vanno verificati attrezzature, beni strumentali, merci e ubicazioni operative`}. Valori, ubicazioni ed esclusioni vanno verificati.`,
+      valore_per_cliente: 'Può coprire ricostruzione/sostituzione di immobili, attrezzature, scorte e macchinari, oltre al fermo attività se previsto.',
       trigger_vendita: '"Se domattina trovate il magazzino/laboratorio bruciato, avete i soldi per ricomprare tutto e ricominciare? In quanto tempo?"',
       premio_indicativo: `€${fmtNum(Math.max(400, Math.round(fat * 0.001)))} - €${fmtNum(Math.max(1500, Math.round(fat * 0.003)))} annui`,
       fonte_dato: 'Benchmark ANIA — Ramo Incendio e Rischi Complementari',
@@ -412,12 +413,15 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
 
   // TFR in azienda (obbligo per tutti i dipendenti)
   if (dip >= 1) {
-    const tfr_annuo = profile.costo_personale ? Math.round(profile.costo_personale * 0.0691) : Math.round(dip * 2200)
+    const costoPersonale = typeof profile.costo_personale === 'number' ? profile.costo_personale : null
+    const tfr_annuo = costoPersonale !== null ? Math.round(costoPersonale * 0.0691) : null
     opportunita.push({
       polizza: 'Fondo Pensione / TFR Complementare',
-      motivo_specifico: `Con ${dip} dipendente/i${profile.costo_personale ? ` e costo del personale €${fmtNum(profile.costo_personale)}` : ''}, il TFR accantonato è circa €${fmtNum(tfr_annuo)}/anno.`,
-      valore_per_cliente: 'Destinare il TFR a un fondo pensione offre vantaggi fiscali sia al dipendente (deducibilità fino a €5.164/anno) sia all\'azienda (deduzione IRAP del 0,3% del TFR).',
-      trigger_vendita: '"Dove destinate il TFR dei vostri dipendenti? In azienda o a un fondo? Se lo tenete in azienda, state perdendo un vantaggio fiscale e al momento del pagamento dovrete tirare fuori tutto insieme."',
+      motivo_specifico: costoPersonale !== null && tfr_annuo !== null
+        ? `Con ${dipLabel} dipendente/i e costo del personale €${fmtNum(costoPersonale)}, il TFR maturato è stimabile in circa €${fmtNum(tfr_annuo)}/anno.`
+        : `Con ${dipLabel} dipendente/i, TFR, previdenza complementare e welfare vanno verificati; senza costo del personale non è corretto stimare l'importo maturato.`,
+      valore_per_cliente: 'La destinazione del TFR e la previdenza complementare possono generare vantaggi fiscali e welfare, da verificare in base a CCNL, adesioni e policy aziendale.',
+      trigger_vendita: '"Dove destinate il TFR dei dipendenti? In azienda, fondo negoziale o fondo aperto? Avete già verificato impatto fiscale, adesioni e comunicazione ai dipendenti?"',
       premio_indicativo: `Contributo aziendale: 1-2% della retribuzione lorda`,
       fonte_dato: 'D.Lgs. 252/2005 — Previdenza Complementare',
     })
@@ -439,9 +443,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     opportunita,
     briefing_broker: briefing,
     esposizione_totale: {
-      patrimonio_a_rischio: patrimonioRischio > 0 ? `€${fmtNum(patrimonioRischio)}` : 'Da quantificare',
-      costo_fermo_giornaliero: costoFermoGiornaliero > 0 ? `€${fmtNum(costoFermoGiornaliero)}/giorno` : 'Da quantificare',
-      esposizione_rc: fat > 0 ? `€${fmtNum(Math.max(500_000, fat * 2))} (massimale RC consigliato)` : 'Da quantificare',
+      patrimonio_a_rischio: patrimonioRischio > 0 ? `€${fmtNum(patrimonioRischio)} benchmark da validare` : 'Da quantificare',
+      costo_fermo_giornaliero: costoFermoGiornaliero > 0 ? `€${fmtNum(costoFermoGiornaliero)}/giorno benchmark da validare` : 'Da quantificare',
+      esposizione_rc: fat > 0 ? `€${fmtNum(Math.max(500_000, fat * 2))} benchmark massimale da discutere` : 'Da quantificare',
     },
     fonti_normative: Array.from(fontiNormative),
   }
@@ -487,12 +491,22 @@ interface CCNLInfo {
 
 function getCCNLFromAteco(ateco: string): CCNLInfo | null {
   const p2 = ateco.substring(0, 2)
+  const normalized = ateco.replace(/\D/g, '')
+  if (/^432/.test(normalized)) return {
+    nome: 'Impiantistica / installazione impianti — CCNL da verificare',
+    obblighi_assicurativi: [
+      'CCNL effettivamente applicato da verificare: edilizia, metalmeccanico/artigiano o installazione impianti possono dipendere da attività prevalente e inquadramento',
+      'Posizioni INAIL, sicurezza lavoro e formazione da verificare per attività presso cantieri/clienti',
+      'Fondi sanitari/previdenziali da verificare in base al CCNL realmente applicato',
+      'Abilitazioni tecniche e dichiarazioni di conformità da verificare per DM 37/2008',
+    ],
+  }
   if (/^4[1-3]/.test(p2)) return {
     nome: 'Edilizia (CCNL Edili Industria/Artigianato)',
     obblighi_assicurativi: [
-      'Iscrizione Cassa Edile (contributo 2,50% + 0,50%)',
-      'Polizza Infortuni Extra-Professionale (PREVEDI)',
-      'Fondo Sanitario SANEDIL obbligatorio per tutti gli operai edili',
+      'Iscrizione Cassa Edile da verificare in base a CCNL, attività effettiva e inquadramento',
+      'Previdenza complementare PREVEDI da verificare',
+      'Fondo sanitario SANEDIL da verificare per gli operai edili',
       'Formazione 16h sicurezza obbligatoria prima dell\'impiego in cantiere',
     ],
   }
@@ -569,16 +583,16 @@ function buildBrokerBriefing(
   const domandeChiave: string[] = []
   domandeChiave.push(`"Con chi si assicura attualmente? È soddisfatto del servizio?"`)
   domandeChiave.push(`"Quando scadono le sue polizze principali?"`)
-  if (isDI) domandeChiave.push(`"Ha una polizza infortuni personale? Come titolare di DI, l'INAIL non la copre."`)
-  if (obblighi.length > 0) domandeChiave.push(`"Ha tutte le coperture obbligatorie per il suo settore? Ne ho identificate ${obblighi.length}."`)
+  if (isDI) domandeChiave.push(`"Avete già verificato posizione personale del titolare, diaria, invalidità e continuità operativa se lei si ferma?"`)
+  if (obblighi.length > 0) domandeChiave.push(`"Posso verificare con voi ${obblighi.length} responsabilità/obblighi collegati al vostro settore e capire cosa è già coperto?"`)
   if (critiche.length > 0) domandeChiave.push(`"Posso farle vedere ${critiche.length} vulnerabilità specifiche che ho trovato analizzando il suo profilo?"`)
   if (profile.ha_flotta_veicoli) domandeChiave.push(`"Quanti veicoli avete? Li assicurate singolarmente o con una polizza flotta?"`)
 
   // Obiezioni e risposte
   const obiezioni: string[] = []
-  obiezioni.push(`"Sono già assicurato" → "Perfetto, posso fare un check-up gratuito? Nel 70% dei casi trovo scoperture che il cliente non sapeva di avere."`)
-  obiezioni.push(`"Non ho budget" → "Capisco. Ma sa quanto le costerebbe un fermo di 30 giorni senza copertura? €${fmtNum(Math.max(3000, Math.round(fat / 220 * 30)))}. La polizza costa una frazione."`)
-  if (isDI) obiezioni.push(`"Non mi serve, non mi è mai successo niente" → "Nemmeno a chi ha avuto un infortunio la settimana scorsa. Ma lei come titolare DI non ha INAIL — se succede, è scoperto al 100%."`)
+  obiezioni.push(`"Sono già assicurato" → "Perfetto, allora il valore è verificare se massimali, esclusioni, franchigie e scadenze sono ancora coerenti con i dati attuali dell'azienda."`)
+  obiezioni.push(`"Non ho budget" → "Ha senso: proprio per questo partirei da inefficienze, duplicazioni, franchigie e priorità reali, senza proporre coperture inutili."`)
+  if (isDI) obiezioni.push(`"Non mi serve, non mi è mai successo niente" → "Il punto non è prevedere il sinistro: è capire quanti giorni l'attività regge se il titolare operativo si ferma e quali tutele personali sono già attive."`)
 
   return {
     apertura,

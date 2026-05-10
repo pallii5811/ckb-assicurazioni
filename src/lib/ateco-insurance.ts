@@ -23,6 +23,38 @@ interface AtecoRule {
 }
 
 const ATECO_RULES: AtecoRule[] = [
+  // ── INSTALLAZIONE IMPIANTI (43.2) ──
+  {
+    pattern: /^432/,
+    data: {
+      settore: 'Installazione impianti / impiantistica',
+      classe_inail: 'alto',
+      tasso_inail_indicativo: 'da verificare per voce di tariffa INAIL',
+      polizze_obbligatorie: [
+        'Posizioni INAIL / sicurezza lavoratori da verificare (D.Lgs. 81/2008)',
+        'Abilitazioni e dichiarazioni di conformità DM 37/2008 da verificare',
+        'Responsabilità civile verso terzi e prestatori da verificare',
+      ],
+      polizze_raccomandate: [
+        'RC Installatore / RC post-intervento',
+        'Tutela legale tecnica su contestazioni di conformità',
+        'Polizza attrezzature e strumenti di lavoro',
+        'CAR/EAR o garanzie specifiche se richieste da committente o contratto',
+      ],
+      rischi_principali: [
+        'Danni a terzi durante installazione/manutenzione',
+        'Danni post-intervento o malfunzionamento impianto',
+        'Contestazioni su dichiarazioni di conformità',
+        'Infortuni durante lavori presso clienti/cantieri',
+        'Furto o danneggiamento attrezzature',
+      ],
+      normativa: [
+        'DM 37/2008 — Installazione impianti',
+        'D.Lgs. 81/2008 — Testo Unico Sicurezza',
+        'Codice Civile — responsabilità civile per danni a terzi',
+      ],
+    },
+  },
   // ── COSTRUZIONI (41-43) ──
   {
     pattern: /^4[1-3]/,
@@ -31,9 +63,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'molto_alto',
       tasso_inail_indicativo: '50-110‰',
       polizze_obbligatorie: [
-        'Polizza Infortuni Lavoratori (D.Lgs. 81/2008)',
-        'RC verso Terzi e Prestatori d\'Opera',
-        'Polizza CAR/EAR per cantieri (richiesta dal committente)',
+        'Posizioni INAIL / sicurezza lavoratori da verificare (D.Lgs. 81/2008)',
+        'Responsabilità civile cantiere RCT/RCO da verificare',
+        'CAR/EAR spesso richiesta da committenti o contratti di appalto',
       ],
       polizze_raccomandate: [
         'Polizza Decennale Postuma (garanzia strutturale)',

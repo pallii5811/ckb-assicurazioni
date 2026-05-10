@@ -3251,7 +3251,7 @@ export default function DashboardShell() {
                 return (
                   <>
                   {/* Esposizione Totale */}
-                  {(intel.esposizione_totale?.patrimonio_a_rischio && intel.esposizione_totale.patrimonio_a_rischio !== 'Da quantificare') && (
+                  {false && (intel.esposizione_totale?.patrimonio_a_rischio && intel.esposizione_totale.patrimonio_a_rischio !== 'Da quantificare') && (
                     <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-3xl p-5 shadow-lg">
                       <h4 className="text-sm font-bold text-white mb-3">Esposizione Patrimoniale</h4>
                       <div className="grid grid-cols-3 gap-3">
@@ -3290,9 +3290,9 @@ export default function DashboardShell() {
                             </div>
                             <p className="text-[11px] text-slate-700 mb-1.5"><strong>Base verificabile:</strong> {v.fatto}</p>
                             <p className="text-[11px] text-red-800 mb-1.5"><strong>CONSEGUENZA:</strong> {v.conseguenza}</p>
-                            <p className="text-[11px] text-emerald-800 mb-2"><strong>SOLUZIONE:</strong> {v.soluzione}</p>
+                            <p className="text-[11px] text-emerald-800 mb-2"><strong>Azione consulenziale:</strong> {v.soluzione}</p>
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
-                              <p className="text-[10px] font-bold text-blue-800 uppercase mb-0.5">Domanda killer per il cliente:</p>
+                              <p className="text-[10px] font-bold text-blue-800 uppercase mb-0.5">Domanda per il cliente:</p>
                               <p className="text-[11px] text-blue-900 italic">{v.domanda_killer}</p>
                             </div>
                           </div>
@@ -3305,8 +3305,8 @@ export default function DashboardShell() {
                   {intel.obblighi?.length > 0 && (
                     <div className="bg-white rounded-3xl border border-amber-200/60 p-0 shadow-lg overflow-hidden">
                       <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3.5">
-                        <h4 className="text-sm font-bold text-white">Obblighi di Legge ({intel.obblighi.length})</h4>
-                        <p className="text-[10px] text-amber-100 mt-0.5">Coperture obbligatorie per questa specifica azienda — verificabili per legge</p>
+                        <h4 className="text-sm font-bold text-white">Obblighi e responsabilit&agrave; da verificare ({intel.obblighi.length})</h4>
+                        <p className="text-[10px] text-amber-100 mt-0.5">Aspetti normativi e contrattuali specifici dell&apos;azienda — non indicano polizze gi&agrave; attive o assenti</p>
                       </div>
                       <div className="p-5 space-y-2">
                         {intel.obblighi.map((o: any, i: number) => (
@@ -3316,7 +3316,7 @@ export default function DashboardShell() {
                               <span className="text-[8px] font-mono text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{o.norma}</span>
                             </div>
                             <p className="text-[11px] text-slate-700 mb-1">{o.descrizione}</p>
-                            <p className="text-[10px] text-red-700"><strong>Sanzione:</strong> {o.sanzione}</p>
+                            <p className="text-[10px] text-red-700"><strong>Rischio:</strong> {o.sanzione}</p>
                             <p className="text-[10px] text-blue-700 mt-1"><strong>Azione:</strong> {o.azione_broker}</p>
                           </div>
                         ))}
@@ -3363,12 +3363,12 @@ export default function DashboardShell() {
               {companySearchResult.obblighi_assicurativi && (
                 <div className="bg-white rounded-3xl border border-amber-200/60 p-0 shadow-lg shadow-amber-100/30 overflow-hidden">
                   <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3.5">
-                    <h4 className="text-sm font-bold text-white">Obblighi Assicurativi — {companySearchResult.obblighi_assicurativi.settore}</h4>
+                    <h4 className="text-sm font-bold text-white">Profilo assicurativo settoriale — {companySearchResult.obblighi_assicurativi.settore}</h4>
                   </div>
                   <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[10px] font-bold text-red-600 uppercase mb-1.5">Obbligatorie per legge</p>
+                      <p className="text-[10px] font-bold text-red-600 uppercase mb-1.5">Obblighi / responsabilità da verificare</p>
                       {companySearchResult.obblighi_assicurativi.polizze_obbligatorie?.map((p: string, i: number) => (
                         <div key={i} className="flex items-start gap-1.5 mb-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />

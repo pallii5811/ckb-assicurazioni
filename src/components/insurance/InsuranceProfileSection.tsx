@@ -681,12 +681,12 @@ function CauzioniCard({ data, compact }: { data: CauzioniData; compact?: boolean
               <div className="text-sm font-semibold">{formatEUR(data.summary.cauzioniProvvisorieTotali)}</div>
             </div>
             <div className="bg-muted/40 p-2 rounded-lg">
-              <div className="text-[10px] text-muted-foreground">Cauz. definitiva (10%)</div>
+              <div className="text-[10px] text-muted-foreground">Garanzia definitiva benchmark</div>
               <div className="text-sm font-semibold">{formatEUR(data.summary.cauzioniDefinitiveTotali)}</div>
             </div>
             {data.summary.decennaliEdiliziaTotali > 0 && (
               <div className="col-span-2 bg-rose-50 p-2 rounded-lg border border-rose-200">
-                <div className="text-[10px] text-rose-700">Decennale postuma (lavori &gt;500k€)</div>
+                <div className="text-[10px] text-rose-700">Postuma/CAR da verificare su bando</div>
                 <div className="text-sm font-semibold">{formatEUR(data.summary.decennaliEdiliziaTotali)}</div>
               </div>
             )}

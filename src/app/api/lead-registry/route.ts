@@ -3,6 +3,7 @@ import { getTerritorialRisk } from '@/lib/territorial-risk'
 import { getAtecoInsurance } from '@/lib/ateco-insurance'
 import { classifyCompanySize, estimateAnnualPremium, analyzeInsuranceGaps } from '@/lib/insurance-analysis'
 import { buildInsuranceNeedsProfile } from '@/lib/insurance-needs-engine'
+import { generateInsuranceIntelligence, type CompanyProfile } from '@/lib/insurance-intelligence'
 import { geminiExtractCompanyData, isGeminiEnabled } from '@/lib/gemini-search'
 import { enrichCompanyByPiva, isOpenApiPrimary, searchByCompanyName } from '@/lib/openapi-service'
 
@@ -1034,6 +1035,7 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+  const openApiAvailable = Boolean(oaData)
 
   // ─── Step 5: Build profile from REAL verified sources ─────────
   const formaFromName = extractFormaGiuridica(business_name)
@@ -1045,6 +1047,18 @@ export async function POST(req: NextRequest) {
 
   // Merge: backendData (base) < registroimprese < companyreports < OpenAPI.it — later wins
   const src = { ...backendData, ...riData, ...crData, ...oaData } as Record<string, any>
+
+  // Map OpenAPI titolare_best (nested object) → flat titolare fields
+  if (oaData?.titolare_best?.nomeCompleto) {
+    src.titolare = oaData.titolare_best.nomeCompleto
+    src.ruolo_titolare = oaData.titolare_best.ruolo || 'Titolare'
+    src.titolare_fonte = oaData.titolare_best.source === 'stakeholders' ? 'openapi_stakeholders' : 'openapi_shareholders'
+    if (oaData.titolare_best.taxCode) src.codice_fiscale_titolare = oaData.titolare_best.taxCode
+    if (oaData.titolare_best.dataNascita) src.data_nascita_titolare = oaData.titolare_best.dataNascita
+    if (oaData.titolare_best.eta) src.eta_titolare = String(oaData.titolare_best.eta)
+    if (oaData.titolare_best.sesso) src.sesso_titolare = oaData.titolare_best.sesso
+    console.log(`[LEAD-REGISTRY] OpenAPI titolare_best mapped: "${src.titolare}" (${src.ruolo_titolare}, fonte: ${src.titolare_fonte})`)
+  }
 
   // INIPEC PEC (free, always available for Italian companies)
   if (inipecPec && !src.pec) {
@@ -1065,6 +1079,38 @@ export async function POST(req: NextRequest) {
   // Ragione sociale — registry sources or Google Maps name (privacy policy too fragile for this)
   profile.ragione_sociale = src.ragione_sociale || viesData?.name || business_name
 
+  const titleCasePersonName = (value: string) => value.toLowerCase().split(/\s+/).map((w: string) => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ')
+  const deriveIndividualOwnerFromName = (value: string): string | null => {
+    const rs = String(value || '').replace(/\s+/g, ' ').trim()
+    const titleMatch = rs.match(/\b([A-ZÀ-Ú][A-ZÀ-Ú'’-]{2,})\s+(?:ING|ARCH|GEOM|DOTT|DOTT\.SSA|AVV|RAG|SIG|SIG\.RA)\.?\s+([A-ZÀ-Ú][A-ZÀ-Ú'’-]{2,})\b/i)
+    if (titleMatch?.[1] && titleMatch?.[2]) return titleCasePersonName(`${titleMatch[2]} ${titleMatch[1]}`)
+    const diMatch = rs.match(/\bDI\s+([A-ZÀ-Ú][A-ZÀ-Ú'’-]{2,})\s+([A-ZÀ-Ú][A-ZÀ-Ú'’-]{2,})\b/i)
+    if (diMatch?.[1] && diMatch?.[2]) return titleCasePersonName(`${diMatch[2]} ${diMatch[1]}`)
+    // Impresa individuale: ragione_sociale is legally "COGNOME NOME" (2-3 words, no legal form)
+    const words = rs.split(/\s+/).filter(w => w.length >= 2)
+    if (words.length >= 2 && words.length <= 3 && !/\b(?:s\.?r\.?l|s\.?p\.?a|s\.?a\.?s|s\.?n\.?c|s\.?r\.?l\.?s|ltd|llc|gmbh|inc|corp|soc|coop)\b/i.test(rs)) {
+      // COGNOME NOME → Nome Cognome
+      return titleCasePersonName(words.reverse().join(' '))
+    }
+    return null
+  }
+  const parseOwnerCf = (cfRaw: string) => {
+    const cf = String(cfRaw || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test(cf)) return null
+    const months: Record<string, number> = { A:1,B:2,C:3,D:4,E:5,H:6,L:7,M:8,P:9,R:10,S:11,T:12 }
+    const yy = parseInt(cf.slice(6, 8), 10)
+    const month = months[cf.charAt(8)]
+    const dayRaw = parseInt(cf.slice(9, 11), 10)
+    if (!month || Number.isNaN(yy) || Number.isNaN(dayRaw)) return null
+    const year = yy > new Date().getFullYear() % 100 ? 1900 + yy : 2000 + yy
+    const day = dayRaw > 40 ? dayRaw - 40 : dayRaw
+    return {
+      data: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
+      eta: new Date().getFullYear() - year,
+      sesso: dayRaw > 40 ? 'F' : 'M',
+    }
+  }
+
   // Titolare / Referente
   // Priority order (highest → lowest trust):
   //   1. OpenAPI.it certified (Registro Imprese — legal representative or socio unico)
@@ -1072,6 +1118,24 @@ export async function POST(req: NextRequest) {
   // OpenAPI wins because it's certified Camera di Commercio data; privacy policies
   // are often outdated or list the company name itself as "titolare del trattamento".
   if (src.persone) profile.persone = src.persone
+  if (openApiAvailable && !src.titolare && (/impresa\s+individuale|ditta\s+individuale|individuale/i.test(String(src.forma_giuridica || '')) || String(src.forma_giuridica_codice || '').toUpperCase() === 'DI')) {
+    const ownerName = deriveIndividualOwnerFromName(String(src.ragione_sociale || profile.ragione_sociale || ''))
+    if (ownerName) {
+      src.titolare = ownerName
+      src.ruolo_titolare = 'Titolare'
+      src.titolare_fonte = 'openapi_ragione_sociale'
+      const ownerCf = String(src.codice_fiscale || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (ownerCf.length === 16 && !src.codice_fiscale_titolare) {
+        src.codice_fiscale_titolare = ownerCf
+        const parsedCf = parseOwnerCf(ownerCf)
+        if (parsedCf) {
+          src.data_nascita_titolare = parsedCf.data
+          src.eta_titolare = String(parsedCf.eta)
+          src.sesso_titolare = parsedCf.sesso
+        }
+      }
+    }
+  }
   if (!src.titolare && Array.isArray(src.persone) && src.persone.length > 0) {
     const ROLE_PRIORITY: [RegExp, number][] = [
       [/socio\s*unico/i, 100],
@@ -1120,6 +1184,10 @@ export async function POST(req: NextRequest) {
     if (src.sesso_titolare) profile.titolare_sesso = src.sesso_titolare
     console.log(`[LEAD-REGISTRY] Titolare from OpenAPI (certified): "${src.titolare}" (${src.ruolo_titolare})`)
   }
+
+  // ── OpenAPI lock: protect titolare & persone set by OpenAPI from Tavily/free overwrite ──
+  const titolareLockedByOpenApi = Boolean(profile.titolare && /^openapi/i.test(String(profile.titolare_fonte || '')))
+  const personeLockedByOpenApi = Boolean(Array.isArray(profile.persone) && profile.persone.length > 0 && Boolean(oaData))
 
   // Fallback to privacy policy scraping IF OpenAPI didn't provide titolare
   if (!profile.titolare && websiteOwnerName) {
@@ -1594,7 +1662,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
           }
         }
         mergeTavily(ext1)
-        if (ext1.titolare && profile.titolare === ext1.titolare) profile.titolare_fonte = 'tavily'
+        if (!titolareLockedByOpenApi && ext1.titolare && profile.titolare === ext1.titolare) profile.titolare_fonte = 'tavily'
         tavilyUsed = true
 
         // ── Smart titolare selection: prefer person with most authoritative role ──
@@ -1628,7 +1696,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
             const sc = roleScore(p.ruolo || '')
             if (sc > bestScore) { bestScore = sc; bestPerson = p }
           }
-          if (bestPerson && bestScore >= 50) {
+          if (!titolareLockedByOpenApi && bestPerson && bestScore >= 50) {
             const currentTit = String(profile.titolare || '').toLowerCase()
             const bestName = String(bestPerson.nome).toLowerCase()
             if (currentTit !== bestName) {
@@ -1662,7 +1730,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
             const rLow = rlName.toLowerCase().replace(/[^a-zàèéìòù\s]/gi, '').trim()
             const rWords = rLow.split(/\s+/).filter((w: string) => w.length > 2)
             const isCompName = rWords.length > 0 && rWords.every((w: string) => cLow.includes(w))
-            if (!compSuffix.test(rlName) && !isCompName && rLow !== String(profile.titolare).toLowerCase()) {
+            if (!titolareLockedByOpenApi && !compSuffix.test(rlName) && !isCompName && rLow !== String(profile.titolare).toLowerCase()) {
               console.log(`[LEAD-REGISTRY] Search 1a2: Found Rappresentante Legale "${rlName}" — OVERRIDES current titolare "${profile.titolare}"`)
               profile.titolare = rlName
               profile.ruolo_titolare = ext1a2.ruolo || 'Rappresentante Legale'
@@ -1670,7 +1738,7 @@ Rispondi SOLO con JSON: {"codice_ateco":"XX.XX.XX","descrizione_ateco":"descrizi
             }
           }
           // Merge any new persone into the list
-          if (Array.isArray(ext1a2.persone) && ext1a2.persone.length > 0) {
+          if (!personeLockedByOpenApi && Array.isArray(ext1a2.persone) && ext1a2.persone.length > 0) {
             if (!profile.persone) profile.persone = []
             for (const p of ext1a2.persone) {
               if (!p?.nome || isJunkValue(p.nome)) continue
@@ -1693,7 +1761,7 @@ Il titolare è chi GESTISCE e RAPPRESENTA legalmente l'azienda. Cerca su LinkedI
 JSON:
 {"titolare":"nome e cognome","titolare_ruolo":"Titolare / Rappresentante Legale / Amministratore Unico","linkedin_titolare":"URL LinkedIn se trovato","persone":[{"nome":"Nome Cognome","ruolo":"ruolo"}]}`)
         const compSuffix = /\b(?:s\.?r\.?l\.?s?\.?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|srl|srls|spa|sas|snc|ltd|llc|gmbh)\b/i
-        if (ext1b.titolare && !isJunkValue(ext1b.titolare) && !compSuffix.test(ext1b.titolare)) {
+        if (!titolareLockedByOpenApi && ext1b.titolare && !isJunkValue(ext1b.titolare) && !compSuffix.test(ext1b.titolare)) {
           profile.titolare = ext1b.titolare
           profile.titolare_fonte = 'tavily'
           if (ext1b.titolare_ruolo) profile.ruolo_titolare = ext1b.titolare_ruolo
@@ -1738,7 +1806,7 @@ JSON:
               properlyLinked = true
             }
           }
-          if (properlyLinked) {
+          if (!titolareLockedByOpenApi && properlyLinked) {
             profile.titolare = ext1c.titolare
             profile.titolare_fonte = 'tavily'
             if (ext1c.titolare_ruolo) profile.ruolo_titolare = ext1c.titolare_ruolo
@@ -1910,6 +1978,39 @@ JSON:
   // consulenziale reale (un broker medio ha tariffari interni più precisi).
   // La priorità commerciale sostituiva il benchmark è ora in
   // bisogni_assicurativi_verificati.priorita_commerciale con score + reasons.
+
+  const hasInsuranceBasis = Boolean(profile.codice_ateco || category || profile.forma_giuridica || fatNum || dipNum)
+  if (hasInsuranceBasis) {
+    const insuranceProfile: CompanyProfile = {
+      ragione_sociale: String(profile.ragione_sociale || business_name || 'azienda'),
+      partita_iva: profile.partita_iva,
+      codice_ateco: profile.codice_ateco,
+      descrizione_ateco: profile.descrizione_ateco,
+      forma_giuridica: profile.forma_giuridica,
+      forma_giuridica_codice: profile.forma_giuridica_codice,
+      fatturato: fatNum || undefined,
+      dipendenti: dipNum || undefined,
+      costo_personale: profile.costo_personale ? parseFatturato(profile.costo_personale) || undefined : undefined,
+      capitale_sociale: profile.capitale_sociale ? parseFatturato(profile.capitale_sociale) || undefined : undefined,
+      sede_legale: profile.sede_legale,
+      citta: profile.citta || city,
+      provincia: profile.provincia,
+      regione: profile.regione,
+      data_costituzione: profile.data_costituzione,
+      stato_attivita: profile.stato_attivita,
+      titolare: profile.titolare,
+      sito: realWebsite || website || profile.sito,
+      pec: profile.pec,
+      certificazioni: profile.certificazioni ? JSON.stringify(profile.certificazioni) : undefined,
+      ha_flotta_veicoli: !!profile.ha_flotta_veicoli,
+      ha_immobili_proprieta: !!profile.ha_immobili_proprieta,
+      partecipa_appalti_pubblici: !!profile.partecipa_appalti_pubblici,
+      zona_sismica: profile.rischio_territoriale?.zona_sismica ?? undefined,
+      rischio_idrogeologico: profile.rischio_territoriale?.rischio_idrogeologico ?? undefined,
+      storico_bilanci: profile.storico_bilanci,
+    }
+    profile.insurance_intelligence = generateInsuranceIntelligence(insuranceProfile)
+  }
 
   profile.bisogni_assicurativi_verificati = buildInsuranceNeedsProfile({
     profile,

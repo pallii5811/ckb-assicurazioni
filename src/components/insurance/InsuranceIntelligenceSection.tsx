@@ -392,7 +392,7 @@ export default function InsuranceIntelligenceSection(props: InsuranceIntelligenc
               {data.triggers.length > 0 && <TriggersList triggers={data.triggers} />}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {data.spendingCapacity && <SpendingCapacityCard data={data.spendingCapacity} />}
+                {data.spendingCapacity && data.spendingCapacity.capacitaTotaleAnnualePolizze.max > 0 && <SpendingCapacityCard data={data.spendingCapacity} />}
                 <NetworkCard network={data.network} />
               </div>
 
@@ -553,37 +553,11 @@ function SpendingCapacityCard({ data }: { data: NonNullable<TriggersOutput['spen
           </div>
         </div>
 
-        {data.redditoTitolareStimato && (
-          <div className="bg-muted/40 border border-border rounded-lg p-2.5">
-            <div className="text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
-              Proxy reddito titolare (lordo annuo)
-            </div>
-            <div className="text-sm font-bold text-foreground">
-              {formatRange(data.redditoTitolareStimato)}
-            </div>
-            <div className="text-[10px] text-foreground/70">
-              Mid: {formatEUR(data.redditoTitolareStimato.mid)}
-            </div>
-          </div>
-        )}
-
-        {data.patrimonioMobiliareStimato && (
-          <div className="bg-muted/40 border border-border rounded-lg p-2.5">
-            <div className="text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
-              Proxy patrimonio mobiliare
-            </div>
-            <div className="text-sm font-bold text-foreground">
-              {formatRange(data.patrimonioMobiliareStimato)}
-            </div>
-            <div className="text-[10px] text-foreground/60">Proxy: 4-10× reddito annuo</div>
-          </div>
-        )}
-
         <div className="text-[10px] text-muted-foreground italic">
           {data.propensioneAssicurativa.rationale}
         </div>
         <div className="mt-2 p-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-200">
-          Benchmark utile per preparare domande su budget e priorità: non è un dato patrimoniale verificato e non prova polizze possedute o mancanti.
+          Benchmark utile per preparare domande su budget e priorità: non è un dato patrimoniale verificato e non prova quali polizze siano attive o assenti.
         </div>
       </div>
     </div>
