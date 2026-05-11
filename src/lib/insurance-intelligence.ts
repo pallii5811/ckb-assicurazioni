@@ -37,8 +37,10 @@ export interface CrossSellOpportunity {
   motivo_specifico: string    // perché QUESTA azienda ne ha bisogno
   valore_per_cliente: string  // cosa ci guadagna il cliente
   trigger_vendita: string     // frase da dire al cliente
-  premio_indicativo: string   // range basato su parametri reali di mercato
-  fonte_dato: string          // da dove viene il dato
+  /** Indicazione qualitativa del premio. NON è un benchmark numerico: i premi reali dipendono
+   *  da attività, sinistri, contratti, massimali e franchigie e si quotano in compagnia. */
+  premio_indicativo: string
+  fonte_dato: string
 }
 
 export interface BrokerBriefing {
@@ -76,6 +78,8 @@ export interface CompanyProfile {
   dipendenti?: number
   costo_personale?: number
   capitale_sociale?: number
+  patrimonio_netto?: number
+  totale_attivo?: number
   sede_legale?: string
   citta?: string
   provincia?: string
@@ -92,6 +96,10 @@ export interface CompanyProfile {
   zona_sismica?: number
   rischio_idrogeologico?: string
   storico_bilanci?: any[]
+  /** Soci con quota e CF (per Buy-Sell, key man, succession risk). */
+  persone?: Array<{ nome?: string; ruolo?: string; cf?: string; quota?: string }>
+  /** Età titolare estratta da CF. */
+  eta_titolare?: number
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -126,6 +134,7 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   const atecoDigits = ateco.replace(/\D/g, '')
   const descLower = `${profile.descrizione_ateco || ''} ${nome} ${fg}`.toLowerCase()
   const isICT = /^(62|63)/.test(atecoDigits) || /software|informat|ict|digitale|cloud|hosting|saas/.test(descLower)
+  const isHealthcare = /^86/.test(atecoPrefix2) || /medic|dentist|clinic|veterinar|farmaci|sanitari|ambulator/.test(descLower)
   const isRegulatedProfessionalContext = /avvocat|commercialist|consulent[ei]\s+del\s+lavoro|notai|notaio|architett|ingegner|geometr|perit[oi]|medic|dentist|veterinar|psicolog|farmac/.test(descLower)
 
   // ─── 1. OBBLIGHI DI LEGGE UNIVERSALI ───────────────────────────
@@ -262,6 +271,29 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     fontiNormative.add('Reg. CE 178/2002 — Sicurezza Alimentare')
   }
 
+  // ★ OBBLIGO POLIZZA CATASTROFALE (L. 213/2023, art. 1 commi 101-111 + DM 18/2025)
+  // Tutte le imprese tenute all'iscrizione al Registro Imprese (escluse imprese agricole con copertura agevolata
+  // e attività esercitate in immobili oggetto di abusivismo edilizio) devono assicurare beni materiali
+  // strumentali (immobili, impianti, macchinari, terreni) contro sismi, alluvioni, frane, esondazioni.
+  // Scadenze scaglionate per dimensione (grandi → medie → piccole/micro): le date sono in evoluzione,
+  // per cui non vengono cristallizzate qui ma rimandate alla verifica al momento della stipula/rinnovo.
+  // L'esclusione mancata della copertura comporta penalizzazioni nell'accesso a contributi/agevolazioni pubbliche.
+  const haBeniMaterialiAssicurabili = profile.ha_immobili_proprieta === true
+    || (typeof profile.totale_attivo === 'number' && profile.totale_attivo > 0)
+    || (typeof profile.fatturato === 'number' && profile.fatturato >= 100_000)
+  if (!isDI && haBeniMaterialiAssicurabili) {
+    obblighi.push({
+      polizza: 'Polizza catastrofale CAT-NAT (sismi, alluvioni, frane, esondazioni)',
+      tipo: 'obbligo_legge',
+      norma: 'L. 213/2023 art. 1 commi 101-111; DM 30 gennaio 2025 n. 18',
+      descrizione: 'Obbligo per imprese iscritte al Registro Imprese di assicurare immobili, impianti, macchinari e terreni di proprietà contro eventi catastrofali (sismi, alluvioni, frane, esondazioni). Le scadenze sono scaglionate per dimensione e in evoluzione: la copertura va verificata al momento della stipula/rinnovo.',
+      sanzione: 'Esclusione/penalizzazione nell\'accesso a contributi, sovvenzioni e agevolazioni pubbliche di natura finanziaria',
+      azione_broker: 'Verificare: presenza/scadenza della copertura CAT-NAT, perimetro beni assicurati (immobili, impianti, macchinari, terreni), franchigie e scoperti minimi previsti dal DM 18/2025, cumulabilità con property già attiva.',
+    })
+    fontiNormative.add('L. 213/2023 art. 1 c. 101-111 — Polizza catastrofale obbligatoria imprese')
+    fontiNormative.add('DM 30 gennaio 2025 n. 18 — Attuazione obbligo CAT-NAT imprese')
+  }
+
   // ─── 3. VULNERABILITÀ SPECIFICHE DELL'AZIENDA ──────────────────
 
   // Ditta individuale — il titolare NON è coperto INAIL
@@ -278,16 +310,23 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
 
   // Società di capitali senza D&O adeguata
   if (isSocietaCapitali) {
-    const esposizione = fat > 0 ? fat : (cap > 0 ? cap * 5 : 0)
+    const pnLocal = typeof profile.patrimonio_netto === 'number' ? profile.patrimonio_netto : null
+    const taLocal = typeof profile.totale_attivo === 'number' ? profile.totale_attivo : null
+    const dataPoints: string[] = []
+    if (fat > 0) dataPoints.push(`fatturato €${fmtNum(fat)}`)
+    if (pnLocal !== null && pnLocal > 0) dataPoints.push(`patrimonio netto €${fmtNum(pnLocal)}`)
+    if (taLocal !== null && taLocal > 0) dataPoints.push(`totale attivo €${fmtNum(taLocal)}`)
+    const fattoExtra = dataPoints.length > 0 ? ` Dati di bilancio rilevati: ${dataPoints.join(', ')}.` : ''
     vulnerabilita.push({
       titolo: 'RESPONSABILITÀ PATRIMONIALE AMMINISTRATORI',
-      gravita: fat > 2_000_000 ? 'critica' : 'alta',
-      fatto: `${nome} è una ${isSRL ? 'S.R.L.' : 'S.P.A.'}. Gli amministratori possono essere chiamati a rispondere per danni verso società, soci e creditori (art. 2476 c.c. per SRL, art. 2392 c.c. per SPA).${fat > 0 ? ` Con €${fmtNum(fat)} di fatturato, il tema merita una verifica tecnica.` : ''}`,
+      gravita: fat > 2_000_000 || (pnLocal !== null && pnLocal > 1_000_000) ? 'critica' : 'alta',
+      fatto: `${nome} è una ${isSRL ? 'S.R.L.' : 'S.P.A.'}. Gli amministratori possono essere chiamati a rispondere per danni verso società, soci e creditori (art. 2476 c.c. per SRL, art. 2392 c.c. per SPA).${fattoExtra}`,
       conseguenza: `In caso di azione di responsabilità, difesa legale, patrimonio personale, cariche cessate, creditori e soci diventano aree da qualificare.`,
-      soluzione: `Verificare presenza D&O, massimale, retroattività, postuma, esclusioni e copertura costi di difesa. Benchmark massimale da discutere: circa €${fmtNum(Math.max(500_000, esposizione || 500_000))}.`,
-      domanda_killer: `"Avete già verificato se amministratori e cariche sociali sono coperti per responsabilità verso soci, creditori e terzi? Con quale massimale e retroattività?"`,
+      soluzione: `Verificare presenza D&O, massimale, retroattività, postuma, esclusioni e copertura costi di difesa. Il dimensionamento del massimale va costruito su patrimonio personale degli amministratori, esposizione contrattuale e clausole di indennizzo, non sul fatturato.`,
+      domanda_killer: `"Avete già verificato se amministratori e cariche sociali sono coperti per responsabilità verso soci, creditori e terzi? Con quale massimale, retroattività e copertura costi di difesa?"`,
     })
     fontiNormative.add('Art. 2476 c.c. — Responsabilità amministratori SRL')
+    if (isSPA) fontiNormative.add('Art. 2392 c.c. — Responsabilità amministratori SPA')
   }
 
   // Dipendenti senza welfare verificato
@@ -347,13 +386,17 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     fontiNormative.add('D.Lgs. 152/2006 — Codice Ambiente')
   }
 
-  // Azienda giovane (< 3 anni)
-  if (anniAttivita !== null && anniAttivita <= 3) {
+  // Azienda giovane: solo casi davvero rilevanti (start-up < 2 anni in società di capitali, ICT o settore regolamentato)
+  // Per attività di 2-3 anni in DI/SNC è spesso rumore: una micro impresa stabile da 3 anni non è un "rischio".
+  const isStartupRilevante = anniAttivita !== null
+    && anniAttivita < 2
+    && (isSocietaCapitali || isICT || isHealthcare || /^4[1-3]/.test(atecoPrefix2))
+  if (isStartupRilevante) {
     vulnerabilita.push({
-      titolo: 'AZIENDA GIOVANE — PORTAFOGLIO DA STRUTTURARE',
+      titolo: 'AZIENDA NEO-COSTITUITA — PORTAFOGLIO DA IMPOSTARE',
       gravita: 'media',
-      fatto: `Costituita il ${profile.data_costituzione} — circa ${anniAttivita} anni di attività.`,
-      conseguenza: 'Nelle imprese giovani scadenziario, massimali e priorità assicurative sono spesso ancora da consolidare.',
+      fatto: `Costituita il ${profile.data_costituzione} — meno di 2 anni di attività in ${isSocietaCapitali ? 'società di capitali' : isICT ? 'settore ICT' : isHealthcare ? 'ambito sanitario' : 'edilizia/costruzioni'}.`,
+      conseguenza: 'Nelle imprese neo-costituite scadenziario, massimali e priorità assicurative sono spesso ancora da impostare correttamente.',
       soluzione: 'Audit starter: responsabilità civile, persona chiave, attrezzature, tutela legale, cyber se rilevante e continuità operativa.',
       domanda_killer: '"Avete già uno scadenziario unico con massimali, franchigie, esclusioni e priorità per il primo rinnovo?"',
     })
@@ -368,8 +411,8 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       motivo_specifico: `ATECO ${ateco}: ogni cantiere può generare esposizioni su opera in corso, materiali, attrezzature, subappalti e danni accidentali. La CAR/EAR è spesso richiesta dal committente per contratto.`,
       valore_per_cliente: 'Protegge l\'investimento dell\'opera e può diventare requisito commerciale per ottenere o mantenere commesse.',
       trigger_vendita: '"Quanti cantieri avete aperti o in partenza? Per quali contratti il committente richiede CAR/EAR o garanzie specifiche?"',
-      premio_indicativo: `0,3%-0,8% del valore dell'opera (es. opera da €100.000 → premio €300-800)`,
-      fonte_dato: 'Prassi mercato assicurativo — ramo Rischi Tecnologici',
+      premio_indicativo: 'Da quotare in compagnia su valore opera, durata cantiere, subappalti e clausole del committente',
+      fonte_dato: 'Ramo Rischi Tecnologici — quotazione su parametri di cantiere'
     })
 
     opportunita.push({
@@ -377,8 +420,8 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       motivo_specifico: `Per nuove costruzioni, opere strutturali o lavori soggetti a responsabilità ex art. 1669 c.c., la decennale/postuma può coprire difetti gravi che emergono dopo la consegna.${/^43\.2/.test(ateco) ? " Per installazioni impiantistiche va verificata anche la responsabilità post-intervento collegata alla conformità dell'impianto." : ''}`,
       valore_per_cliente: 'Trasforma un rischio di responsabilità pluriennale in una copertura discutibile in modo tecnico con committente e consulente.',
       trigger_vendita: '"Per lavori strutturali, nuove costruzioni o impianti, avete già verificato responsabilità post-consegna, decennale/postuma e limiti della RC attuale?"',
-      premio_indicativo: '1,5%-3% del valore dell\'opera, pagamento una tantum',
-      fonte_dato: 'Art. 1669 c.c. — Responsabilità decennale appaltatore',
+      premio_indicativo: 'Da quotare in compagnia su valore opera, tipologia struttura/impianto e clausole contrattuali',
+      fonte_dato: 'Art. 1669 c.c. — Responsabilità decennale appaltatore'
     })
   }
 
@@ -389,8 +432,8 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       motivo_specifico: `${nome} ha un sito web (${profile.sito})${dip > 0 ? ` e ${dipLabel} dipendenti` : ''}${isICT ? ' e attività coerente con software/ICT' : ''}. Da verificare dati trattati, accessi, backup, email aziendali, responsabilità privacy e continuità digitale.`,
       valore_per_cliente: 'Può coprire costi di ripristino sistemi, gestione data breach, responsabilità privacy, ransomware e perdita di fatturato da fermo IT.',
       trigger_vendita: '"Se email, gestionale o sito restano fermi 3 giorni, quanto impatta su ordini, clienti e fatturazione? Avete backup e incident response formalizzati?"',
-      premio_indicativo: `€${fmtNum(Math.max(500, Math.round(fat * 0.001)))} - €${fmtNum(Math.max(2000, Math.round(fat * 0.003)))} annui`,
-      fonte_dato: 'Report Clusit 2024 — Sicurezza ICT Italia',
+      premio_indicativo: 'Da quotare in compagnia su dati trattati, fatturato, dipendenti, sistemi esposti, backup, sinistri',
+      fonte_dato: 'Ramo Cyber — quotazione su superficie di rischio reale (no benchmark da fatturato)'
     })
     fontiNormative.add('Reg. UE 2016/679 — GDPR')
   }
@@ -402,12 +445,12 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       motivo_specifico: isDI
         ? `${profile.titolare || 'Il titolare'} risulta referente/titolare. Per una DI va verificata la posizione personale del titolare e l'eventuale differenza tra tutele obbligatorie e reddito reale. Se non lavora, continuità e liquidità vanno quantificate.`
         : `La struttura è micro: vanno identificate in call le figure operative essenziali tra soci, amministratori, tecnici o referenti commerciali. Continuità e liquidità non vanno attribuite a una singola persona senza verifica.`,
-      valore_per_cliente: fat > 0 ? `Può garantire liquidità durante il periodo di inabilità. Range diario da tarare sul fatturato: circa €${Math.max(50, Math.round(fat / 220 * 0.8))}-${Math.max(100, Math.round(fat / 220))}/giorno come base di discussione.` : 'Può garantire liquidità durante il periodo di inabilità. La diaria va costruita in call su reddito, costi fissi e autonomia finanziaria.',
+      valore_per_cliente: 'Può garantire liquidità durante il periodo di inabilità. La diaria va costruita su reddito netto del titolare, costi fissi mensili e autonomia finanziaria reale, non sul fatturato lordo.',
       trigger_vendita: isDI
         ? `"${profile.titolare || 'Sig. Titolare'}, se si fa male e resta fermo due mesi, quale copertura mantiene reddito, costi fissi e continuità delle commesse?"`
         : '"Chi sono le 1-2 persone senza cui clienti, sviluppo/produzione o amministrazione si fermano? Quanto costa un fermo di 60 giorni?"',
-      premio_indicativo: `€400-1.200/anno per massimale morte/IP €200.000 + ITT €80-150/giorno`,
-      fonte_dato: 'Tariffario ANIA — Ramo Infortuni',
+      premio_indicativo: 'Da quotare in compagnia su età, professione, massimale morte/IP, ITT/diaria, esclusioni',
+      fonte_dato: 'Ramo Infortuni — quotazione su parametri persona/attività'
     })
   }
 
@@ -418,8 +461,8 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
       motivo_specifico: `${profile.ha_immobili_proprieta ? 'L\'azienda possiede immobili' : `Con un fatturato di €${fmtNum(fat)}, vanno verificati attrezzature, beni strumentali, merci e ubicazioni operative`}. Valori, ubicazioni ed esclusioni vanno verificati.`,
       valore_per_cliente: 'Può coprire ricostruzione/sostituzione di immobili, attrezzature, scorte e macchinari, oltre al fermo attività se previsto.',
       trigger_vendita: '"Se domattina trovate il magazzino/laboratorio bruciato, avete i soldi per ricomprare tutto e ricominciare? In quanto tempo?"',
-      premio_indicativo: `€${fmtNum(Math.max(400, Math.round(fat * 0.001)))} - €${fmtNum(Math.max(1500, Math.round(fat * 0.003)))} annui`,
-      fonte_dato: 'Benchmark ANIA — Ramo Incendio e Rischi Complementari',
+      premio_indicativo: 'Da quotare in compagnia su valori assicurati (immobile, attrezzature, merci), ubicazione, business interruption',
+      fonte_dato: 'Ramo Incendio/All Risks — quotazione su valori reali, non da fatturato'
     })
   }
 
@@ -434,8 +477,8 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
         : `Con ${dipLabel} dipendente/i, TFR, previdenza complementare e welfare vanno verificati; senza costo del personale non è corretto stimare l'importo maturato.`,
       valore_per_cliente: 'La destinazione del TFR e la previdenza complementare possono generare vantaggi fiscali e welfare, da verificare in base a CCNL, adesioni e policy aziendale.',
       trigger_vendita: '"Dove destinate il TFR dei dipendenti? In azienda, fondo negoziale o fondo aperto? Avete già verificato impatto fiscale, adesioni e comunicazione ai dipendenti?"',
-      premio_indicativo: `Contributo aziendale: 1-2% della retribuzione lorda`,
-      fonte_dato: 'D.Lgs. 252/2005 — Previdenza Complementare',
+      premio_indicativo: 'Contributo definito da CCNL/accordi aziendali e adesione del lavoratore (variabile per contratto)',
+      fonte_dato: 'D.Lgs. 252/2005 — Previdenza Complementare'
     })
     fontiNormative.add('D.Lgs. 252/2005 — Previdenza Complementare')
   }
@@ -444,10 +487,27 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
 
   const briefing = buildBrokerBriefing(profile, obblighi, vulnerabilita, opportunita, settore)
 
-  // ─── 6. ESPOSIZIONE TOTALE ─────────────────────────────────────
+  // ─── 6. ESPOSIZIONE TOTALE — solo dati REALI da bilancio, niente formule arbitrarie ───
+  // Il "fatturato × 2" precedente era una stima campata in aria. Qui usiamo solo numeri verificati:
+  //  - patrimonio_a_rischio = patrimonio netto reale (esposizione patrimoniale reale dei soci)
+  //  - costo_fermo_giornaliero = fatturato/220 (giorni lavorativi) — è un benchmark di volume d'affari giornaliero,
+  //    da chiamare correttamente "Fatturato medio/giorno lavorativo", non "patrimonio".
+  //  - esposizione_rc = nessuna formula. Il massimale RC è una scelta tecnica del broker, non derivabile dal fatturato.
 
-  const costoFermoGiornaliero = fat > 0 ? Math.round(fat / 220) : 0
-  const patrimonioRischio = fat > 0 ? fat * 2 : 0 // stima conservativa: fatturato × 2
+  const pn = typeof profile.patrimonio_netto === 'number' ? profile.patrimonio_netto : null
+  const ta = typeof profile.totale_attivo === 'number' ? profile.totale_attivo : null
+
+  const patrimonioRischioStr = pn !== null
+    ? `€${fmtNum(pn)} (patrimonio netto da bilancio)`
+    : ta !== null
+    ? `€${fmtNum(ta)} (totale attivo da bilancio — patrimonio netto non disponibile)`
+    : 'Non quantificabile da dati pubblici'
+
+  const costoFermoStr = fat > 0
+    ? `€${fmtNum(Math.round(fat / 220))}/giorno (fatturato medio per giorno lavorativo)`
+    : 'Non quantificabile senza fatturato'
+
+  const esposizioneRcStr = 'Da quotare in compagnia su attività, contratti e sinistri reali'
 
   return {
     obblighi,
@@ -455,9 +515,9 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     opportunita,
     briefing_broker: briefing,
     esposizione_totale: {
-      patrimonio_a_rischio: patrimonioRischio > 0 ? `€${fmtNum(patrimonioRischio)} benchmark da validare` : 'Da quantificare',
-      costo_fermo_giornaliero: costoFermoGiornaliero > 0 ? `€${fmtNum(costoFermoGiornaliero)}/giorno benchmark da validare` : 'Da quantificare',
-      esposizione_rc: fat > 0 ? `€${fmtNum(Math.max(500_000, fat * 2))} benchmark massimale da discutere` : 'Da quantificare',
+      patrimonio_a_rischio: patrimonioRischioStr,
+      costo_fermo_giornaliero: costoFermoStr,
+      esposizione_rc: esposizioneRcStr,
     },
     fonti_normative: Array.from(fontiNormative),
   }

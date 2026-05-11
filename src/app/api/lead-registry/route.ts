@@ -1992,6 +1992,8 @@ JSON:
       dipendenti: dipNum || undefined,
       costo_personale: profile.costo_personale ? parseFatturato(profile.costo_personale) || undefined : undefined,
       capitale_sociale: profile.capitale_sociale ? parseFatturato(profile.capitale_sociale) || undefined : undefined,
+      patrimonio_netto: profile.patrimonio_netto ? parseFatturato(profile.patrimonio_netto) || undefined : undefined,
+      totale_attivo: profile.totale_attivo ? parseFatturato(profile.totale_attivo) || undefined : undefined,
       sede_legale: profile.sede_legale,
       citta: profile.citta || city,
       provincia: profile.provincia,
@@ -2008,6 +2010,10 @@ JSON:
       zona_sismica: profile.rischio_territoriale?.zona_sismica ?? undefined,
       rischio_idrogeologico: profile.rischio_territoriale?.rischio_idrogeologico ?? undefined,
       storico_bilanci: profile.storico_bilanci,
+      persone: Array.isArray(profile.persone) ? profile.persone as Array<{ nome?: string; ruolo?: string; cf?: string; quota?: string }> : undefined,
+      eta_titolare: typeof profile.eta_titolare === 'number'
+        ? profile.eta_titolare
+        : (profile.eta_titolare ? parseInt(String(profile.eta_titolare), 10) || undefined : undefined),
     }
     profile.insurance_intelligence = generateInsuranceIntelligence(insuranceProfile)
   }

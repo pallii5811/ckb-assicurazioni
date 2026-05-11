@@ -6487,6 +6487,13 @@ JSON:
     // Genera obblighi legali, vulnerabilità specifiche, opportunità di cross-sell
     // e briefing broker basati SOLO su dati reali e normativa italiana
     if (hasInsuranceBasis) {
+      // Parser per importi italiani salvati come stringa "1.234.567" o "1234567" o numero
+      const parseImporto = (v: unknown): number | undefined => {
+        if (typeof v === 'number' && Number.isFinite(v)) return v
+        if (typeof v !== 'string') return undefined
+        const n = parseFloat(v.replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.'))
+        return Number.isFinite(n) && n > 0 ? n : undefined
+      }
       const insuranceProfile: CompanyProfile = {
         ragione_sociale: String(result.ragione_sociale || query),
         partita_iva: result.partita_iva as string,
@@ -6496,8 +6503,10 @@ JSON:
         forma_giuridica_codice: (result as any).forma_giuridica_codice as string,
         fatturato: fatNum || undefined,
         dipendenti: dipNum || undefined,
-        costo_personale: (result as any).costo_personale ? parseFloat(String((result as any).costo_personale)) : undefined,
-        capitale_sociale: (result as any).capitale_sociale ? parseFloat(String((result as any).capitale_sociale).replace(/[^\d.]/g, '')) : undefined,
+        costo_personale: parseImporto((result as any).costo_personale),
+        capitale_sociale: parseImporto((result as any).capitale_sociale),
+        patrimonio_netto: parseImporto((result as any).patrimonio_netto),
+        totale_attivo: parseImporto((result as any).totale_attivo),
         sede_legale: (result as any).sede_legale as string,
         citta: result.citta as string,
         provincia: result.provincia as string,
@@ -6514,6 +6523,8 @@ JSON:
         zona_sismica: (result.rischio_territoriale as any)?.zona_sismica ?? undefined,
         rischio_idrogeologico: (result.rischio_territoriale as any)?.rischio_idrogeologico ?? undefined,
         storico_bilanci: (result as any).storico_bilanci,
+        persone: Array.isArray((result as any).persone) ? ((result as any).persone as Array<{ nome?: string; ruolo?: string; cf?: string; quota?: string }>) : undefined,
+        eta_titolare: (result as any).eta_titolare ? parseInt(String((result as any).eta_titolare), 10) || undefined : undefined,
       }
       const intelligence = generateInsuranceIntelligence(insuranceProfile)
       result.insurance_intelligence = intelligence

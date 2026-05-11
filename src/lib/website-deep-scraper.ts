@@ -157,7 +157,14 @@ function extractContactLikePaths(html: string, origin: string, currentPath: stri
 
 // ── Email extraction ────────────────────────────────────────────
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
-const FAKE_DOMAINS = new Set(['example.com','email.com','sito.com','domain.com','test.com','yoursite.com','yourdomain.com','tuosito.com','sitoweb.com','sample.com','placeholder.com','wixpress.com','sentry.io','googleapis.com','w3.org','schema.org','wordpress.org','jquery.com','bootstrapcdn.com'])
+const FAKE_DOMAINS = new Set([
+  'example.com','example.it','example.org','email.com','email.it','sito.com','sito.it','dominio.com','dominio.it','domain.com','test.com','test.it','yoursite.com','yourdomain.com','tuosito.com','tuosito.it','tuodominio.com','tuodominio.it','sitoweb.com','sitoweb.it','sample.com','placeholder.com','tuaazienda.com','tuaazienda.it','aziendaesempio.com','aziendaesempio.it','nomeazienda.com','nomeazienda.it','wixpress.com','sentry.io','googleapis.com','w3.org','schema.org','wordpress.org','jquery.com','bootstrapcdn.com'
+])
+// Local-part placeholder che il sistema NON deve mai accettare come email reale.
+// Match esatto del local-part (prima della @) per non bloccare per errore email valide tipo "marioluigi.rossi@..."
+const PLACEHOLDER_LOCAL_PARTS = new Set([
+  'tu','tuo','io','me','noi','voi','loro','nome','cognome','nome.cognome','cognome.nome','tuonome','tuocognome','mario','rossi','mario.rossi','mariorossi','mario.bianchi','luigi.bianchi','luigi.rossi','giuseppe.verdi','giulia.bianchi','prova','test','testing','demo','demo1','demo2','xxx','aaa','bbb','ccc','asd','asdf','qwerty','email','mail','utente','user','user1','user2','esempio','example','sample','admin1','admin2'
+])
 const FAKE_EXTENSIONS = /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico|tiff|css|js|woff|woff2|ttf|eot|mp4|mp3|pdf|zip|xml|json)$/i
 
 function isPersonalEmail(email: string): boolean {
@@ -225,6 +232,10 @@ function extractEmails(html: string, page: string): WebsiteScrapedData['emails']
     const local = email.split('@')[0].toLowerCase()
     if (local.length > 50) continue
     if (/banner|image|img|logo|icon|thumb|background|header|footer|sprite|placeholder|pixel/i.test(local) && !/info|contact|mail|support/i.test(local)) continue
+    // ★ Skip placeholder local-part (es. "tu@dominio.com", "mario.rossi@gmail.com" se è esattamente "mario.rossi", "nome@dominio.com")
+    if (PLACEHOLDER_LOCAL_PARTS.has(local)) continue
+    // Local-part formato "nome.cognome" generico → blocca solo se ESATTAMENTE quel pattern (lascia "marioluigi.rossi" o "mario.rossi.it" che sono email reali per pochi)
+    if (/^(nome|cognome)\.(nome|cognome)$/.test(local)) continue
 
     results.push({
       email,

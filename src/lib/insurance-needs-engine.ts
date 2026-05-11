@@ -1,5 +1,6 @@
 import type { AtecoInsurance } from '@/lib/ateco-insurance'
 import type { InsuranceGap } from '@/lib/insurance-analysis'
+import { detectSectorProfiles, type SectorDetectionInput } from '@/lib/sector-profiles'
 
 export interface InsuranceEvidenceFact {
   id: string
@@ -396,13 +397,24 @@ function computeTitolareIntelligence(profile: InsuranceNeedsSourceProfile, conce
   }
 }
 
+// ── Estrae quota percentuale (number) da campo string ("50%", "50,00%", "50.0") o number ──
+function parseQuotaPercent(p: Record<string, unknown>): number {
+  if (typeof p.quota_percentuale === 'number' && Number.isFinite(p.quota_percentuale)) return p.quota_percentuale
+  const raw = p.quota
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw !== 'string') return 0
+  const cleaned = raw.replace('%', '').replace(',', '.').trim()
+  const n = Number(cleaned)
+  return Number.isFinite(n) ? n : 0
+}
+
 // ── Concentrazione rischio (socio unico, capitale minimo, patrimonio) ──
 function computeRiskConcentration(profile: InsuranceNeedsSourceProfile): RiskConcentration {
   const persone = Array.isArray(profile.persone) ? profile.persone as Array<Record<string, unknown>> : []
   const soci = persone.filter(p => /socio/i.test(String(p.ruolo_normalizzato || p.ruolo || '')))
   let maxQuota = 0
   for (const p of persone) {
-    const q = typeof p.quota_percentuale === 'number' ? p.quota_percentuale : 0
+    const q = parseQuotaPercent(p)
     if (q > maxQuota) maxQuota = q
   }
   const socioUnico = maxQuota >= 99 || (soci.length === 1 && persone.length <= 2)
@@ -585,6 +597,39 @@ function computeTriggerAlerts(
     })
   }
 
+  // ★ Soci paritetici / quote bilanciate → trigger Buy-Sell agreement.
+  // Se 2+ soci con quote 30-70% (no socio unico) e almeno uno è in fascia >= 55 anni (da CF),
+  // o anche solo se ci sono 2+ soci con quote significative, è una leva commerciale concreta:
+  // alla morte/invalidità di un socio gli altri devono poter liquidare gli eredi senza danneggiare l'azienda.
+  const persone = Array.isArray(profile.persone) ? profile.persone as Array<Record<string, unknown>> : []
+  const sociConQuota = persone
+    .filter(p => /socio/i.test(String(p.ruolo_normalizzato || p.ruolo || '')))
+    .map(p => ({ nome: String(p.nome || ''), cf: String(p.cf || ''), quota: parseQuotaPercent(p) }))
+    .filter(s => s.quota > 0)
+  const sociPariteticiSignificativi = sociConQuota.filter(s => s.quota >= 25 && s.quota <= 75)
+  if (!conc.socio_unico && sociPariteticiSignificativi.length >= 2) {
+    const etaSoci = sociPariteticiSignificativi
+      .map(s => extractCfInfo(s.cf).age)
+      .filter((a): a is number => a !== null)
+    const maxEta = etaSoci.length > 0 ? Math.max(...etaSoci) : null
+    const haSocioOver55 = maxEta !== null && maxEta >= 55
+    const quoteStr = sociPariteticiSignificativi
+      .slice(0, 4)
+      .map(s => `${s.nome.split(' ')[0] || 'Socio'} ${s.quota}%`)
+      .join(', ')
+    alerts.push({
+      id: 'buy_sell_paritetico',
+      type: 'opportunita',
+      severity: haSocioOver55 ? 'alto' : 'medio',
+      title: haSocioOver55
+        ? `Soci paritetici + un socio ≥55 anni: leva Buy-Sell concreta`
+        : `Più soci con quote significative: tema continuità tra soci`,
+      description: `Quote rilevate: ${quoteStr}.${haSocioOver55 ? ` Almeno un socio risulta avere ${maxEta} anni (CF verificato).` : ''} Alla morte o invalidità di un socio, gli altri devono avere strumenti per liquidare gli eredi senza dover vendere asset aziendali o cedere il controllo.`,
+      action: 'Aprire tavolo Buy-Sell agreement + polizza vita incrociata tra soci (cross purchase) o intestata alla società (entity purchase). Verificare statuto, patti parasociali e clausole di prelazione/gradimento.',
+      evidence_ids: ['persone_chiave', 'forma_giuridica'],
+    })
+  }
+
   return alerts
 }
 
@@ -622,11 +667,45 @@ export function buildInsuranceNeedsProfile({
   const classificationText = typeof classification === 'object' && classification !== null
     ? String(classification.label || '')
     : String(classification || '')
-  const sectorText = `${categoryText} ${(atecoInsurance?.settore || '').toLowerCase()}`.trim()
+  // sectorText: concatena TUTTI i testi che descrivono l'attività (lowercase, no accenti).
+  // Usato sia per i flag legacy (isManufacturing, isProfessional, etc.) sia per il match
+  // dei profili settoriali specifici in sector-profiles.ts.
+  const sectorText = [
+    categoryText,
+    String(atecoInsurance?.settore || '').toLowerCase(),
+    String(profile.descrizione_ateco || '').toLowerCase(),
+    String(profile.ragione_sociale || '').toLowerCase(),
+    classificationText.toLowerCase(),
+  ].filter(Boolean).join(' ').trim()
   const mandatoryPolicies = [
     ...(atecoInsurance?.polizze_obbligatorie || []),
     ...(atecoInsurance?.polizze_raccomandate || []),
   ].join(' | ').toLowerCase()
+
+  // ─── INIEZIONE BISOGNI SETTORIALI SPECIFICI (sector-profiles.ts) ────
+  // I profili settoriali sono additivi: se non matcha nessuno, l'engine continua
+  // come prima (backward compatibile). Se matcha, i bisogni specifici vengono
+  // pushati per primi (dedup automatico via pushNeed by id) e domande/leve
+  // commerciali si aggiungono alle liste broker.
+  const sectorDetectionInput: SectorDetectionInput = {
+    atecoDigits,
+    sectorText,
+    legalForm,
+    employees: employees ?? null,
+    revenue: revenue ?? null,
+  }
+  const matchedSectorProfiles = detectSectorProfiles(sectorDetectionInput)
+  for (const sectorProfile of matchedSectorProfiles) {
+    for (const need of sectorProfile.needs) {
+      pushNeed(needs, need)
+    }
+    for (const domanda of sectorProfile.domande_broker) {
+      if (!nextQuestions.includes(domanda)) nextQuestions.push(domanda)
+    }
+    for (const reason of sectorProfile.commercial_reasons) {
+      if (!commercialReasons.includes(reason)) commercialReasons.push(reason)
+    }
+  }
 
   pushFact(facts, hasValue(profile.ragione_sociale) ? {
     id: 'ragione_sociale',
@@ -891,7 +970,21 @@ export function buildInsuranceNeedsProfile({
   const isTransport = mandatoryPolicies.includes('vettoriale') || hasAny(sectorText, [/trasport/, /logistic/, /autotrasport/, /magazzin/])
   const isTechnicalMaintenance = isPlantInstallation || /^33/.test(atecoDigits) || hasAny(`${sectorText} ${descText}`, [/riparaz/, /manutenz/, /estintor/, /antincendio/, /macchinar/])
   const isFireSafetyMaintenance = /^331255/.test(atecoDigits) || hasAny(`${sectorText} ${descText}`, [/estintor/, /antincendio/, /impianti antincendio/])
-  const isManufacturing = !isTechnicalMaintenance && hasAny(sectorText, [/manifatt/, /produzion/, /industr/, /aliment/, /chimic/])
+  // ★ BUG FIX: i laboratori di analisi/collaudi (ATECO 71xx) NON sono manifattura: producono referti, non beni.
+  // La parola "chimico" o "alimentare" nella descrizione/categoria portava erroneamente a "RC Prodotti".
+  // Manifattura vera = ATECO 05-33 (estrazione, manifatturiero, riparazione macchinari escluso).
+  const isManufacturingAteco = /^(0[5-9]|1[0-9]|2[0-9]|3[0-2])/.test(atecoDigits)
+  const isProfessionalOrTechnicalServiceAteco = /^(33|62|63|69|70|71|72|73|74|75|85|86)/.test(atecoDigits)
+  const isManufacturing = !isTechnicalMaintenance
+    && !isProfessionalOrTechnicalServiceAteco
+    && (isManufacturingAteco || (atecoDigits.length === 0 && hasAny(sectorText, [/manifatt/, /produzion/, /industri[ae]/, /aliment/])))
+  // ★ Laboratorio di analisi / collaudi / taratura (ATECO 71.20.1, 71.20.2, 71.12.x con desc tecnica).
+  // Bisogno specifico: RC Professionale per errore di analisi (falso positivo/negativo) + RC Inquinamento
+  // per laboratori chimici/biologici. Si differenzia da generico "Servizi professionali".
+  const isLaboratorioTecnico = /^(71201|71202|7120)/.test(atecoDigits)
+    || hasAny(`${sectorText} ${descText}`, [/laboratori[oi]\s+(chimic|analis|prov|collaud|tarat|biolog|microbiolog)/, /collaud[oi]/, /taratur/, /accreditament[oi].*(iso\s*17025|accredia)/])
+  const isLaboratorioChimicoBiologico = isLaboratorioTecnico
+    && hasAny(`${sectorText} ${descText}`, [/chimic/, /biolog/, /microbiolog/, /reagent/, /tossicolog/, /microbi/])
   const isRetailTrade = /^4[5-7]/.test(atecoDigits) || hasAny(`${sectorText} ${profile.descrizione_ateco || ''}`, [/commerc/, /vendit/, /retail/, /negoz/, /porta a porta/, /e-commerce/, /dettaglio/, /ingrosso/])
   const hasPhysicalRisk = isConstruction || isTransport || isManufacturing || isRetailTrade || isTechnicalMaintenance || hasAny(sectorText, [/ristoraz/, /bar/, /hotel/, /officina/])
   const hasGovernanceEvidence = revenue !== null || hasValue(profile.capitale_sociale) || keyPeople.length > 0
@@ -949,7 +1042,7 @@ export function buildInsuranceNeedsProfile({
     commercialReasons.push('Società di persone: forte leva su patrimonio personale dei soci')
   }
 
-  if (isProfessional) {
+  if (isProfessional && !isLaboratorioTecnico) {
     pushNeed(needs, {
       id: 'rc_professionale',
       product: 'RC Professionale / E&O',
@@ -961,6 +1054,38 @@ export function buildInsuranceNeedsProfile({
       evidence_ids: ['ateco', ...(facts.some((f) => f.id === 'forma_giuridica') ? ['forma_giuridica'] : [])],
     })
     commercialReasons.push('Servizi professionali: leva RC/E&O concreta da qualificare su attività, albo e contratti')
+  }
+
+  // ★ Laboratorio tecnico (analisi/collaudi/taratura): RC Professionale specifica per errore di analisi.
+  if (isLaboratorioTecnico) {
+    pushNeed(needs, {
+      id: 'rc_lab_analisi',
+      product: 'RC Professionale Laboratorio (errore di analisi / falso positivo o negativo)',
+      target: 'Direttore tecnico / amministratore / responsabile qualità',
+      priority: 'immediata',
+      confidence: atecoEstimated ? 'media' : 'alta',
+      sales_reason: 'Laboratorio di analisi/collaudo/taratura: il rischio è errore di referto, falso positivo/negativo, taratura fuori specifica con conseguente danno al cliente. Il prodotto giusto non è RC generica ma RC professionale tecnica con tutela legale e copertura su contestazioni di referto.',
+      why_now: 'Da verificare: ambito accreditamento (ISO/IEC 17025 / ACCREDIA), prove eseguite, dichiarazioni di conformità rilasciate, retroattività e postuma per contestazioni successive al rilascio del referto.',
+      evidence_ids: ['ateco', ...(facts.some((f) => f.id === 'forma_giuridica') ? ['forma_giuridica'] : [])],
+    })
+    commercialReasons.push('Laboratorio tecnico: RC professionale dedicata a errore di analisi/falso positivo-negativo')
+    nextQuestions.push('Avete accreditamento ISO/IEC 17025 o ACCREDIA? La RC attuale copre esplicitamente contestazioni post-referto e taratura fuori specifica?')
+  }
+
+  // ★ Laboratorio chimico/biologico: RC Inquinamento accidentale (D.Lgs. 152/2006 art. 311).
+  if (isLaboratorioChimicoBiologico) {
+    pushNeed(needs, {
+      id: 'rc_inquinamento_lab',
+      product: 'RC Inquinamento accidentale (rischio reagenti / smaltimento)',
+      target: 'Direttore tecnico / RSPP / amministratore',
+      priority: 'alta',
+      confidence: atecoEstimated ? 'media' : 'alta',
+      sales_reason: 'Attività con reagenti chimici/biologici: l’inquinamento accidentale (sversamenti, smaltimento, contaminazione siti terzi) rientra nella responsabilità ambientale ex D.Lgs. 152/2006 art. 311. La RC generale spesso esclude questi danni o li sottolimita.',
+      why_now: 'Da verificare: presenza di estensione "danni da inquinamento accidentale", limite di indennizzo, scoperto/franchigia e attività esposte (laboratorio, magazzino reagenti, smaltimento).',
+      evidence_ids: ['ateco', ...(facts.some((f) => f.id === 'sede') ? ['sede'] : [])],
+    })
+    commercialReasons.push('Laboratorio chimico/biologico: rischio inquinamento accidentale specifico, da qualificare su 152/2006')
+    nextQuestions.push('La vostra RC include esplicitamente inquinamento accidentale da reagenti, smaltimenti o sversamenti? Con quale limite e franchigia?')
   }
 
   if (isInformationTechnology) {
