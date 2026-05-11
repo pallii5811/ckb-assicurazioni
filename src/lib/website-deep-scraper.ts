@@ -120,6 +120,41 @@ function extractFramePaths(html: string, origin: string, currentPath: string): s
   return paths
 }
 
+// ── Discover navigation links whose anchor text matches "contatti / preventivo / richiedi…" ──
+// Some company sites do not have a standard /contatti page (e.g. balzarottiascensori.it routes
+// "Contatti" to /preventivo-costo-ascensori-montacarichi). This helper scans the homepage HTML
+// for same-origin <a href> whose visible text contains contact-like keywords and returns the paths.
+const CONTACT_LINK_KEYWORDS = /\b(contatt|contact|preventiv|richied|chiama|getintouch|get-in-touch|telefon|prenotaz|reach\s*out)/i
+function extractContactLikePaths(html: string, origin: string, currentPath: string, max = 5): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const currentUrl = currentPath === '/' ? `${origin}/` : `${origin}${currentPath.startsWith('/') ? currentPath : `/${currentPath}`}`
+  const anchorRx = /<a\b([^>]*?)>([\s\S]*?)<\/a>/gi
+  let m: RegExpExecArray | null
+  while ((m = anchorRx.exec(html)) !== null) {
+    if (out.length >= max) break
+    const attrs = m[1] || ''
+    const inner = m[2] || ''
+    const href = attrs.match(/\bhref=["']([^"']+)["']/i)?.[1]?.trim()
+    if (!href || /^(javascript:|mailto:|tel:|#)/i.test(href)) continue
+    const text = inner.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
+    const title = attrs.match(/\btitle=["']([^"']+)["']/i)?.[1] || ''
+    const aria = attrs.match(/\baria-label=["']([^"']+)["']/i)?.[1] || ''
+    const haystack = `${text} ${title} ${aria}`.toLowerCase()
+    if (!CONTACT_LINK_KEYWORDS.test(haystack)) continue
+    try {
+      const url = new URL(href, currentUrl)
+      if (url.origin !== origin) continue
+      const path = url.pathname + (url.search || '')
+      if (!path || path === '/' || /\.(?:png|jpe?g|gif|svg|webp|pdf|zip)$/i.test(path)) continue
+      if (seen.has(path)) continue
+      seen.add(path)
+      out.push(path)
+    } catch { /* ignore */ }
+  }
+  return out
+}
+
 // ── Email extraction ────────────────────────────────────────────
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
 const FAKE_DOMAINS = new Set(['example.com','email.com','sito.com','domain.com','test.com','yoursite.com','yourdomain.com','tuosito.com','sitoweb.com','sample.com','placeholder.com','wixpress.com','sentry.io','googleapis.com','w3.org','schema.org','wordpress.org','jquery.com','bootstrapcdn.com'])
@@ -206,6 +241,8 @@ const PHONE_PATTERNS = [
   /(?:\+39\s?|0039\s?)?3[0-9]{1,2}[\s.\-]?\d{3}[\s.\-]?\d{4}/g,
   // Italian landline: 0xx xxxxx+ (min 6 subscriber digits for safety)
   /(?:\+39\s?|0039\s?)?0[1-9]\d{0,3}[\s.\-]?\d{5,8}/g,
+  // Italian toll-free / special: 800/803/840/848/892/899/199 — total 9 digits (subscriber part 6)
+  /(?:\+39\s?|0039\s?)?(?:800|803|840|848|892|899|199)[\s.\-]?\d{2,3}[\s.\-]?\d{2,4}[\s.\-]?\d{0,2}/g,
   // Generic tel: patterns from href="tel:"
   /href=["']tel:([^"']+)["']/gi,
 ]
@@ -235,15 +272,15 @@ function isFakeRepeatingNumber(num: string): boolean {
   return false
 }
 
-/** Reject non-Italian numbers (must start with +39, 0039, 0, or 3) */
+/** Reject non-Italian numbers (must start with +39, 0039, 0, 3, or toll-free 8XX/199) */
 function isItalianPhone(num: string): boolean {
   const raw = num.replace(/[\s.\-()]/g, '')
-  // Must start with +39, 0039, 0 (landline) or 3 (mobile)
-  if (/^(\+39|0039|0[1-9]|3[0-9])/.test(raw)) return true
-  // Pure digits starting with 0 or 3
+  // Must start with +39, 0039, 0 (landline), 3 (mobile) or toll-free / special prefixes
+  if (/^(\+39|0039|0[1-9]|3[0-9]|800|803|840|848|892|899|199)/.test(raw)) return true
+  // Pure digits starting with 39, 0xx, 3xx or toll-free prefix
   const digits = raw.replace(/\D/g, '')
   if (/^(39|0039)/.test(digits)) return true
-  if (/^(0[1-9]|3[0-9])/.test(digits)) return true
+  if (/^(0[1-9]|3[0-9]|800|803|840|848|892|899|199)/.test(digits)) return true
   return false
 }
 
@@ -276,7 +313,8 @@ function extractPhones(html: string, page: string): WebsiteScrapedData['phones']
     .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
     .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, ' ')
   const textContent = visibleHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
-  for (const pattern of PHONE_PATTERNS.slice(0, 2)) {
+  // Iterate mobile, landline and toll-free/special patterns (skip the href:tel one, handled above).
+  for (const pattern of PHONE_PATTERNS.slice(0, 3)) {
     pattern.lastIndex = 0
     const matches = textContent.match(pattern) || []
     for (const raw of matches) {
@@ -287,9 +325,10 @@ function extractPhones(html: string, page: string): WebsiteScrapedData['phones']
       const key = digits.slice(-9)
       if (seen.has(key)) continue
       seen.add(key)
+      const isTollFreeOrSpecial = /^(800|803|840|848|892|899|199)/.test(digits)
       results.push({
         number: raw.trim(),
-        type: isMobileNumber(raw) ? 'mobile' : 'landline',
+        type: isTollFreeOrSpecial ? 'landline' : (isMobileNumber(raw) ? 'mobile' : 'landline'),
         page,
       })
     }
@@ -540,6 +579,14 @@ export async function scrapeWebsiteDeep(website: string): Promise<WebsiteScraped
         for (const framePath of framePaths) {
           if (pagePaths.length >= 30) break
           if (!pagePaths.includes(framePath)) pagePaths.push(framePath)
+        }
+        // Discover non-standard contact pages from homepage navigation (e.g. "Contatti" → /preventivo-...)
+        if (path === '/') {
+          const contactPaths = extractContactLikePaths(html, origin, path)
+          for (const cp of contactPaths) {
+            if (pagePaths.length >= 30) break
+            if (!pagePaths.includes(cp)) pagePaths.push(cp)
+          }
         }
       }
 

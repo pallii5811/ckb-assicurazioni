@@ -395,6 +395,66 @@ function buildTitolareFiscalProfile(obj: any): TitolareFiscalProfile | null {
   }
 }
 
+function toTitleName(value: string): string {
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function extractPersonNameFromCompanyName(raw: any): string {
+  const value = safeStr(raw).toUpperCase().replace(/\s+/g, ' ').trim()
+  if (!value) return ''
+  const diMatch = value.match(/\b(?:SNC|S\.N\.C\.?|SAS|S\.A\.S\.?)\s+DI\s+([A-ZÀ-Ü' ]{5,80}?)(?:\s+&\s*C\.?|\s+E\s+C\.?|\s*$)/i)
+  const beforeAndCoMatch = value.match(/\b([A-ZÀ-Ü']+\s+[A-ZÀ-Ü']+)\s+&\s*C\.?/i)
+  const candidate = (diMatch?.[1] || beforeAndCoMatch?.[1] || '')
+    .replace(/\b(?:IMPRESA|ITALIA|SOCIETA|SOCIETÀ|SRL|S\.R\.L\.?|SNC|S\.N\.C\.?|SAS|S\.A\.S\.?)\b/gi, ' ')
+    .replace(/[^A-ZÀ-Ü'\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const parts = candidate.split(/\s+/).filter((part) => part.length > 1)
+  if (parts.length < 2 || parts.length > 4) return ''
+  return toTitleName(parts.join(' '))
+}
+
+function buildCompanyPeopleForDisplay(obj: any): any[] {
+  const existing = Array.isArray(obj?.persone) ? obj.persone.filter((p: any) => safeStr(p?.nome).trim()) : []
+  if (existing.length > 0) return existing
+  const out: any[] = []
+  const titolare = firstValue(obj, ['titolare'])
+  if (titolare && !/nome.*(cognome|titolare)|non disponibile|n\/d/i.test(titolare)) {
+    out.push({
+      nome: titolare,
+      ruolo: firstValue(obj, ['ruolo_titolare']) || 'Titolare / Rappresentante legale',
+      fonte: 'Dato titolare disponibile',
+      fallback: true,
+    })
+  } else {
+    const fromName = extractPersonNameFromCompanyName(obj?.ragione_sociale || obj?.nome)
+    if (fromName) {
+      out.push({
+        nome: fromName,
+        ruolo: 'Persona indicata in ragione sociale',
+        fonte: 'Ragione sociale — da verificare',
+        fallback: true,
+      })
+    }
+  }
+  if (out.length === 0) {
+    const fg = `${firstValue(obj, ['forma_giuridica'])} ${firstValue(obj, ['forma_giuridica_codice'])}`.toLowerCase()
+    if (/snc|nome\s+collettivo/.test(fg)) {
+      out.push({ nome: 'Soci SNC da verificare', ruolo: 'Soci con responsabilità illimitata', fonte: 'Forma giuridica — da verificare', fallback: true })
+    } else if (/sas|accomandita/.test(fg)) {
+      out.push({ nome: 'Socio accomandatario da verificare', ruolo: 'Gestione e responsabilità illimitata', fonte: 'Forma giuridica — da verificare', fallback: true })
+    } else if (/srl|responsabilit/.test(fg)) {
+      out.push({ nome: 'Amministratore / Legale rappresentante da verificare', ruolo: 'Carica societaria', fonte: 'Forma giuridica — da verificare', fallback: true })
+    }
+  }
+  return out
+}
+
 /**
  * Verifica se un numero è un CELLULARE italiano valido (per badge WhatsApp).
  *
@@ -553,6 +613,7 @@ export default function DashboardShell() {
   const [companySearchResult, setCompanySearchResult] = useState<any>(null)
   const [companySearchError, setCompanySearchError] = useState<string | null>(null)
   const companyTitolareFiscalProfile = useMemo(() => buildTitolareFiscalProfile(companySearchResult), [companySearchResult])
+  const companyPeopleForDisplay = useMemo(() => buildCompanyPeopleForDisplay(companySearchResult), [companySearchResult])
   const [personSearchQuery, setPersonSearchQuery] = useState('')
   const [personSearchLoading, setPersonSearchLoading] = useState(false)
   const [personSearchResult, setPersonSearchResult] = useState<any>(null)
@@ -3268,16 +3329,16 @@ export default function DashboardShell() {
               )}
 
               {/* Soci / Titolari / Persone chiave */}
-              {companySearchResult.persone?.length > 0 && (
+              {companyPeopleForDisplay.length > 0 && (
                 <div className="bg-white rounded-3xl border border-purple-200/60 p-0 shadow-lg shadow-purple-100/30 overflow-hidden">
                   <div className="bg-gradient-to-r from-purple-500 to-fuchsia-500 px-6 py-3.5 flex items-center justify-between">
                     <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-white font-black text-xs">{companySearchResult.persone.length}</span>
+                      <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-white font-black text-xs">{companyPeopleForDisplay.length}</span>
                       Soci / Titolari
                     </h4>
                   </div>
                   <div className="p-5 space-y-2.5">
-                    {companySearchResult.persone.map((p: any, i: number) => {
+                    {companyPeopleForDisplay.map((p: any, i: number) => {
                       const pCf = normalizeFiscalCode(p.codice_fiscale || p.cf || p.codiceFiscale)
                       const pFiscal = parseItalianFiscalCode(pCf)
                       const pAge = firstNumber(p, ['eta']) ?? pFiscal?.eta ?? null
@@ -3292,6 +3353,9 @@ export default function DashboardShell() {
                             <div>
                               <p className="text-sm font-bold text-slate-900">{p.nome}</p>
                               <p className="text-[10px] text-slate-500">{p.ruolo}{pCf ? ` · CF: ${pCf}` : ''}</p>
+                              {p.fallback && (
+                                <p className="text-[9px] text-amber-600 font-semibold">{p.fonte || 'Dato da verificare'} — CF non disponibile da OpenAPI</p>
+                              )}
                               {(pAge !== null || pBirthDate || pSex) && (
                                 <div className="mt-1 flex flex-wrap gap-1.5">
                                   {pAge !== null && (
@@ -3678,27 +3742,6 @@ export default function DashboardShell() {
                   </div>
                 </div>
               )}
-
-              {/* ── Profilo Assicurativo (sezione integrata, espandibile, fetch lazy) ── */}
-              <InsuranceProfileSection
-                piva={companySearchResult.partita_iva || null}
-                ragioneSociale={companySearchResult.ragione_sociale || companySearchResult.nome || null}
-                citta={companySearchResult.citta || null}
-              />
-
-              {/* ── Insurance Intelligence (trigger commerciali, network, capacità spesa, eventi) ── */}
-              <InsuranceIntelligenceSection
-                ragioneSociale={companySearchResult.ragione_sociale || companySearchResult.nome || ''}
-                partitaIva={companySearchResult.partita_iva || undefined}
-                citta={companySearchResult.citta || undefined}
-                ateco={companySearchResult.codice_ateco || companySearchResult.ateco || undefined}
-                fatturato={companySearchResult.fatturato || undefined}
-                dipendenti={companySearchResult.dipendenti || undefined}
-                dataCostituzione={companySearchResult.data_costituzione || undefined}
-                ruolo="titolare"
-                titolareNome={companySearchResult.titolare || undefined}
-                hasLinkedinPresence={!!(companySearchResult.linkedin_url || companySearchResult.linkedin)}
-              />
 
               {/* Fonti */}
               {companySearchResult.fonti?.length > 0 && (

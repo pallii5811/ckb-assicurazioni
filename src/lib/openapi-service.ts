@@ -253,6 +253,23 @@ export interface OpenApiAdvancedData {
   timestamp_aggiornamento?: number
 }
 
+function hasMeaningfulAdvancedData(data: OpenApiAdvancedData | null | undefined): boolean {
+  return Boolean(
+    data?.ragione_sociale ||
+    data?.sede_legale ||
+    data?.codice_ateco ||
+    data?.descrizione_ateco ||
+    data?.forma_giuridica ||
+    data?.stato_attivita ||
+    data?.codice_rea ||
+    data?.pec ||
+    typeof data?.fatturato === 'number' ||
+    typeof data?.dipendenti === 'number' ||
+    data?.shareholders?.length ||
+    data?.storico_bilanci?.length
+  )
+}
+
 function mapAdvancedResponse(json: any): OpenApiAdvancedData | null {
   // ★ Handle both array and object formats: { data: [company] } or { data: company }
   const rawData = json?.data
@@ -267,6 +284,35 @@ function mapAdvancedResponse(json: any): OpenApiAdvancedData | null {
   const ateco = atecoClass.ateco2007 || atecoClass.ateco || {}
   const bs = c.balanceSheets?.last || {}
   const allBs = (c.balanceSheets?.all || []) as any[]
+  const rawShareholders = (c.shareHolders || c.shareholders || []) as any[]
+  const hasMeaningfulRawData = Boolean(
+    c.companyName ||
+    c.name ||
+    office.streetName ||
+    office.town ||
+    office.province ||
+    ateco.code ||
+    ateco.description ||
+    c.atecoCode ||
+    c.atecoDescription ||
+    c.detailedLegalForm?.description ||
+    c.legalForm ||
+    c.activityStatus ||
+    c.status ||
+    c.reaCode ||
+    c.cciaa ||
+    c.pec ||
+    c.certifiedEmail ||
+    c.startDate ||
+    c.incorporationDate ||
+    Object.keys(bs).length > 0 ||
+    allBs.length > 0 ||
+    rawShareholders.length > 0
+  )
+  if (!hasMeaningfulRawData) {
+    console.log(`[OPENAPI] mapAdvancedResponse: EMPTY company profile for vatCode=${c.vatCode || c.taxCode || 'n/a'} — ignoring IT-advanced result`)
+    return null
+  }
   // Diagnostic: log balance sheet keys once so we can verify which OpenAPI field names exist
   // (helps spot e.g. profit vs netProfit vs netIncome — without this we can only guess).
   if (bs && Object.keys(bs).length > 0) {
@@ -278,7 +324,6 @@ function mapAdvancedResponse(json: any): OpenApiAdvancedData | null {
       console.log(`[OPENAPI] balanceSheet.all[0].annualResult: ${JSON.stringify(allBs[0].annualResult).slice(0, 500)}`)
     }
   }
-  const rawShareholders = (c.shareHolders || c.shareholders || []) as any[]
   const shareholders = rawShareholders
     .map(sh => ({
       nome: String(sh?.name || '').trim(),
@@ -443,11 +488,11 @@ export async function getItAdvanced(piva: string): Promise<OpenApiResult<OpenApi
 
   // 1) Cache first
   const cached = await readCache<OpenApiAdvancedData>(clean, src)
-  if (cached) return { success: true, data: cached, source: src, fromCache: true, costEur: 0 }
+  if (cached && hasMeaningfulAdvancedData(cached)) return { success: true, data: cached, source: src, fromCache: true, costEur: 0 }
 
   return withInFlight(`${src}:${clean}`, async () => {
     const cachedAgain = await readCache<OpenApiAdvancedData>(clean, src)
-    if (cachedAgain) return { success: true, data: cachedAgain, source: src, fromCache: true, costEur: 0 }
+    if (cachedAgain && hasMeaningfulAdvancedData(cachedAgain)) return { success: true, data: cachedAgain, source: src, fromCache: true, costEur: 0 }
 
     // 2) Wallet guard
     if (!(await walletAllows(MIN_WALLET_EUR))) {
