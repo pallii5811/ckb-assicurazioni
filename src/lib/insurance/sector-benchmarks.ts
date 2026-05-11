@@ -82,7 +82,7 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     premiumRatioMax: 0.028,
     mainRami: ['RC Inquinamento ambientale', 'All-Risk Impianti', 'Cauzioni'],
     riskLevel: 'high',
-    notes: 'RC Inquinamento spesso obbligatoria',
+    notes: 'RC inquinamento da verificare in base ad attività, autorizzazioni e contratti',
   },
   'F': {
     atecoLetter: 'F',
@@ -92,7 +92,7 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     premiumRatioMax: 0.040,
     mainRami: ['CAR/EAR (Contractors All Risk)', 'RC Lavori', 'Postuma decennale', 'Cauzioni ANAC', 'Infortuni operai'],
     riskLevel: 'high',
-    notes: 'Cauzioni ANAC obbligatorie per gare pubbliche, decennale postuma per opere',
+    notes: 'Cauzioni e decennale/postuma da verificare su gare, committenti, contratti e tipologia opere',
   },
   'G': {
     atecoLetter: 'G',
@@ -132,7 +132,7 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     premiumRatioMax: 0.012,
     mainRami: ['RC Professionale', 'Cyber Risk', 'D&O Amministratori', 'Tutela legale'],
     riskLevel: 'low',
-    notes: 'Cyber Risk in forte crescita (+30% YoY)',
+    notes: 'Cyber Risk da qualificare su dati trattati, backup, continuità digitale e contratti',
   },
   'K': {
     atecoLetter: 'K',
@@ -140,9 +140,9 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     premiumRatioMin: 0.008,
     premiumRatioMid: 0.012,
     premiumRatioMax: 0.018,
-    mainRami: ['RC Professionale obbligatoria', 'D&O', 'Crime', 'Cyber'],
+    mainRami: ['RC Professionale/E&O da verificare', 'D&O', 'Crime', 'Cyber'],
     riskLevel: 'medium',
-    notes: 'RC Professionale obbligatoria per intermediari',
+    notes: 'RC professionale da verificare per intermediari o soggetti vigilati',
   },
   'L': {
     atecoLetter: 'L',
@@ -160,9 +160,9 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     premiumRatioMin: 0.006,
     premiumRatioMid: 0.010,
     premiumRatioMax: 0.015,
-    mainRami: ['RC Professionale obbligatoria', 'Tutela legale', 'D&O', 'Studio Globale'],
+    mainRami: ['RC Professionale/E&O da verificare', 'Tutela legale', 'D&O', 'Studio Globale'],
     riskLevel: 'low',
-    notes: 'RC Professionale obbligatoria per albo (avvocati, ingegneri, architetti)',
+    notes: 'RC professionale da verificare: obbligo solo per attività ordinistica/albo/STP; E&O da verificare per altri servizi',
   },
   'N': {
     atecoLetter: 'N',
@@ -197,9 +197,9 @@ const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
     premiumRatioMin: 0.015,
     premiumRatioMid: 0.022,
     premiumRatioMax: 0.030,
-    mainRami: ['RC Sanitaria obbligatoria (L.24/2017)', 'D&O', 'Tutela legale', 'All-Risk apparecchi medicali'],
+    mainRami: ['RC Sanitaria/Malpractice da verificare', 'D&O', 'Tutela legale', 'All-Risk apparecchi medicali'],
     riskLevel: 'high',
-    notes: 'RC Sanitaria obbligatoria dal 2017 per strutture sanitarie',
+    notes: 'RC sanitaria da verificare nel perimetro L.24/2017 in base a struttura, professionisti e attività reale',
   },
   'R': {
     atecoLetter: 'R',

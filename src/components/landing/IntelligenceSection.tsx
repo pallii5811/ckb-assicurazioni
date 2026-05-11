@@ -57,7 +57,7 @@ const SemanticSearchWidget = () => {
       </div>
 
       <div className="mt-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] text-neutral-300/90 font-mono">
-        "trovami aziende metalmeccaniche in lombardia senza RC prodotti…"
+        "trovami aziende metalmeccaniche in lombardia verifica RC prodotti…"
       </div>
     </div>
   );
@@ -78,7 +78,7 @@ const PitchModalWidget = () => {
         </div>
         <div className="p-3 space-y-2">
           <div className="text-[11px] text-neutral-300/90 font-mono">
-            Oggetto: "Analisi rischio: 3 gap assicurativi nella vostra azienda"
+            Oggetto: "Analisi rischio: 3 aree assicurative da verificare"
           </div>
           <div className="h-[1px] bg-neutral-800" />
           <div className="space-y-1.5 text-[10px] text-neutral-400 font-mono">
@@ -104,13 +104,13 @@ const ProfilingBadgesWidget = () => {
     <div className="flex flex-col w-full h-full min-h-[10rem] rounded-xl bg-neutral-900 border border-white/[0.1] p-4 overflow-hidden relative group">
       <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="text-xs font-semibold text-neutral-200">Segnali & Problemi</div>
+      <div className="text-xs font-semibold text-neutral-200">Segnali da verificare</div>
       <div className="mt-3 flex flex-wrap gap-2">
         {[
-          { t: "No RC Prodotti", delay: "0ms" },
-          { t: "No D&O", delay: "120ms" },
-          { t: "No Cyber", delay: "240ms" },
-          { t: "No Infortuni", delay: "360ms" },
+          { t: "RC Prodotti", delay: "0ms" },
+          { t: "D&O", delay: "120ms" },
+          { t: "Cyber", delay: "240ms" },
+          { t: "Infortuni", delay: "360ms" },
         ].map((b) => (
           <div
             key={b.t}
@@ -122,7 +122,7 @@ const ProfilingBadgesWidget = () => {
         ))}
       </div>
       <div className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] text-neutral-400 font-mono">
-        badge dinamici per evidenziare gap assicurativi
+        badge dinamici per evidenziare aree da verificare
       </div>
     </div>
   );
@@ -168,13 +168,13 @@ const items = [
   },
   {
     title: "Pitch AI",
-    description: "Generatore di proposte personalizzate sui gap assicurativi dell'azienda.",
+    description: "Generatore di proposte personalizzate sulle aree assicurative da verificare.",
     header: <PitchModalWidget />,
     icon: <MessageSquareText className="h-4 w-4 text-neutral-500" />,
   },
   {
     title: "Profilazione Immediata",
-    description: "Badge dinamici per evidenziare le coperture mancanti (RC, D&O, Cyber).",
+    description: "Badge dinamici per evidenziare le aree da verificare (RC, D&O, Cyber).",
     header: <ProfilingBadgesWidget />,
     icon: <TriangleAlert className="h-4 w-4 text-neutral-500" />,
   },

@@ -224,9 +224,9 @@ function getPersonalInsurance(
       break
 
     case 'professionista':
-      polizze.push({ polizza: 'RC Professionale', priorita: 'obbligatoria', motivo: 'Obbligatoria per legge (DPR 137/2012) per tutti gli iscritti ad albi professionali' })
+      polizze.push({ polizza: 'RC Professionale / E&O', priorita: 'critica', motivo: 'Da verificare: obbligo se iscritto ad albo/ordine o STP; negli altri casi responsabilità contrattuale/professionale da qualificare' })
       if (/medic|dentist|veterinar/.test(cat)) {
-        polizze.push({ polizza: 'RC Medica / Malpractice', priorita: 'obbligatoria', motivo: 'Legge Gelli-Bianco (L. 24/2017) — obbligo per tutti i sanitari' })
+        polizze.push({ polizza: 'RC Medica / Malpractice', priorita: 'critica', motivo: 'Legge Gelli-Bianco (L. 24/2017): verificare qualifica sanitaria, struttura, massimale e perimetro dell’obbligo' })
         polizze.push({ polizza: 'Tutela Legale Sanitaria', priorita: 'critica', motivo: 'Difesa in caso di contenzioso per errore medico' })
       }
       if (/avvocat|commerciali|notai/.test(cat)) {
@@ -241,13 +241,13 @@ function getPersonalInsurance(
 
     case 'dirigente':
       polizze.push({ polizza: 'D&O (estensione dirigenti)', priorita: 'critica', motivo: 'Il dirigente risponde per le decisioni prese per delega' })
-      polizze.push({ polizza: 'Key Man Insurance', priorita: 'raccomandata', motivo: 'Figura chiave — la sua assenza crea danno economico all\'azienda' })
-      polizze.push({ polizza: 'Polizza Sanitaria Integrativa', priorita: 'raccomandata', motivo: 'Benefit tipico per dirigenti — CCNL Dirigenti prevede fondi specifici (FASI, FASDAC)' })
-      polizze.push({ polizza: 'Previdenza Complementare', priorita: 'raccomandata', motivo: 'Integrazione pensionistica — i fondi negoziali (Previndai) sono comuni per dirigenti' })
+      polizze.push({ polizza: 'Key Man Insurance', priorita: 'raccomandata', motivo: 'Da verificare se ruolo, deleghe e sostituibilità rendono la figura critica per continuità e ricavi' })
+      polizze.push({ polizza: 'Polizza Sanitaria Integrativa', priorita: 'raccomandata', motivo: 'Da verificare in base a CCNL realmente applicato, inquadramento, fondi e welfare aziendale già attivi' })
+      polizze.push({ polizza: 'Previdenza Complementare', priorita: 'raccomandata', motivo: 'Da verificare in base a CCNL, adesioni, TFR, policy welfare e obiettivi della persona' })
       break
 
     case 'dipendente_chiave':
-      polizze.push({ polizza: 'Key Man Insurance', priorita: 'raccomandata', motivo: 'Persona con competenze uniche — la sua assenza rallenta l\'azienda' })
+      polizze.push({ polizza: 'Key Man Insurance', priorita: 'raccomandata', motivo: 'Da verificare se competenze, deleghe, portafoglio clienti o sostituibilità rendono la figura critica' })
       polizze.push({ polizza: 'Polizza Sanitaria Integrativa', priorita: 'raccomandata', motivo: 'Fidelizzazione dipendenti chiave tramite welfare' })
       polizze.push({ polizza: 'Infortuni Extra-Professionale', priorita: 'raccomandata', motivo: 'Copertura anche fuori dall\'orario di lavoro' })
       break
@@ -1735,10 +1735,10 @@ Formato:
       rischi_personali: getPersonalRisks(ruoloNorm, formaGiuridica),
       note: isGeneric
         ? 'Nome non identificato — le leve di audit sono basate sul ruolo societario e vanno validate in call'
-        : ruoloNorm === 'titolare'
-        ? 'Figura chiave dell\'azienda — massima priorità commerciale'
-        : ruoloNorm === 'professionista'
-        ? 'RC Professionale obbligatoria per legge'
+      : ruoloNorm === 'titolare'
+        ? 'Referente/titolare identificato — verificare dipendenza operativa e continuità'
+      : ruoloNorm === 'professionista'
+        ? 'RC Professionale/E&O da verificare in base ad albo, contratti e attività reale'
         : null,
     }
   })
@@ -1759,7 +1759,7 @@ Formato:
   const hasDirigenti = persone.filter(p => ['dirigente', 'dipendente_chiave'].includes(p.ruolo_normalizzato)).length
 
   if (hasTitolare) {
-    raccomandazioni_team.push('Audit Key Man sul titolare — verificare dipendenza operativa, diaria, inabilità e continuità aziendale')
+    raccomandazioni_team.push('Audit Key Person — verificare chi presidia davvero operatività, clienti, diaria, inabilità e continuità aziendale')
   }
   if (hasAmm && /SRL|SRLS|SPA/.test(fg)) {
     raccomandazioni_team.push('Audit D&O amministratore — verificare massimale, retroattività, postuma, spese legali e garanzie personali')

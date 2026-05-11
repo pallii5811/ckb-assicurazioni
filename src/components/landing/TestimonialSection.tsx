@@ -5,7 +5,7 @@ import { Star } from 'lucide-react'
 
 const testimonials = [
   {
-    quote: 'In una settimana ho trovato 47 aziende metalmeccaniche in Lombardia senza RC Prodotti. Ne ho contattate 15 con il Pitch AI, ne ho chiuse 4. Quasi €12.000 di premi nuovi.',
+    quote: 'In una settimana ho trovato 47 aziende metalmeccaniche in Lombardia con RC Prodotti da verificare. Ne ho contattate 15 con il Pitch AI, ne ho chiuse 4. Quasi €12.000 di premi nuovi.',
     name: 'Marco T.',
     role: 'Broker assicurativo · Roma',
     avatar: 'MT',
@@ -15,7 +15,7 @@ const testimonials = [
     gradient: 'from-indigo-500 to-violet-500',
   },
   {
-    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con CKB cerco "trasportatori Veneto senza D&O" e mi escono 30 prospect con gap analysis e proposta già pronta.',
+    quote: 'Usavo liste comprate. Tasso di risposta era il 2%. Con CKB cerco "trasportatori Veneto verifica D&O" e mi escono 30 prospect con checklist e proposta già pronta.',
     name: 'Sara B.',
     role: 'Agente plurimandataria · Torino',
     avatar: 'SB',
@@ -25,7 +25,7 @@ const testimonials = [
     gradient: 'from-cyan-500 to-blue-500',
   },
   {
-    quote: 'La funzione Pitch AI mi risparmia 2 ore al giorno. Prima preparavo ogni proposta da zero. Adesso: trovo l\'azienda, leggo i gap assicurativi, clicco Genera Pitch, copio, invio. 90 secondi.',
+    quote: 'La funzione Pitch AI mi risparmia 2 ore al giorno. Prima preparavo ogni proposta da zero. Adesso: trovo l\'azienda, leggo le aree da verificare, clicco Genera Pitch, copio, invio. 90 secondi.',
     name: 'Luca M.',
     role: 'Consulente assicurativo · Milano',
     avatar: 'LM',

@@ -97,9 +97,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'alto',
       tasso_inail_indicativo: '35-60‰',
       polizze_obbligatorie: [
-        'RC Prodotti Alimentari (Reg. CE 178/2002)',
-        'Polizza Infortuni Lavoratori',
-        'RC verso Terzi',
+        'Responsabilità prodotto alimentare da verificare (Reg. CE 178/2002)',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
+        'Responsabilità civile verso terzi da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Ritiro Prodotti (Product Recall)',
@@ -131,9 +131,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '15-30‰',
       polizze_obbligatorie: [
-        'RC Professionale Medica / Sanitaria (L. 24/2017 "Gelli-Bianco")',
-        'RC verso Terzi e Operatori',
-        'Polizza Infortuni Lavoratori',
+        'RC sanitaria/malpractice da verificare nel perimetro L. 24/2017 "Gelli-Bianco"',
+        'Responsabilità verso terzi e operatori da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Malpractice (per singolo professionista)',
@@ -150,7 +150,7 @@ const ATECO_RULES: AtecoRule[] = [
         'Contenzioso paziente',
       ],
       normativa: [
-        'L. 24/2017 — Legge Gelli-Bianco (RC sanitaria obbligatoria)',
+        'L. 24/2017 — Legge Gelli-Bianco (verifica obblighi RC sanitaria)',
         'GDPR — Protezione dati sanitari (sensibili)',
         'D.Lgs. 81/2008 — Rischio biologico operatori',
       ],
@@ -165,16 +165,16 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'alto',
       tasso_inail_indicativo: '40-80‰',
       polizze_obbligatorie: [
-        'RCA Veicoli (obbligo di legge)',
-        'RC Vettoriale (CMR per trasporto merci)',
-        'Polizza Infortuni Lavoratori',
+        'RCA veicoli da verificare se flotta/mezzi in uso',
+        'RC vettoriale da verificare se trasporto merci conto terzi/CMR',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Merci Trasportate (All Risks)',
         'Polizza Flotta Veicoli (Libro Matricola)',
         'Polizza Kasko Veicoli Commerciali',
         'Polizza Interruzione Attività',
-        'RC verso Terzi magazzino/deposito',
+        'Responsabilità verso terzi in magazzino/deposito da verificare',
       ],
       rischi_principali: [
         'Incidenti stradali flotta',
@@ -184,7 +184,7 @@ const ATECO_RULES: AtecoRule[] = [
         'Responsabilità per ritardi consegna',
       ],
       normativa: [
-        'Codice della Strada — RCA obbligatoria',
+        'Codice della Strada — verifica RCA se mezzi soggetti a circolazione',
         'Convenzione CMR — RC vettoriale internazionale',
         'D.Lgs. 286/2005 — Autotrasporto conto terzi',
       ],
@@ -199,9 +199,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '20-40‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (clienti nel locale)',
-        'RC Prodotti Somministrati',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità verso terzi/clienti da verificare',
+        'Responsabilità prodotti somministrati da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Incendio (rischio cucina/forni)',
@@ -233,14 +233,14 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'basso',
       tasso_inail_indicativo: '4-10‰',
       polizze_obbligatorie: [
-        'RC Professionale (DPR 137/2012 — obbligo per professionisti iscritti ad albi)',
+        'RC professionale/E&O da verificare; obbligo solo se professionisti iscritti ad albo/STP',
       ],
       polizze_raccomandate: [
         'Cyber Risk (protezione dati clienti)',
         'Polizza D&O (se società di consulenza)',
         'Polizza Tutela Legale Professionale',
         'Polizza All Risks Elettronica (hardware/server)',
-        'Polizza Key Man (persona chiave)',
+        'Key Person / continuità operativa da verificare',
       ],
       rischi_principali: [
         'Errore professionale / consulenza errata',
@@ -250,7 +250,7 @@ const ATECO_RULES: AtecoRule[] = [
         'Contenzioso con clienti',
       ],
       normativa: [
-        'DPR 137/2012 — RC Professionale obbligatoria iscritti albi',
+        'DPR 137/2012 — verifica RC professionale per iscritti ad albi',
         'GDPR — Protezione dati personali',
         'D.Lgs. 231/2001 — Responsabilità enti',
       ],
@@ -265,8 +265,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'basso',
       tasso_inail_indicativo: '8-20‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (clienti nel punto vendita)',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità verso terzi/clienti da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Incendio Locale Commerciale',
@@ -301,9 +301,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'alto',
       tasso_inail_indicativo: '30-70‰',
       polizze_obbligatorie: [
-        'RC Prodotti (Direttiva 85/374/CEE)',
-        'Polizza Infortuni Lavoratori',
-        'RC verso Terzi e Prestatori d\'Opera',
+        'Responsabilità prodotto da verificare (Direttiva 85/374/CEE)',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
+        'Responsabilità verso terzi e prestatori d\'opera da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Incendio Stabilimento',
@@ -337,10 +337,10 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'basso',
       tasso_inail_indicativo: '4-8‰',
       polizze_obbligatorie: [
-        'RC Professionale (se sviluppo software / consulenza IT)',
+        'Technology E&O / RC professionale ICT da verificare su contratti, SLA e responsabilità verso clienti',
       ],
       polizze_raccomandate: [
-        'Cyber Risk (ESSENZIALE per questo settore)',
+        'Cyber Risk da qualificare su dati, accessi, backup, ransomware e continuità digitale',
         'Polizza D&O',
         'Polizza Tutela Legale IT',
         'Polizza All Risks Elettronica',
@@ -356,7 +356,7 @@ const ATECO_RULES: AtecoRule[] = [
       ],
       normativa: [
         'GDPR — Protezione dati (sanzioni fino a €20M o 4% fatturato)',
-        'Direttiva NIS2 — Cybersecurity (obbligo per operatori essenziali)',
+        'Direttiva NIS2 — da verificare se il soggetto rientra nel perimetro applicabile',
         'D.Lgs. 231/2001 — Responsabilità enti',
       ],
     },
@@ -370,8 +370,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '15-30‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (ospiti)',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità verso terzi/ospiti da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Incendio Struttura',
@@ -403,8 +403,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'alto',
       tasso_inail_indicativo: '40-90‰',
       polizze_obbligatorie: [
-        'Polizza Infortuni Lavoratori Agricoli',
-        'RC verso Terzi',
+        'Posizioni INAIL / tutela infortuni lavoratori agricoli da verificare',
+        'Responsabilità civile verso terzi da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Grandine e Gelo (colture)',
@@ -437,8 +437,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'basso',
       tasso_inail_indicativo: '3-6‰',
       polizze_obbligatorie: [
-        'RC Professionale (obbligo IVASS per intermediari assicurativi)',
-        'Polizza Infedeltà Dipendenti (Banche — Circ. Bankitalia)',
+        'RC professionale da verificare se intermediario assicurativo/finanziario soggetto a obblighi IVASS o altra vigilanza',
+        'Infedeltà dipendenti / crime da verificare in base ad attività vigilata, contratti e procedure interne',
       ],
       polizze_raccomandate: [
         'Cyber Risk (dati finanziari sensibili)',
@@ -472,8 +472,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'basso',
       tasso_inail_indicativo: '5-12‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (alunni e genitori)',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità verso terzi/alunni/genitori da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Infortuni Alunni/Studenti',
@@ -507,8 +507,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'basso',
       tasso_inail_indicativo: '4-10‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (conduzione immobili)',
-        'RC Professionale (agenti immobiliari — DM 26/10/2007)',
+        'Responsabilità verso terzi per conduzione/custodia immobili da verificare',
+        'RC professionale da verificare se agente/intermediario immobiliare (DM 26/10/2007)',
       ],
       polizze_raccomandate: [
         'Polizza Globale Fabbricati',
@@ -526,7 +526,7 @@ const ATECO_RULES: AtecoRule[] = [
         'Morosità inquilini / perdita canoni',
       ],
       normativa: [
-        'DM 26/10/2007 — RC obbligatoria agenti immobiliari',
+        'DM 26/10/2007 — verifica RC per agenti immobiliari',
         'Codice Civile art. 2051 — Custodia beni',
         'D.Lgs. 81/2008 — Sicurezza immobili',
       ],
@@ -541,8 +541,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '15-35‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (pubblico/spettatori)',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità verso terzi/pubblico/spettatori da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'Polizza Infortuni Sportivi / Artisti',
@@ -562,7 +562,7 @@ const ATECO_RULES: AtecoRule[] = [
       normativa: [
         'D.Lgs. 81/2008 — Sicurezza eventi',
         'DM 18/3/1996 — Sicurezza impianti sportivi',
-        'L. 86/2023 — Riforma sport (assicurazione obbligatoria sportivi)',
+        'L. 86/2023 — Riforma sport (verificare perimetro assicurazione sportivi)',
       ],
     },
   },
@@ -575,8 +575,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '12-25‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (clienti)',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità verso terzi/clienti da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'RC Professionale (trattamenti estetici / acconciature)',
@@ -609,9 +609,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'alto',
       tasso_inail_indicativo: '25-50‰',
       polizze_obbligatorie: [
-        'RC verso Terzi',
-        'Polizza Infortuni Lavoratori',
-        'Polizza Inquinamento Ambientale (D.Lgs. 152/2006)',
+        'Responsabilità civile verso terzi da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
+        'Responsabilità/inquinamento ambientale da verificare in base ad attività e autorizzazioni (D.Lgs. 152/2006)',
       ],
       polizze_raccomandate: [
         'Polizza All Risks Impianti Industriali',
@@ -653,8 +653,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '15-35‰',
       polizze_obbligatorie: [
-        'RC verso Terzi (D.Lgs. 209/2005 se circolazione su strada)',
-        'Polizza Infortuni Lavoratori (D.Lgs. 81/2008)',
+        'Responsabilità verso terzi da verificare; RCA solo se mezzi/circolazione su strada',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare (D.Lgs. 81/2008)',
       ],
       polizze_raccomandate: [
         'RC Postuma / Decennale Postuma — danno da malfunzionamento dopo intervento (CRITICA)',
@@ -693,8 +693,8 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'medio',
       tasso_inail_indicativo: '20-40‰',
       polizze_obbligatorie: [
-        'RC verso Terzi',
-        'Polizza Infortuni Lavoratori',
+        'Responsabilità civile verso terzi da verificare',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare',
       ],
       polizze_raccomandate: [
         'RC Professionale (riparazione auto/moto)',
@@ -727,9 +727,9 @@ const ATECO_RULES: AtecoRule[] = [
       classe_inail: 'molto_alto',
       tasso_inail_indicativo: '60-120‰',
       polizze_obbligatorie: [
-        'Polizza Infortuni Lavoratori (tasso massimo INAIL)',
-        'RC verso Terzi',
-        'Polizza Inquinamento Ambientale (D.Lgs. 152/2006)',
+        'Posizioni INAIL / tutela infortuni lavoratori da verificare per attività ad alto rischio',
+        'Responsabilità civile verso terzi da verificare',
+        'Responsabilità/inquinamento ambientale da verificare in base ad attività e autorizzazioni (D.Lgs. 152/2006)',
       ],
       polizze_raccomandate: [
         'Polizza All Risks Impianti Estrattivi',

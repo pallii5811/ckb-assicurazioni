@@ -27,17 +27,17 @@ export function classifyCompanySize(
       descrizione: `${dipendenti ? dipendenti + ' dipendenti' : ''}${dipendenti && fatturato ? ' · ' : ''}${fatturato ? '€' + formatNumber(fatturato) + ' fatturato' : ''}`,
       obblighi_extra: [
         'D.Lgs. 231/2001 — Modello 231 fortemente raccomandato, da verificare su governance e rischio-reato',
-        'D&O fortemente raccomandata per CdA e top management',
-        'Obbligo revisione legale bilancio',
-        'NIS2 — obblighi cybersecurity se settore essenziale',
+        'D&O da verificare su CdA, deleghe, garanzie personali e struttura di governance',
+        'Revisione legale bilancio da verificare su soglie, gruppo e struttura societaria',
+        'NIS2 — da verificare se settore e dimensioni rientrano nel perimetro applicabile',
         'CSRD / reporting ESG da verificare in base a soglie, gruppo e qualifica dell’impresa',
       ],
       opportunita_broker: [
-        'Programma assicurativo complesso — margine alto',
-        'Necessità risk manager dedicato',
+        'Programma assicurativo complesso da mappare su massimali, esclusioni e scadenze',
+        'Presidio risk management da verificare con organigramma, deleghe e processi',
         'Polizze multinazionali se opera all\'estero',
         'Programma Employee Benefits strutturato',
-        'Possibile gara broker annuale',
+        'Eventuale processo di selezione broker da verificare',
       ],
     }
   }
@@ -48,16 +48,16 @@ export function classifyCompanySize(
       label: 'Media Impresa',
       descrizione: `${dipendenti ? dipendenti + ' dipendenti' : ''}${dipendenti && fatturato ? ' · ' : ''}${fatturato ? '€' + formatNumber(fatturato) + ' fatturato' : ''}`,
       obblighi_extra: [
-        'D.Lgs. 231/2001 — Modello 231 fortemente raccomandato',
-        'D&O raccomandata per amministratori',
+        'D.Lgs. 231/2001 — Modello 231 da valutare su governance e rischio-reato',
+        'D&O da verificare per amministratori, deleghe e responsabilità gestionali',
         'DUVRI da verificare in caso di appalti/subappalti',
-        'GDPR — DPO consigliato',
+        'GDPR — DPO da verificare in base a trattamenti, scala e categorie di dati',
       ],
       opportunita_broker: [
         'Pacchetto assicurativo multi-ramo',
-        'Polizza Key Man per figure chiave',
+        'Key Person da verificare su figure realmente operative e sostituibilità',
         'Employee Benefits (sanità integrativa, previdenza)',
-        'Cyber insurance sempre più necessaria',
+        'Cyber insurance da qualificare su dati, backup, pagamenti e continuità digitale',
       ],
     }
   }
@@ -68,15 +68,15 @@ export function classifyCompanySize(
       label: 'Piccola Impresa',
       descrizione: `${dipendenti ? dipendenti + ' dipendenti' : ''}${dipendenti && fatturato ? ' · ' : ''}${fatturato ? '€' + formatNumber(fatturato) + ' fatturato' : ''}`,
       obblighi_extra: [
-        'DVR (Documento Valutazione Rischi) obbligatorio',
-        'Formazione sicurezza lavoratori obbligatoria',
-        'GDPR — registro trattamenti',
+        'DVR (Documento Valutazione Rischi) da verificare se presenti lavoratori',
+        'Formazione sicurezza lavoratori da verificare in base a mansioni e inquadramento',
+        'GDPR — registro trattamenti da verificare in base a dati e processi',
       ],
       opportunita_broker: [
         'Pacchetto PMI all-inclusive',
         'RC + Incendio + Furto combinata',
         'Polizza sanitaria collettiva dipendenti',
-        'Cyber risk in crescita per PMI',
+        'Cyber risk da verificare su dati, backup, pagamenti e continuità digitale',
       ],
     }
   }
@@ -86,13 +86,13 @@ export function classifyCompanySize(
     label: 'Micro Impresa',
     descrizione: `${dipendenti ? dipendenti + ' dipendenti' : 'Dati dimensionali non disponibili'}${dipendenti && fatturato ? ' · ' : ''}${fatturato ? '€' + formatNumber(fatturato) + ' fatturato' : ''}`,
     obblighi_extra: [
-      'DVR semplificato (art. 29 D.Lgs. 81/2008)',
-      'GDPR — informativa e consenso base',
+      'DVR/procedure sicurezza da verificare se presenti lavoratori',
+      'GDPR — informativa, basi giuridiche e consenso da verificare',
     ],
     opportunita_broker: [
       'Polizza multirischio artigiano/commerciante',
-      'RC Professionale singola',
-      'Polizza infortuni titolare',
+      'RC Professionale/E&O da verificare su attività, albo e contratti',
+      'Infortuni titolare/Key Person da verificare su ruolo operativo reale',
       'Protezione locale e attrezzature',
     ],
   }
@@ -188,7 +188,7 @@ export function estimateAnnualPremium(
       polizza: 'Cyber Risk',
       premio_min: cyberMin,
       premio_max: cyberMax,
-      note: isIT ? 'Settore IT — copertura essenziale' : 'Raccomandata per aziende strutturate',
+      note: isIT ? 'Settore IT — da qualificare su dati, SLA, backup e continuità digitale' : 'Da verificare per aziende strutturate',
     })
   }
 
@@ -247,7 +247,7 @@ export function analyzeInsuranceGaps(
   const fat = fatturato || 0
   const dip = dipendenti || 0
 
-  // 1. Società di capitali senza D&O
+  // 1. Società di capitali: D&O da verificare
   if (/SRL|SPA|SRLS/.test(fg)) {
     gaps.push({
       area: 'D&O Amministratori',
@@ -258,7 +258,7 @@ export function analyzeInsuranceGaps(
     score += fat > 2_000_000 ? 20 : 12
   }
 
-  // 2. Dipendenti senza welfare
+  // 2. Dipendenti: welfare da verificare
   if (dip >= 10) {
     gaps.push({
       area: 'Employee Benefits',
@@ -269,7 +269,7 @@ export function analyzeInsuranceGaps(
     score += dip >= 50 ? 18 : 10
   }
 
-  // 3. Zona sismica senza copertura specifica
+  // 3. Zona sismica: copertura specifica da verificare
   if (zonaSismica && zonaSismica <= 2) {
     gaps.push({
       area: 'Rischio Sismico',
@@ -285,13 +285,13 @@ export function analyzeInsuranceGaps(
     gaps.push({
       area: 'Rischio Alluvione',
       gravita: 'alto',
-      descrizione: 'Zona ad alto rischio idrogeologico: danni da acqua spesso esclusi dalle polizze base',
+      descrizione: 'Zona ad alto rischio idrogeologico: verificare se danni da acqua, allagamento ed eventi atmosferici sono inclusi o esclusi',
       azione: 'Verificare che la polizza property includa esplicitamente "eventi atmosferici" e "allagamento"',
     })
     score += 12
   }
 
-  // 5. Fatturato alto senza RC Prodotti
+  // 5. Fatturato alto: RC Prodotti da verificare
   if (fat >= 1_000_000 && /manifatt|produzion|aliment|industr|chimic/.test(cat)) {
     gaps.push({
       area: 'RC Prodotti',
@@ -302,7 +302,7 @@ export function analyzeInsuranceGaps(
     score += 18
   }
 
-  // 6. Settore edile senza polizza cantieri
+  // 6. Settore edile: polizza cantieri da verificare
   if (/costruzion|edili|edile|cantier|ristruttur/.test(cat)) {
     gaps.push({
       area: 'Polizza CAR/EAR',
@@ -313,12 +313,12 @@ export function analyzeInsuranceGaps(
     score += 15
   }
 
-  // 7. Settore sanitario senza RC medica
+  // 7. Settore sanitario: RC medica da verificare
   if (/medic|dentist|clinic|farmaci|veterinar/.test(cat)) {
     gaps.push({
       area: 'RC Sanitaria',
       gravita: 'critico',
-      descrizione: 'Legge Gelli-Bianco (L. 24/2017): obbligo di RC Sanitaria per strutture e professionisti',
+      descrizione: 'Legge Gelli-Bianco (L. 24/2017): verificare perimetro RC sanitaria per struttura, professionisti e attività effettiva',
       azione: 'Verificare RC Sanitaria/Malpractice, retroattività, postuma, massimali e tutela legale specializzata',
     })
     score += 20
@@ -335,13 +335,13 @@ export function analyzeInsuranceGaps(
     score += fat >= 2_000_000 ? 12 : 8
   }
 
-  // 9. Professionisti senza RC Professionale
+  // 9. Professionisti: RC Professionale da verificare
   if (/avvocat|commerciali|notai|architect|ingegner|consulen|studio/.test(cat)) {
     gaps.push({
       area: 'RC Professionale',
       gravita: 'critico',
-      descrizione: 'DPR 137/2012: obbligo di legge per tutti i professionisti iscritti ad albi',
-      azione: 'Verificare RC Professionale, massimale, retroattività, postuma, franchigie e attività effettivamente esercitate',
+      descrizione: 'DPR 137/2012: obbligo RC solo per professionisti iscritti ad albi/ordini o STP; per altre attività verificare E&O e responsabilità contrattuale',
+      azione: 'Verificare iscrizione ad albo/STP, RC Professionale/E&O, massimale, retroattività, postuma, franchigie e attività effettivamente esercitate',
     })
     score += 15
   }

@@ -46,6 +46,7 @@ interface ProspectionLead {
   stazioneAppaltante: string
   importoAggiudicato: number
   dataAggiudicazione?: string
+  dataFontePubblicazione?: string
   categoria: 'lavori' | 'servizi' | 'forniture' | 'unknown'
   cauzioneProvvisoriaStimata: number
   cauzioneDefinitivaStimata: number
@@ -89,19 +90,19 @@ interface Preset {
 const PRESETS: Preset[] = [
   {
     label: 'Costruzioni Piemonte > 500k€',
-    description: 'Imprese edili che vincono lavori pubblici grandi → cauzioni 10% + decennale obbligatoria',
+    description: 'Imprese edili con aggiudicazioni rilevanti → garanzie/cauzioni e postuma da verificare su capitolato',
     icon: Hammer,
     filters: { category: 'lavori', region: 'Piemonte', importoMin: 500_000, monthsBack: 12 },
   },
   {
     label: 'Servizi Lombardia > 100k€',
-    description: 'Pulizie / vigilanza / mensa scolastica → cauzioni provvisorie 2% + RC',
+    description: 'Pulizie / vigilanza / mensa scolastica → cauzioni, RCT/RCO e requisiti contrattuali da verificare',
     icon: Briefcase,
     filters: { category: 'servizi', region: 'Lombardia', importoMin: 100_000, monthsBack: 12 },
   },
   {
     label: 'Forniture Lazio > 250k€',
-    description: 'Forniture P.A. (arredi, dispositivi, attrezzature) → cauzioni + RC prodotti',
+    description: 'Forniture P.A. (arredi, dispositivi, attrezzature) → cauzioni e RC prodotti da qualificare',
     icon: Package,
     filters: { category: 'forniture', region: 'Lazio', importoMin: 250_000, monthsBack: 12 },
   },
@@ -227,7 +228,7 @@ export default function InsuranceProspezionePage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Insurance Prospezione</h1>
             <p className="text-sm text-muted-foreground">
-              Trova aziende che vincono gare pubbliche e hanno bisogno di cauzioni — fonti gratuite ANAC.
+              Trova possibili aggiudicatari pubblici e trigger assicurativi da verificare — fonti pubbliche.
             </p>
           </div>
         </div>
@@ -254,17 +255,17 @@ export default function InsuranceProspezionePage() {
               <span className="text-foreground">Scegli un preset</span> (one-click) oppure imposta filtri custom: categoria, regione/provincia, soglia importo, periodo.
             </li>
             <li>
-              <span className="text-foreground">Click su &quot;Cerca Lead&quot;</span> → interroghiamo ANAC, MEPA, Gazzetta Ufficiale (gratuito) tramite Tavily + GPT.
+              <span className="text-foreground">Click su &quot;Cerca Lead&quot;</span> → cerchiamo su fonti pubbliche come ANAC, MEPA e Gazzetta Ufficiale tramite Tavily + GPT.
             </li>
             <li>
-              <span className="text-foreground">Per ogni azienda aggiudicataria</span> calcoliamo cauzioni 2%/10%, decennale postuma (se lavori &gt;500k), e premio annuo ramo cauzioni.
+              <span className="text-foreground">Per ogni possibile aggiudicatario</span> calcoliamo benchmark cauzioni 2%/10%, eventuale postuma per lavori rilevanti e premio annuo indicativo ramo cauzioni.
             </li>
             <li>
-              <span className="text-foreground">Lead ordinati per priority score</span> 0&ndash;100 (importo + settore + completezza dati). Apri la fonte ANAC con l&apos;icona <ExternalLink className="inline w-3 h-3" />.
+              <span className="text-foreground">Lead ordinati per priority score</span> 0&ndash;95 (importo + settore + completezza dati). Apri la fonte pubblica con l&apos;icona <ExternalLink className="inline w-3 h-3" />.
             </li>
           </ol>
           <p className="text-xs text-muted-foreground pt-2 border-t border-border">
-            <strong className="text-foreground">Output tipico</strong>: 10-30 aziende/ricerca, 30-60 secondi. Costo: 1 query Tavily + 1 GPT-4o-mini per ricerca (~0.01€).
+            <strong className="text-foreground">Output atteso</strong>: variabile in base ai filtri, 30-60 secondi. Costo: query Tavily + GPT-4o-mini per ricerca.
           </p>
         </div>
       )}
@@ -465,7 +466,7 @@ export default function InsuranceProspezionePage() {
               {loading ? 'Ricerca in corso...' : 'Cerca Lead ANAC'}
             </Button>
             <span className="text-xs text-muted-foreground">
-              Fonti: <strong className="text-foreground">ANAC, MEPA, Gazzetta Ufficiale</strong> (tutte gratuite e pubbliche).
+              Fonti: <strong className="text-foreground">ANAC, MEPA, Gazzetta Ufficiale</strong> e altri indici pubblici, da verificare sulla fonte.
             </span>
           </div>
 
@@ -528,9 +529,9 @@ function ResultsView({ response }: { response: ProspectionResponse }) {
         <StatCard label="LEAD TROVATI" value={String(response.totalLeads)} accent="emerald" />
         <StatCard label="IMPORTO TOTALE" value={formatEUR(totalImporto)} accent="amber" />
         <StatCard
-          label="CAUZIONI DEFINITIVE"
+          label="BENCHMARK CAUZ. DEF."
           value={formatEUR(totalCauzionDef)}
-          subtitle="10% importi aggiudicati"
+          subtitle="benchmark 10%, da verificare su capitolato"
           accent="rose"
         />
         <StatCard
@@ -558,9 +559,9 @@ function ResultsView({ response }: { response: ProspectionResponse }) {
                 <th className="px-3 py-2 text-left font-semibold">Azienda</th>
                 <th className="px-3 py-2 text-left font-semibold">Settore</th>
                 <th className="px-3 py-2 text-right font-semibold">Importo</th>
-                <th className="px-3 py-2 text-right font-semibold">Cauz. Def. (10%)</th>
-                <th className="px-3 py-2 text-right font-semibold">Decennale</th>
-                <th className="px-3 py-2 text-right font-semibold">Premio/anno</th>
+                <th className="px-3 py-2 text-right font-semibold">Benchmark cauz. def.</th>
+                <th className="px-3 py-2 text-right font-semibold">Postuma da verificare</th>
+                <th className="px-3 py-2 text-right font-semibold">Benchmark premio/anno</th>
                 <th className="px-3 py-2 text-center font-semibold">Priorità</th>
                 <th className="px-3 py-2 text-center font-semibold">Fonte</th>
               </tr>
@@ -640,11 +641,11 @@ function LeadRow({ lead }: { lead: ProspectionLead }) {
         <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
           <MapPin className="w-3 h-3" />
           <span className="line-clamp-1">{lead.stazioneAppaltante}</span>
-          {lead.dataAggiudicazione && (
+          {(lead.dataAggiudicazione || lead.dataFontePubblicazione) && (
             <>
               <span>•</span>
               <Calendar className="w-3 h-3" />
-              <span>{lead.dataAggiudicazione}</span>
+              <span>{lead.dataAggiudicazione || `fonte ${lead.dataFontePubblicazione}`}</span>
             </>
           )}
         </div>
@@ -685,7 +686,7 @@ function LeadRow({ lead }: { lead: ProspectionLead }) {
             target="_blank"
             rel="noreferrer"
             className="text-muted-foreground hover:text-emerald-300 inline-flex"
-            title="Apri fonte ANAC"
+            title="Apri fonte pubblica"
           >
             <ExternalLink className="w-4 h-4" />
           </a>

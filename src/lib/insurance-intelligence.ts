@@ -123,6 +123,10 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   const annoCostituzione = profile.data_costituzione ? parseInt(profile.data_costituzione.substring(0, 4)) : null
   const anniAttivita = annoCostituzione ? new Date().getFullYear() - annoCostituzione : null
   const settore = getSettoreFromAteco(ateco)
+  const atecoDigits = ateco.replace(/\D/g, '')
+  const descLower = `${profile.descrizione_ateco || ''} ${nome} ${fg}`.toLowerCase()
+  const isICT = /^(62|63)/.test(atecoDigits) || /software|informat|ict|digitale|cloud|hosting|saas/.test(descLower)
+  const isRegulatedProfessionalContext = /avvocat|commercialist|consulent[ei]\s+del\s+lavoro|notai|notaio|architett|ingegner|geometr|perit[oi]|medic|dentist|veterinar|psicolog|farmac/.test(descLower)
 
   // ─── 1. OBBLIGHI DI LEGGE UNIVERSALI ───────────────────────────
 
@@ -207,14 +211,14 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   }
 
   // PROFESSIONISTI (69-74)
-  if (/^6[9]|^7[0-4]/.test(atecoPrefix2)) {
+  if (/^6[9]|^7[0-4]/.test(atecoPrefix2) && isRegulatedProfessionalContext) {
     obblighi.push({
-      polizza: 'RC Professionale',
-      tipo: 'obbligo_legge',
-      norma: 'DPR 137/2012, art. 5; L. 14/2012 (riforma professioni)',
-      descrizione: `Attività professionale (ATECO ${ateco}). L'RC Professionale è obbligatoria per legge per tutti i professionisti iscritti ad albi.`,
-      sanzione: 'Sanzione disciplinare dell\'Ordine + responsabilità patrimoniale illimitata',
-      azione_broker: 'Verificare: massimale adeguato al volume d\'affari, retroattività illimitata, clausola postuma almeno 5 anni.',
+      polizza: 'RC Professionale per attività ordinistiche — da verificare',
+      tipo: 'obbligo_settoriale',
+      norma: 'DPR 137/2012, art. 5 — applicabile se l’attività è svolta da professionisti iscritti ad albo/ordine',
+      descrizione: `ATECO ${ateco}: attività professionale/tecnica. L'obbligo RC va verificato solo se l'attività è svolta da professionisti iscritti ad albo o da una STP; per società non ordinistiche resta comunque tema E&O/RC contrattuale.`,
+      sanzione: 'Se presente attività ordinistica senza copertura conforme: possibile rilievo disciplinare e responsabilità patrimoniale; negli altri casi il rischio è contrattuale/civile da qualificare.',
+      azione_broker: 'Verificare iscrizione ad albo/STP, contratti, massimale, retroattività, postuma, danni patrimoniali puri, tutela legale ed esclusioni.',
     })
     fontiNormative.add('DPR 137/2012 — Riforma Professioni')
   }
@@ -291,11 +295,11 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
     const ccnl = getCCNLFromAteco(ateco)
     if (ccnl) {
       vulnerabilita.push({
-        titolo: `OBBLIGHI CCNL ${ccnl.nome}`,
+        titolo: `CCNL E FONDI DIPENDENTI — DA VERIFICARE`,
         gravita: 'alta',
-        fatto: `ATECO ${ateco} → probabile area CCNL ${ccnl.nome}. Gli istituti collegati da verificare sono: ${ccnl.obblighi_assicurativi.join(', ')}.`,
+        fatto: `ATECO ${ateco}: il codice attività non prova da solo il CCNL applicato. Area da verificare: ${ccnl.nome}. Checklist: ${ccnl.obblighi_assicurativi.join(', ')}.`,
         conseguenza: 'CCNL applicato, Cassa/Fondi, formazione e coperture integrative incidono su vertenze, ispezioni, costo lavoro e responsabilità del datore.',
-        soluzione: `Verificare quale CCNL è realmente applicato e se gli istituti collegati al ${ccnl.nome} sono attivi e conformi.`,
+        soluzione: `Verificare da cedolino/consulente del lavoro quale CCNL è realmente applicato e quali fondi, welfare, formazione e coperture integrative sono effettivamente dovuti.`,
         domanda_killer: `"Che CCNL applicate davvero ai dipendenti? Avete già verificato Cassa/Fondi, formazione e coperture integrative previste?"`,
       })
     }
@@ -304,12 +308,16 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   // Key Man risk per micro imprese
   if (dip <= 3 && profile.titolare) {
     vulnerabilita.push({
-      titolo: 'RISCHIO KEY MAN — CONCENTRAZIONE SU UNA PERSONA',
+      titolo: 'RISCHIO KEY PERSON — FIGURE OPERATIVE DA IDENTIFICARE',
       gravita: 'critica',
-      fatto: `${nome} ha ${dipLabel} dipendente/i. La struttura è molto concentrata su ${profile.titolare}.${fat > 0 ? ` Fatturato annuo rilevato: €${fmtNum(fat)}.` : ' Fatturato non disponibile: impatto economico da quantificare in call.'}`,
+      fatto: isDI
+        ? `${nome} ha ${dipLabel} dipendente/i e ${profile.titolare} risulta referente/titolare. Fatturato${fat > 0 ? ` annuo rilevato: €${fmtNum(fat)}.` : ' non disponibile: impatto economico da quantificare in call.'}`
+        : `${nome} ha ${dipLabel} dipendente/i: la struttura è micro. ${profile.titolare} risulta persona registrata nel profilo pubblico, ma il ruolo operativo non va presunto; vanno identificati in call soci, amministratori e figure tecniche/commerciali essenziali.${fat > 0 ? ` Fatturato annuo rilevato: €${fmtNum(fat)}.` : ''}`,
       conseguenza: fat > 0 ? `Fermo attività = mancata produzione + costi fissi che continuano. Benchmark operativo: circa €${fmtNum(Math.max(100, Math.round(fat / 220)))}/giorno lavorativo di fatturato esposto.` : 'Se la persona chiave non lavora, il broker deve quantificare in call giorni di autonomia, costi fissi e commesse in corso.',
       soluzione: 'Polizza Key Man/Infortuni: invalidità temporanea, permanente e caso morte. Massimale da tarare su fatturato reale, costi fissi e durata massima di fermo sostenibile.',
-      domanda_killer: `"${profile.titolare}, se lei domani non può più lavorare per 3 mesi, quanto perde l'azienda? Chi copre i costi fissi che continuano a correre?"`,
+      domanda_killer: isDI
+        ? `"${profile.titolare}, se lei domani non può più lavorare per 3 mesi, quanto perde l'azienda? Chi copre i costi fissi che continuano a correre?"`
+        : '"Chi tra soci, amministratori o tecnici presidia clienti, sviluppo/produzione e continuità operativa? Se quella persona si ferma 3 mesi, quanti giorni regge l’azienda?"',
     })
   }
 
@@ -375,10 +383,10 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   }
 
   // Cyber Risk per aziende con sito web
-  if (profile.sito && (dip >= 3 || fat >= 300_000)) {
+  if (profile.sito && (isICT || dip >= 3 || fat >= 300_000)) {
     opportunita.push({
       polizza: 'Polizza Cyber Risk',
-      motivo_specifico: `${nome} ha un sito web (${profile.sito})${dip > 0 ? ` e ${dipLabel} dipendenti con accesso a sistemi informatici` : ''}. Gestisce dati di clienti/fornitori soggetti a GDPR.`,
+      motivo_specifico: `${nome} ha un sito web (${profile.sito})${dip > 0 ? ` e ${dipLabel} dipendenti` : ''}${isICT ? ' e attività coerente con software/ICT' : ''}. Da verificare dati trattati, accessi, backup, email aziendali, responsabilità privacy e continuità digitale.`,
       valore_per_cliente: 'Può coprire costi di ripristino sistemi, gestione data breach, responsabilità privacy, ransomware e perdita di fatturato da fermo IT.',
       trigger_vendita: '"Se email, gestionale o sito restano fermi 3 giorni, quanto impatta su ordini, clienti e fatturazione? Avete backup e incident response formalizzati?"',
       premio_indicativo: `€${fmtNum(Math.max(500, Math.round(fat * 0.001)))} - €${fmtNum(Math.max(2000, Math.round(fat * 0.003)))} annui`,
@@ -390,10 +398,14 @@ export function generateInsuranceIntelligence(profile: CompanyProfile): Insuranc
   // Polizza Infortuni Titolare (per DI e micro)
   if (isDI || (dip <= 2 && profile.titolare)) {
     opportunita.push({
-      polizza: 'Polizza Infortuni Titolare / Key Man',
-      motivo_specifico: `${profile.titolare || 'Il titolare'} è la figura centrale dell'azienda.${isDI ? " Per una DI va verificata la posizione personale del titolare e l'eventuale differenza tra tutele obbligatorie e reddito reale." : ''} Se non lavora, continuità e liquidità vanno quantificate.`,
+      polizza: isDI ? 'Polizza Infortuni Titolare / Key Man' : 'Polizza Key Person / Infortuni figure operative',
+      motivo_specifico: isDI
+        ? `${profile.titolare || 'Il titolare'} risulta referente/titolare. Per una DI va verificata la posizione personale del titolare e l'eventuale differenza tra tutele obbligatorie e reddito reale. Se non lavora, continuità e liquidità vanno quantificate.`
+        : `La struttura è micro: vanno identificate in call le figure operative essenziali tra soci, amministratori, tecnici o referenti commerciali. Continuità e liquidità non vanno attribuite a una singola persona senza verifica.`,
       valore_per_cliente: fat > 0 ? `Può garantire liquidità durante il periodo di inabilità. Range diario da tarare sul fatturato: circa €${Math.max(50, Math.round(fat / 220 * 0.8))}-${Math.max(100, Math.round(fat / 220))}/giorno come base di discussione.` : 'Può garantire liquidità durante il periodo di inabilità. La diaria va costruita in call su reddito, costi fissi e autonomia finanziaria.',
-      trigger_vendita: `"${profile.titolare || 'Sig. Titolare'}, se si fa male e resta fermo due mesi, quale copertura mantiene reddito, costi fissi e continuità delle commesse?"`,
+      trigger_vendita: isDI
+        ? `"${profile.titolare || 'Sig. Titolare'}, se si fa male e resta fermo due mesi, quale copertura mantiene reddito, costi fissi e continuità delle commesse?"`
+        : '"Chi sono le 1-2 persone senza cui clienti, sviluppo/produzione o amministrazione si fermano? Quanto costa un fermo di 60 giorni?"',
       premio_indicativo: `€400-1.200/anno per massimale morte/IP €200.000 + ITT €80-150/giorno`,
       fonte_dato: 'Tariffario ANIA — Ramo Infortuni',
     })
@@ -502,44 +514,44 @@ function getCCNLFromAteco(ateco: string): CCNLInfo | null {
     ],
   }
   if (/^4[1-3]/.test(p2)) return {
-    nome: 'Edilizia (CCNL Edili Industria/Artigianato)',
+    nome: 'Edilizia — CCNL da verificare',
     obblighi_assicurativi: [
       'Iscrizione Cassa Edile da verificare in base a CCNL, attività effettiva e inquadramento',
       'Previdenza complementare PREVEDI da verificare',
       'Fondo sanitario SANEDIL da verificare per gli operai edili',
-      'Formazione 16h sicurezza obbligatoria prima dell\'impiego in cantiere',
+      'Formazione sicurezza/cantiere da verificare in base a mansioni, inquadramento e attività effettiva',
     ],
   }
   if (/^4[5-7]/.test(p2)) return {
-    nome: 'Commercio (CCNL Terziario Confcommercio)',
+    nome: 'Commercio/terziario — CCNL da verificare',
     obblighi_assicurativi: [
-      'Fondo Est — assistenza sanitaria integrativa obbligatoria (€10-15/mese per dipendente)',
-      'Fondo Fonte — previdenza complementare',
-      'QuAS — assistenza sanitaria quadri (se presenti quadri)',
+      'Eventuale Fondo Est o fondo sanitario collegato al CCNL realmente applicato',
+      'Eventuale previdenza complementare collegata al CCNL effettivo',
+      'Eventuali fondi/istituti per quadri o welfare da verificare se presenti',
     ],
   }
   if (/^1[0-2]/.test(p2)) return {
-    nome: 'Industria Alimentare',
+    nome: 'Industria alimentare — CCNL da verificare',
     obblighi_assicurativi: [
-      'FASA — Fondo Assistenza Sanitaria Alimentaristi',
-      'Alifond — previdenza complementare',
-      'Polizza Infortuni extra-professionale (alcuni CCNL)',
+      'Eventuale fondo sanitario collegato al CCNL realmente applicato',
+      'Eventuale previdenza complementare collegata al CCNL effettivo',
+      'Eventuali coperture extra-professionali previste solo da specifici contratti',
     ],
   }
   if (/^5[5-6]/.test(p2)) return {
-    nome: 'Turismo/Ristorazione (CCNL Turismo Confcommercio)',
+    nome: 'Turismo/ristorazione — CCNL da verificare',
     obblighi_assicurativi: [
-      'Fondo Est — assistenza sanitaria integrativa',
-      'FON.TE — previdenza complementare',
-      'Copertura infortuni extra-professionale per stagionali',
+      'Eventuale fondo sanitario collegato al CCNL realmente applicato',
+      'Eventuale previdenza complementare collegata al CCNL effettivo',
+      'Eventuali coperture integrative per stagionali da verificare sul contratto applicato',
     ],
   }
   if (/^6[2-3]/.test(p2)) return {
-    nome: 'Metalmeccanici (CCNL Metalmeccanico Federmeccanica)',
+    nome: 'Area ICT/servizi digitali — CCNL da verificare',
     obblighi_assicurativi: [
-      'MetaSalute — assistenza sanitaria integrativa obbligatoria (€13/mese)',
-      'COMETA — fondo previdenza complementare',
-      'Flexible Benefits €200/anno per dipendente',
+      'CCNL realmente applicato da verificare su cedolino/consulente del lavoro',
+      'Eventuali fondi sanitari, previdenza complementare e welfare collegati al CCNL effettivo',
+      'Inquadramenti, formazione e coperture integrative da verificare sul contratto applicato',
     ],
   }
   return null
@@ -573,10 +585,10 @@ function buildBrokerBriefing(
   // Punti forza — cose che il broker sa che impressionano il cliente
   const puntiForza: string[] = []
   if (profile.partita_iva) puntiForza.push(`P.IVA ${profile.partita_iva} — azienda verificata e attiva`)
-  if (profile.codice_ateco) puntiForza.push(`ATECO ${profile.codice_ateco}: ${profile.descrizione_ateco || settore.nome} — conosco i rischi specifici del suo settore`)
+  if (profile.codice_ateco) puntiForza.push(`ATECO ${profile.codice_ateco}: ${profile.descrizione_ateco || settore.nome} — posso preparare una checklist assicurativa settoriale da validare sui rischi reali`)
   if (fat > 0) puntiForza.push(`Fatturato €${fmtNum(fat)} — so dimensionare le coperture sul suo volume d'affari reale`)
-  if (dip > 0) puntiForza.push(`${dip} dipendenti — conosco gli obblighi del suo CCNL`)
-  if (profile.data_costituzione) puntiForza.push(`Attiva dal ${profile.data_costituzione} — ${profile.stato_attivita === 'ATTIVA' ? 'azienda solida' : 'verificare stato'}`)
+  if (dip > 0) puntiForza.push(`${dip} dipendenti — posso verificare CCNL applicato, fondi, welfare, RCO e sicurezza lavoro`)
+  if (profile.data_costituzione) puntiForza.push(`Attiva dal ${profile.data_costituzione} — ${profile.stato_attivita === 'ATTIVA' ? 'dato anagrafico utile per storicità e continuità' : 'verificare stato'}`)
   if (profile.certificazioni) puntiForza.push(`Certificazioni: ${profile.certificazioni} — indice di maturità gestionale`)
 
   // Domande chiave

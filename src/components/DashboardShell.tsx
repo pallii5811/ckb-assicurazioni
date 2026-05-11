@@ -306,6 +306,95 @@ function safeStr(v: any): string {
   return String(v)
 }
 
+type TitolareFiscalProfile = {
+  codiceFiscale: string
+  dataNascita: string
+  eta: number | null
+  sesso: 'M' | 'F' | null
+  codiceCatastaleNascita: string
+  recapitoAziendale: string
+}
+
+const CF_MONTHS: Record<string, number> = { A: 1, B: 2, C: 3, D: 4, E: 5, H: 6, L: 7, M: 8, P: 9, R: 10, S: 11, T: 12 }
+
+function normalizeFiscalCode(raw: any): string {
+  const cf = safeStr(raw).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const exact = cf.match(/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/)
+  if (exact) return exact[0]
+  return cf.match(/[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]/)?.[0] || ''
+}
+
+function parseItalianFiscalCode(raw: any): Omit<TitolareFiscalProfile, 'recapitoAziendale'> | null {
+  const cf = normalizeFiscalCode(raw)
+  if (!cf) return null
+  const yy = Number(cf.slice(6, 8))
+  const month = CF_MONTHS[cf.charAt(8)]
+  const dayRaw = Number(cf.slice(9, 11))
+  if (!Number.isFinite(yy) || !month || !Number.isFinite(dayRaw)) return null
+  const day = dayRaw > 40 ? dayRaw - 40 : dayRaw
+  if (day < 1 || day > 31) return null
+  const now = new Date()
+  const possibleYears = [1900 + yy, 2000 + yy]
+  const selectedYear = possibleYears.find((year) => {
+    let age = now.getFullYear() - year
+    if ((now.getMonth() + 1) < month || ((now.getMonth() + 1) === month && now.getDate() < day)) age -= 1
+    return age >= 16 && age <= 100
+  })
+  if (!selectedYear) return null
+  const date = new Date(selectedYear, month - 1, day)
+  if (date.getFullYear() !== selectedYear || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  let age = now.getFullYear() - selectedYear
+  if ((now.getMonth() + 1) < month || ((now.getMonth() + 1) === month && now.getDate() < day)) age -= 1
+  return {
+    codiceFiscale: cf,
+    dataNascita: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${selectedYear}`,
+    eta: age,
+    sesso: dayRaw > 40 ? 'F' : 'M',
+    codiceCatastaleNascita: cf.slice(11, 15),
+  }
+}
+
+function firstValue(obj: any, keys: string[]): string {
+  for (const key of keys) {
+    const value = safeStr(obj?.[key]).trim()
+    if (value && !/^(null|undefined|n\/d|n\/a|none|0)$/i.test(value)) return value
+  }
+  return ''
+}
+
+function firstNumber(obj: any, keys: string[]): number | null {
+  for (const key of keys) {
+    const raw = obj?.[key]
+    const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[^\d]/g, ''))
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return null
+}
+
+function normalizeSex(raw: any): 'M' | 'F' | null {
+  const s = safeStr(raw).toUpperCase().trim()
+  if (s === 'M' || /MASCH|UOMO/.test(s)) return 'M'
+  if (s === 'F' || /FEMM|DONNA/.test(s)) return 'F'
+  return null
+}
+
+function buildTitolareFiscalProfile(obj: any): TitolareFiscalProfile | null {
+  if (!obj) return null
+  const directCf = firstValue(obj, ['codice_fiscale_titolare', 'cf_titolare', 'titolare_cf'])
+  const companyCf = firstValue(obj, ['codice_fiscale'])
+  const cf = normalizeFiscalCode(directCf) || normalizeFiscalCode(companyCf)
+  if (!cf) return null
+  const parsed = parseItalianFiscalCode(cf)
+  return {
+    codiceFiscale: cf,
+    dataNascita: firstValue(obj, ['titolare_data_nascita', 'data_nascita_titolare']) || parsed?.dataNascita || '',
+    eta: firstNumber(obj, ['titolare_eta', 'eta_titolare']) ?? parsed?.eta ?? null,
+    sesso: normalizeSex(firstValue(obj, ['titolare_sesso', 'sesso_titolare'])) || parsed?.sesso || null,
+    codiceCatastaleNascita: firstValue(obj, ['codice_catastale_nascita_titolare']) || parsed?.codiceCatastaleNascita || '',
+    recapitoAziendale: firstValue(obj, ['sede_legale', 'indirizzo', 'address']),
+  }
+}
+
 /**
  * Verifica se un numero è un CELLULARE italiano valido (per badge WhatsApp).
  *
@@ -463,6 +552,7 @@ export default function DashboardShell() {
   const [companySearchLoading, setCompanySearchLoading] = useState(false)
   const [companySearchResult, setCompanySearchResult] = useState<any>(null)
   const [companySearchError, setCompanySearchError] = useState<string | null>(null)
+  const companyTitolareFiscalProfile = useMemo(() => buildTitolareFiscalProfile(companySearchResult), [companySearchResult])
   const [personSearchQuery, setPersonSearchQuery] = useState('')
   const [personSearchLoading, setPersonSearchLoading] = useState(false)
   const [personSearchResult, setPersonSearchResult] = useState<any>(null)
@@ -2713,9 +2803,22 @@ export default function DashboardShell() {
                        Backend restituisce array `tutte_email` con tipo (personal/generic). Fallback a singolo `email` per retro-compat. */}
                   {(() => {
                     const tutte = (companySearchResult as any).tutte_email as Array<{ email: string; tipo: string; pagina: string }> | undefined
-                    const emails = tutte && tutte.length > 0
+                    const blockedEmailDomains = new Set([
+                      'visura.pro', 'ufficiocamerale.it', 'registroaziende.it', 'companyreports.it', 'fatturatoitalia.it',
+                      'reteimprese.it', 'paginegialle.it', 'paginebianche.it', 'misterimprese.it', 'italiaonline.it',
+                      'actaliscertymail.it', 'arubapec.it', 'legalmail.it', 'pec.it', 'pecimprese.it', 'postecert.it',
+                      'sicurezzapostale.it', 'registerpec.it', 'mypec.eu', 'cert.legalmail.it', 'infocert.it', 'namirial.it',
+                      'casellapec.com', 'casellapec.it', 'pec.aruba.it', 'open.legalmail.it', 'pec.cciaa.it',
+                    ])
+                    const isBlockedEmail = (email: string) => {
+                      const domain = email.toLowerCase().split('@')[1]?.replace(/^www\./, '')
+                      if (!domain) return true
+                      return blockedEmailDomains.has(domain) || Array.from(blockedEmailDomains).some(d => domain.endsWith(`.${d}`))
+                    }
+                    const emailsRaw = tutte && tutte.length > 0
                       ? tutte
                       : (companySearchResult.email ? [{ email: companySearchResult.email, tipo: 'personal', pagina: '/' }] : [])
+                    const emails = emailsRaw.filter(e => e?.email && !isBlockedEmail(e.email))
                     if (emails.length === 0) return null
                     return (
                       <div className={`bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-3.5 border border-blue-100/50 ${emails.length > 1 ? 'col-span-2' : ''}`}>
@@ -2812,12 +2915,42 @@ export default function DashboardShell() {
                       <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{companySearchResult.ruolo_titolare || 'Titolare / Amministratore'}</p>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-bold text-slate-800">{companySearchResult.titolare}</p>
+                        {companyTitolareFiscalProfile?.eta !== null && companyTitolareFiscalProfile?.eta !== undefined && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 text-indigo-700 border border-indigo-100">
+                            {companyTitolareFiscalProfile.eta} anni{companyTitolareFiscalProfile.sesso === 'F' ? ' · Donna' : companyTitolareFiscalProfile.sesso === 'M' ? ' · Uomo' : ''}
+                          </span>
+                        )}
                         {companySearchResult.linkedin_titolare && (
                           <a href={companySearchResult.linkedin_titolare} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800">
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
                           </a>
                         )}
                       </div>
+                      {companyTitolareFiscalProfile && (
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {companyTitolareFiscalProfile.dataNascita && (
+                            <div className="bg-white/70 rounded-lg p-2 border border-indigo-100">
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase">Data nascita</p>
+                              <p className="text-xs font-bold text-slate-800">{companyTitolareFiscalProfile.dataNascita}</p>
+                            </div>
+                          )}
+                          <div className="bg-white/70 rounded-lg p-2 border border-indigo-100">
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase">Fonte</p>
+                            <p className="text-xs font-bold text-slate-800">Codice fiscale</p>
+                          </div>
+                          <div className="bg-white/70 rounded-lg p-2 border border-indigo-100">
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase">Valore broker</p>
+                            <p className="text-xs font-bold text-slate-800">Vita / Infortuni / Key Person</p>
+                          </div>
+                          <div className="col-span-2 md:col-span-4 bg-white/70 rounded-lg p-2 border border-indigo-100">
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase">C.F. titolare</p>
+                            <p className="text-xs font-mono font-bold text-slate-800 break-all">{companyTitolareFiscalProfile.codiceFiscale}</p>
+                            {companyTitolareFiscalProfile.recapitoAziendale && (
+                              <p className="text-[10px] text-slate-500 mt-1">Recapito aziendale/sede: {companyTitolareFiscalProfile.recapitoAziendale}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {companySearchResult.anno_fondazione && (
@@ -3144,22 +3277,43 @@ export default function DashboardShell() {
                     </h4>
                   </div>
                   <div className="p-5 space-y-2.5">
-                    {companySearchResult.persone.map((p: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100/60 rounded-xl p-3.5 transition-all hover:shadow-md">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                            {(p.nome || '??').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                    {companySearchResult.persone.map((p: any, i: number) => {
+                      const pCf = normalizeFiscalCode(p.codice_fiscale || p.cf || p.codiceFiscale)
+                      const pFiscal = parseItalianFiscalCode(pCf)
+                      const pAge = firstNumber(p, ['eta']) ?? pFiscal?.eta ?? null
+                      const pSex = normalizeSex(p.sesso) || pFiscal?.sesso || null
+                      const pBirthDate = safeStr(p.data_nascita || pFiscal?.dataNascita).trim()
+                      return (
+                        <div key={i} className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100/60 rounded-xl p-3.5 transition-all hover:shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                              {(p.nome || '??').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{p.nome}</p>
+                              <p className="text-[10px] text-slate-500">{p.ruolo}{pCf ? ` · CF: ${pCf}` : ''}</p>
+                              {(pAge !== null || pBirthDate || pSex) && (
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  {pAge !== null && (
+                                    <span className="text-[9px] bg-white/80 text-purple-700 border border-purple-100 px-1.5 py-0.5 rounded font-bold">
+                                      {pAge} anni{pSex === 'F' ? ' · Donna' : pSex === 'M' ? ' · Uomo' : ''}
+                                    </span>
+                                  )}
+                                  {pBirthDate && (
+                                    <span className="text-[9px] bg-white/80 text-slate-600 border border-purple-100 px-1.5 py-0.5 rounded">
+                                      nato/a {pBirthDate}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-900">{p.nome}</p>
-                            <p className="text-[10px] text-slate-500">{p.ruolo}{p.cf ? ` · CF: ${p.cf}` : ''}</p>
-                          </div>
+                          {p.quota && (
+                            <span className="text-xs font-bold bg-gradient-to-r from-purple-500 to-violet-500 text-white px-3 py-1 rounded-full shadow-sm">{p.quota}</span>
+                          )}
                         </div>
-                        {p.quota && (
-                          <span className="text-xs font-bold bg-gradient-to-r from-purple-500 to-violet-500 text-white px-3 py-1 rounded-full shadow-sm">{p.quota}</span>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}

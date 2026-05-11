@@ -19,8 +19,8 @@ export default function UseCasesSection() {
             </h2>
             <p className="mt-4 text-lg text-slate-700">
               CKB analizza il profilo di rischio dei tuoi
-              prospect in tempo reale. Trovi i gap assicurativi prima ancora
-              di presentarti.
+              prospect in tempo reale. Trovi le aree assicurative da verificare
+              prima ancora di presentarti.
             </p>
           </div>
 
@@ -43,15 +43,15 @@ export default function UseCasesSection() {
               </div>
               <div>
                 <div className="text-lg font-bold text-white">Gap Analysis Assicurativa</div>
-                <div className="text-sm text-slate-300">Coperture mancanti in tempo reale</div>
+                <div className="text-sm text-slate-300">Aree assicurative da verificare in tempo reale</div>
               </div>
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
-              CKB analizza ATECO, fatturato, dipendenti, rischio territoriale e coperture.
-              Sai cosa proporre e perché ne hanno bisogno, prima ancora della chiamata.
+              CKB analizza ATECO, fatturato, dipendenti e rischio territoriale.
+              Sai quali aree verificare e quali domande fare prima della chiamata.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
-              {['NO RC PRODOTTI', 'NO D&O', 'NO CYBER RISK', 'NO INFORTUNI'].map((t) => (
+              {['RC PRODOTTI', 'D&O', 'CYBER RISK', 'INFORTUNI'].map((t) => (
                 <div key={t} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-mono text-slate-200">
                   {t}
                 </div>
@@ -87,7 +87,7 @@ export default function UseCasesSection() {
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
               Mappa il rischio per zona: alluvioni, terremoti, grandine, furti.
-              Le aziende nelle aree più esposte sono le più facili da chiudere.
+              Le aziende nelle aree più esposte hanno verifiche property più urgenti da qualificare.
             </p>
           </div>
 
@@ -102,7 +102,7 @@ export default function UseCasesSection() {
               </div>
             </div>
             <p className="mt-5 text-slate-200 leading-relaxed">
-              Una proposta scritta su misura per ogni prospect, basata sui gap assicurativi reali.
+              Una proposta scritta su misura per ogni prospect, basata su dati reali e aree da verificare.
               Oggetto, corpo, CTA. Sei pronto prima ancora di alzare il telefono.
             </p>
           </div>

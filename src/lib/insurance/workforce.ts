@@ -63,15 +63,15 @@ const CCNL_BY_SECTOR: Record<string, CCNLEntry[]> = {
     riskCategory: 'high',
   }],
   'C': [{
-    code: 'CCNL Metalmeccanici Industria',
-    name: 'CCNL Metalmeccanici Industria (Federmeccanica)',
-    signatories: ['Federmeccanica', 'FIM-CISL', 'FIOM-CGIL', 'UILM-UIL'],
+    code: 'Area manifatturiera — CCNL da verificare',
+    name: 'Contratto effettivo da verificare su attività prevalente e inquadramento',
+    signatories: [],
     riskCategory: 'high',
-    notes: 'CCNL più diffuso del settore manifatturiero',
+    notes: 'Applicazione contrattuale da verificare con consulente del lavoro',
   }, {
-    code: 'CCNL Metalmeccanici PMI',
-    name: 'CCNL Metalmeccanici PMI (Confapi)',
-    signatories: ['Confapi'],
+    code: 'Area manifatturiera PMI — CCNL da verificare',
+    name: 'Contratto effettivo da verificare su dimensione, attività e associazione datoriale',
+    signatories: [],
     riskCategory: 'high',
   }],
   'D': [{
@@ -187,11 +187,17 @@ const CCNL_BY_SECTOR: Record<string, CCNLEntry[]> = {
 /** Restituisce i CCNL probabili per un dato ATECO. */
 export function getCCNLBySector(atecoCode?: string | null): CCNLEntry[] {
   const letter = atecoToLetter(atecoCode)
-  return CCNL_BY_SECTOR[letter] || [{
-    code: 'CCNL Generico',
-    name: 'CCNL non identificato dal settore',
+  const sectorEntries = CCNL_BY_SECTOR[letter] || []
+  const riskCategory: CCNLEntry['riskCategory'] = sectorEntries.some(entry => entry.riskCategory === 'high')
+    ? 'high'
+    : sectorEntries.some(entry => entry.riskCategory === 'medium')
+      ? 'medium'
+      : 'low'
+  return [{
+    code: `${letter ? `Area ATECO ${letter}` : 'Area non identificata'} — CCNL da verificare`,
+    name: 'CCNL effettivamente applicato da verificare su cedolino, consulente del lavoro e contratto aziendale',
     signatories: [],
-    riskCategory: 'medium',
+    riskCategory,
   }]
 }
 

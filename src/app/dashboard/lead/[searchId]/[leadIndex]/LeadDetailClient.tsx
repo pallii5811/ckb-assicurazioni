@@ -90,6 +90,96 @@ function safeStr(v: unknown): string {
   return String(v)
 }
 
+type TitolareFiscalProfile = {
+  codiceFiscale: string
+  dataNascita: string
+  eta: number | null
+  sesso: 'M' | 'F' | null
+  codiceCatastaleNascita: string
+  recapitoAziendale: string
+}
+
+const CF_MONTHS: Record<string, number> = { A: 1, B: 2, C: 3, D: 4, E: 5, H: 6, L: 7, M: 8, P: 9, R: 10, S: 11, T: 12 }
+
+function normalizeFiscalCode(raw: unknown): string {
+  const cf = safeStr(raw).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const exact = cf.match(/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/)
+  if (exact) return exact[0]
+  return cf.match(/[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]/)?.[0] || ''
+}
+
+function parseItalianFiscalCode(raw: unknown): Omit<TitolareFiscalProfile, 'recapitoAziendale'> | null {
+  const cf = normalizeFiscalCode(raw)
+  if (!cf) return null
+  const yy = Number(cf.slice(6, 8))
+  const month = CF_MONTHS[cf.charAt(8)]
+  const dayRaw = Number(cf.slice(9, 11))
+  if (!Number.isFinite(yy) || !month || !Number.isFinite(dayRaw)) return null
+  const day = dayRaw > 40 ? dayRaw - 40 : dayRaw
+  if (day < 1 || day > 31) return null
+  const now = new Date()
+  const possibleYears = [1900 + yy, 2000 + yy]
+  const selectedYear = possibleYears.find((year) => {
+    let age = now.getFullYear() - year
+    if ((now.getMonth() + 1) < month || ((now.getMonth() + 1) === month && now.getDate() < day)) age -= 1
+    return age >= 16 && age <= 100
+  })
+  if (!selectedYear) return null
+  const date = new Date(selectedYear, month - 1, day)
+  if (date.getFullYear() !== selectedYear || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  let age = now.getFullYear() - selectedYear
+  if ((now.getMonth() + 1) < month || ((now.getMonth() + 1) === month && now.getDate() < day)) age -= 1
+  return {
+    codiceFiscale: cf,
+    dataNascita: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${selectedYear}`,
+    eta: age,
+    sesso: dayRaw > 40 ? 'F' : 'M',
+    codiceCatastaleNascita: cf.slice(11, 15),
+  }
+}
+
+function firstRegistryString(registry: any, keys: string[]): string {
+  for (const key of keys) {
+    const value = safeStr(registry?.[key]).trim()
+    if (value && !/^(null|undefined|n\/d|n\/a|none|0)$/i.test(value)) return value
+  }
+  return ''
+}
+
+function firstRegistryNumber(registry: any, keys: string[]): number | null {
+  for (const key of keys) {
+    const raw = registry?.[key]
+    const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[^\d]/g, ''))
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return null
+}
+
+function normalizeSex(raw: unknown): 'M' | 'F' | null {
+  const s = safeStr(raw).toUpperCase().trim()
+  if (s === 'M' || /MASCH|UOMO/.test(s)) return 'M'
+  if (s === 'F' || /FEMM|DONNA/.test(s)) return 'F'
+  return null
+}
+
+function buildTitolareFiscalProfile(registry: any, fallbackAddress: string): TitolareFiscalProfile | null {
+  if (!registry) return null
+  const directCf = firstRegistryString(registry, ['codice_fiscale_titolare', 'cf_titolare', 'titolare_cf'])
+  const companyCf = firstRegistryString(registry, ['codice_fiscale'])
+  const cf = normalizeFiscalCode(directCf) || normalizeFiscalCode(companyCf)
+  if (!cf) return null
+  const parsed = parseItalianFiscalCode(cf)
+  const recapitoAziendale = firstRegistryString(registry, ['sede_legale', 'indirizzo', 'address']) || fallbackAddress
+  return {
+    codiceFiscale: cf,
+    dataNascita: firstRegistryString(registry, ['titolare_data_nascita', 'data_nascita_titolare']) || parsed?.dataNascita || '',
+    eta: firstRegistryNumber(registry, ['titolare_eta', 'eta_titolare']) ?? parsed?.eta ?? null,
+    sesso: normalizeSex(firstRegistryString(registry, ['titolare_sesso', 'sesso_titolare'])) || parsed?.sesso || null,
+    codiceCatastaleNascita: firstRegistryString(registry, ['codice_catastale_nascita_titolare']) || parsed?.codiceCatastaleNascita || '',
+    recapitoAziendale,
+  }
+}
+
 function toHref(raw: string): string {
   const s = raw.trim()
   if (!s) return ''
@@ -266,6 +356,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
   const [loadingTriggers, setLoadingTriggers] = useState(false)
   const [peopleData, setPeopleData] = useState<any>(null)
   const [loadingPeople, setLoadingPeople] = useState(false)
+  const titolareFiscalProfile = useMemo(() => buildTitolareFiscalProfile(registry, indirizzo), [registry, indirizzo])
 
   const [monitorStatus, setMonitorStatus] = useState<'idle' | 'saving' | 'monitored' | 'error'>('idle')
   const [monitorError, setMonitorError] = useState<string | null>(null)
@@ -465,9 +556,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
       body += `Mi occupo di consulenza assicurativa per imprese.\n\n`
     }
     if (gapTop) {
-      body += `Dalla nostra analisi preliminare, emerge che un'area critica per la vostra realtà è: ${gapTop}. Spesso le coperture standard non coprono adeguatamente questo rischio.\n\n`
+      body += `Dalla nostra analisi preliminare, emerge un'area da verificare per la vostra realtà: ${gapTop}. Può essere utile confrontarla con coperture attive, massimali, esclusioni e scadenze.\n\n`
     } else {
-      body += `Ho analizzato il vostro settore: emergono alcuni rischi specifici che spesso non sono adeguatamente coperti.\n\n`
+      body += `Ho analizzato il vostro settore: emergono alcuni temi assicurativi da verificare rispetto alle coperture effettivamente attive.\n\n`
     }
     if (polizzaPrincipale) {
       body += `Posso inviarvi un'analisi gratuita focalizzata su ${polizzaPrincipale} con 3 raccomandazioni prioritarie?\n\n`
@@ -864,7 +955,7 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
               </span>
             )}
             {registry.obblighi_assicurativi?.polizze_obbligatorie?.slice(0, 2).map((p: string, i: number) => (
-              <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200">
+              <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
                 {typeof p === 'string' ? (p.length > 40 ? p.slice(0, 37) + '...' : p) : safeStr(p)}
               </span>
             ))}
@@ -936,16 +1027,30 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                         {refRole && <p className="text-sm text-slate-500">{refRole}</p>}
                       </div>
                     </div>
-                    {registry?.titolare_eta && (
-                      <span className="inline-block text-sm font-semibold px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200">
-                        {safeStr(registry.titolare_eta)} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
-                      </span>
-                    )}
-                    {registry?.codice_fiscale_titolare && (
-                      <div className="text-xs font-mono text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-                        C.F. {safeStr(registry.codice_fiscale_titolare)}
-                        {registry.titolare_data_nascita && (
-                          <span className="ml-1.5 font-sans">· nato/a {registry.titolare_data_nascita}</span>
+                    {titolareFiscalProfile && (
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Età / sesso</p>
+                          <p className="font-bold text-slate-800">
+                            {titolareFiscalProfile.eta !== null ? `${titolareFiscalProfile.eta} anni` : '—'}
+                            {titolareFiscalProfile.sesso === 'F' ? ' · Donna' : titolareFiscalProfile.sesso === 'M' ? ' · Uomo' : ''}
+                          </p>
+                        </div>
+                        {titolareFiscalProfile.dataNascita && (
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Data nascita</p>
+                            <p className="font-bold text-slate-800">{titolareFiscalProfile.dataNascita}</p>
+                          </div>
+                        )}
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 col-span-2">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Codice fiscale</p>
+                          <p className="font-mono font-bold text-slate-800 break-all">{titolareFiscalProfile.codiceFiscale}</p>
+                        </div>
+                        {titolareFiscalProfile.recapitoAziendale && (
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 col-span-2">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Recapito aziendale verificato</p>
+                            <p className="font-medium text-slate-700">{titolareFiscalProfile.recapitoAziendale}</p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1168,8 +1273,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
 
           {/* Person cards */}
           <div className="space-y-3">
-            {peopleData.persone.map((p: any, i: number) => (
-              <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            {peopleData.persone.map((p: any, i: number) => {
+              const pCf = normalizeFiscalCode(p.codice_fiscale || p.cf || p.codiceFiscale)
+              const pFiscal = parseItalianFiscalCode(pCf)
+              const pAge = firstRegistryNumber(p, ['eta']) ?? pFiscal?.eta ?? null
+              const pSex = normalizeSex(p.sesso) || pFiscal?.sesso || null
+              const pBirthDate = safeStr(p.data_nascita || pFiscal?.dataNascita).trim()
+              return (
+                <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     {p.foto_url ? (
@@ -1189,9 +1300,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     <div>
                       <p className="text-sm font-bold text-slate-900">
                         {p.confidenza <= 10 ? p.ruolo : p.nome}
-                        {p.eta && (
+                        {pAge !== null && (
                           <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                            {p.eta} anni{p.sesso === 'F' ? ' · Donna' : p.sesso === 'M' ? ' · Uomo' : ''}
+                            {pAge} anni{pSex === 'F' ? ' · Donna' : pSex === 'M' ? ' · Uomo' : ''}
                           </span>
                         )}
                         {p.confidenza > 0 && (
@@ -1214,14 +1325,14 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                         ) : (
                           <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.fonte}</span>
                         )}
-                        {p.codice_fiscale && (
+                        {pCf && (
                           <span className="text-[9px] font-mono text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">
-                            C.F. {p.codice_fiscale}
+                            C.F. {pCf}
                           </span>
                         )}
-                        {p.data_nascita && !p.codice_fiscale && (
+                        {pBirthDate && !pCf && (
                           <span className="text-[9px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
-                            nato/a {p.data_nascita}
+                            nato/a {pBirthDate}
                           </span>
                         )}
                       </div>
@@ -1284,8 +1395,9 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                     titolare). L'intelligence reale sul titolare è ora calcolata
                     da CF + bilanci nei blocchi Titolare Intelligence, Risk
                     Concentration e Trigger Alerts della Broker Intelligence. */}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
 
           {/* Disclaimer accuratezza */}
@@ -1363,12 +1475,30 @@ export default function LeadDetailClient({ lead: leadProp, searchId, leadIndex, 
                   </p>
                   <p className="text-sm font-bold text-slate-900">
                     {safeStr(registry.titolare)}
-                    {registry.titolare_eta ? (
+                    {titolareFiscalProfile?.eta !== null && titolareFiscalProfile?.eta !== undefined ? (
                       <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        {safeStr(registry.titolare_eta)} anni{registry.titolare_sesso === 'F' ? ' · Donna' : registry.titolare_sesso === 'M' ? ' · Uomo' : ''}
+                        {titolareFiscalProfile.eta} anni{titolareFiscalProfile.sesso === 'F' ? ' · Donna' : titolareFiscalProfile.sesso === 'M' ? ' · Uomo' : ''}
                       </span>
                     ) : null}
                   </p>
+                  {titolareFiscalProfile && (
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {titolareFiscalProfile.dataNascita && (
+                        <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Data nascita</p>
+                          <p className="text-xs font-bold text-slate-800">{titolareFiscalProfile.dataNascita}</p>
+                        </div>
+                      )}
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Fonte dato</p>
+                        <p className="text-xs font-bold text-slate-800">Codice fiscale</p>
+                      </div>
+                      <div className="sm:col-span-3 rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2">
+                        <p className="text-[10px] font-bold text-indigo-500 uppercase">C.F. titolare</p>
+                        <p className="text-xs font-mono font-bold text-slate-800 break-all">{titolareFiscalProfile.codiceFiscale}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {registry.partita_iva && (

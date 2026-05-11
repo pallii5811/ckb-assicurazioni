@@ -8,7 +8,7 @@ const steps = [
   {
     number: '01',
     title: 'Descrivi il tuo target in italiano',
-    description: "Scrivi quello che cerchi come lo diresti a un collega. \"Aziende metalmeccaniche Lombardia senza RC prodotti\" — il nostro motore NLP capisce settore, territorio e gap assicurativi.",
+    description: "Scrivi quello che cerchi come lo diresti a un collega. \"Aziende metalmeccaniche Lombardia verifica RC prodotti\" — il nostro motore NLP capisce settore, territorio e aree assicurative.",
     tag: 'Natural Language AI',
     icon: Search,
     gradient: 'from-indigo-500 to-violet-500',
@@ -20,7 +20,7 @@ const steps = [
           <div className="flex items-center gap-2 mb-3">
             <Search size={14} className="text-slate-400" />
             <div className="text-sm text-slate-800 font-['DM_Sans']">
-              <span className="font-semibold">metalmeccaniche Lombardia senza RC</span>
+              <span className="font-semibold">metalmeccaniche Lombardia verifica RC</span>
               <span className="animate-pulse text-indigo-500 ml-0.5">|</span>
             </div>
           </div>
@@ -28,14 +28,14 @@ const steps = [
             {[
               { label: 'Metalmeccanica', color: 'bg-indigo-100 text-indigo-700' },
               { label: 'Lombardia', color: 'bg-blue-100 text-blue-700' },
-              { label: 'No RC Prodotti', color: 'bg-red-100 text-red-700' },
+              { label: 'RC Prodotti', color: 'bg-red-100 text-red-700' },
             ].map(c => (
               <span key={c.label} className={`${c.color} text-[10px] font-bold px-2.5 py-1 rounded-full font-['DM_Sans']`}>{c.label}</span>
             ))}
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {['127 aziende trovate', 'Rischio medio: 72', '34 gap critici'].map((t, i) => (
+          {['127 aziende trovate', 'Priorità: 72', '34 verifiche critiche'].map((t, i) => (
             <div key={t} className="bg-white/80 rounded-lg border border-slate-100 px-3 py-2.5 text-center">
               <div className="text-sm font-bold text-slate-800 font-['Syne']">{t.split(':')[0].split(' ')[0]}</div>
               <div className="text-[10px] text-slate-400 font-['DM_Sans']">{t.includes(':') ? t.split(':')[1].trim() : t.split(' ').slice(1).join(' ')}</div>
@@ -47,8 +47,8 @@ const steps = [
   },
   {
     number: '02',
-    title: "L'AI analizza rischio e gap assicurativi",
-    description: "In tempo reale analizziamo ATECO, fatturato, dipendenti, territorio, forma giuridica e coperture mancanti. Ogni azienda riceve un risk score 0-100 e la lista dei gap.",
+    title: "L'AI analizza rischio e aree da verificare",
+    description: "In tempo reale analizziamo ATECO, fatturato, dipendenti, territorio, forma giuridica e aree assicurative da verificare. Ogni azienda riceve priorità consulenziale e checklist di domande.",
     tag: 'Risk Analysis AI',
     icon: Radar,
     gradient: 'from-cyan-500 to-blue-500',
@@ -78,7 +78,7 @@ const steps = [
             ) : (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-['DM_Sans'] ${
                 item.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-              }`}>{item.ok ? '✓ OK' : '✗ ASSENTE'}</span>
+              }`}>{item.ok ? '✓ VERIFICATO' : 'DA VERIFICARE'}</span>
             )}
           </div>
         ))}
@@ -88,7 +88,7 @@ const steps = [
   {
     number: '03',
     title: 'Chiama con la proposta già pronta.',
-    description: "Hai il cellulare del titolare, la PEC, e un pitch AI personalizzato sui gap assicurativi reali dell'azienda. Sai esattamente cosa proporre prima di alzare il telefono.",
+    description: "Hai il cellulare del titolare, la PEC, e un pitch AI personalizzato sulle aree assicurative da verificare. Sai quali domande fare prima di alzare il telefono.",
     tag: 'AI Pitch + Contatti',
     icon: Sparkles,
     gradient: 'from-emerald-500 to-teal-500',
@@ -127,7 +127,7 @@ const steps = [
             <span className="text-[10px] font-bold text-slate-600 font-['DM_Sans']">PITCH AI</span>
           </div>
           <div className="text-xs text-slate-600 font-['DM_Sans'] leading-relaxed italic">
-            &quot;Buongiorno Dott. Bianchi, dalla nostra analisi emerge che Tecnofer non ha una polizza D&O né copertura Cyber Risk — con 45 dipendenti e €3.2M di fatturato il rischio è significativo...&quot;
+            &quot;Buongiorno Dott. Bianchi, D&O e Cyber Risk risultano aree da verificare — con 45 dipendenti e €3.2M di fatturato conviene controllare massimali, esclusioni e scadenze...&quot;
           </div>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function HowItWorks() {
           </h2>
           <p className="text-lg text-slate-500 font-['DM_Sans'] max-w-xl mx-auto leading-relaxed">
             Dal target al pitch in meno di due minuti.
-            Mentre i competitor chiamano a freddo, tu chiami chi ha già bisogno di te.
+            Mentre i competitor chiamano a freddo, tu chiami con una checklist consulenziale pronta.
           </p>
         </div>
 

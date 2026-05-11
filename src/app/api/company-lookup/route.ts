@@ -962,6 +962,52 @@ async function scrapeWebsiteForPIVA(siteUrl: string): Promise<{ partita_iva?: st
   return Object.keys(picked).length > 0 ? picked : null
 }
 
+async function websiteContainsPivaQuick(siteUrl: string, piva: string): Promise<boolean> {
+  const cleanPiva = String(piva || '').replace(/\D/g, '')
+  if (cleanPiva.length !== 11) return false
+  let base: URL
+  try { base = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`) } catch { return false }
+  const paths = ['/', '/contatti', '/contacts', '/chi-siamo', '/privacy']
+  const checks = paths.map(async (path) => {
+    try {
+      const res = await fetch(new URL(path, base).toString(), {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        signal: AbortSignal.timeout(5000),
+        redirect: 'follow',
+      })
+      if (!res.ok) return false
+      const text = await res.text()
+      return text.replace(/\D/g, '').includes(cleanPiva)
+    } catch {
+      return false
+    }
+  })
+  const results = await Promise.allSettled(checks)
+  return results.some((r) => r.status === 'fulfilled' && r.value)
+}
+
+function addressMatchesRegistryAddress(candidateAddress: unknown, registryAddress: unknown): boolean {
+  const candidate = String(candidateAddress || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+  const registryRaw = String(registryAddress || '')
+  const registry = registryRaw.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (!candidate || !registry) return false
+  const stop = /^(via|viale|corso|piazza|piazzale|largo|vicolo|strada|str|n|num|numero|civico|italia|italy)$/i
+  const tokenize = (s: string) => s.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => (t.length >= 4 || /^\d{5}$/.test(t)) && !stop.test(t))
+  const streetTokens = tokenize(registryRaw.split(/[,\-–]/)[0] || '')
+  const allTokens = tokenize(registry)
+  if (allTokens.length === 0) return false
+  const streetHit = streetTokens.length === 0 || streetTokens.some(t => candidate.includes(t))
+  const shared = allTokens.filter(t => candidate.includes(t)).length
+  return streetHit && shared >= Math.min(2, allTokens.length)
+}
+
 async function findCompanyReportsByName(companyName: string, cityHint?: string): Promise<Record<string, string> | null> {
   const tavilyKey = process.env.TAVILY_API_KEY
   if (!tavilyKey || !companyName || companyName.length < 3) return null
@@ -1192,9 +1238,9 @@ async function findFatturatoItaliaByName(companyName: string, cityHint?: string)
 // ── AI Insurance Analysis — GPT-4o-mini analizza dati reali dell'azienda ─────
 interface PolicyCheck {
   polizza: string
-  tipo: 'obbligatoria' | 'settoriale' | 'raccomandata'
-  stato: 'ce_lha' | 'probabilmente_no' | 'da_verificare'
-  probabilita_possesso: string  // es. "85%"
+  tipo: 'responsabilita_da_verificare' | 'settoriale' | 'raccomandata'
+  stato: 'da_verificare'
+  probabilita_possesso: string
   motivo: string
   domanda_broker: string  // domanda da fare al cliente
 }
@@ -1248,28 +1294,28 @@ ${rischioTerr ? `Rischio territoriale: ${rischioTerr}` : ''}
 ═══ ISTRUZIONI ANALISI ═══
 1. PRIMA analizza l'attività SPECIFICA dell'azienda dal codice ATECO e dalla descrizione. Esempio: ATECO 46.60 "Commercio all'ingrosso di macchinari" → vende/distribuisce macchinari industriali → rischi specifici: RC Prodotti per difetti macchinari venduti, trasporto merci pesanti, garanzia post-vendita, infortuni installazione.
 
-2. Per OGNI polizza, il "motivo" deve spiegare PERCHÉ questa specifica azienda ne ha bisogno o no, citando:
+2. Per OGNI area assicurativa, il "motivo" deve spiegare PERCHÉ questa specifica azienda deve verificarla, citando:
    - L'attività CONCRETA (es. "vende macchinari industriali, se un macchinario difettoso causa un infortunio all'acquirente...")
-   - Dati finanziari specifici (es. "con €610K di fatturato e 2 dipendenti, il rischio Key Man è concentrato sul titolare")
+   - Dati finanziari specifici solo come benchmark (es. "con €610K di fatturato e 2 dipendenti, la continuità operativa va verificata sulle figure realmente sostituibili")
    - Il contesto operativo (es. "commercio all'ingrosso implica magazzino, trasporti, consegne a clienti industriali")
 
 3. La "domanda_broker" deve essere una domanda CHIRURGICA che un broker esperto farebbe solo a QUESTO tipo di azienda:
    - ❌ VIETATO: "Ha una polizza cyber? Solo il 12% delle PMI ce l'ha" (generico)
    - ✅ CORRETTO: "I macchinari che vendete vengono installati presso il cliente? Chi risponde se durante l'installazione si verifica un infortunio?" (specifico per commercio macchinari)
 
-4. Stati basati sull'analisi specifica dell'attività:
-   - "ce_lha" = obbligatoria per legge per questa attività, o quasi certa dato il settore specifico
-   - "probabilmente_no" = tipicamente assente in aziende di questa dimensione/settore, ma sarebbe importante
-   - "da_verificare" = dipende da come opera concretamente (magazzino proprio? consegne dirette? installazione?)
+4. Stato:
+   - usa SEMPRE "da_verificare".
+   - NON scrivere mai che una polizza è già presente, non presente, stimata assente, certa o già verificata.
+   - Puoi indicare obblighi/responsabilità solo come elementi da verificare su contratti, albo, attività concreta, portafoglio reale, massimali, esclusioni e scadenze.
 
 5. Includi 10-14 polizze SPECIFICHE per questo settore. NON includere polizze irrilevanti.
    Per ogni polizza pensa: "Se fossi il broker di questa azienda, cosa mi preoccuperebbe di più?"
 
 ═══ FORMATO RISPOSTA ═══
 JSON array, ogni elemento:
-{"polizza":"nome","tipo":"obbligatoria"|"settoriale"|"raccomandata","stato":"ce_lha"|"probabilmente_no"|"da_verificare","probabilita_possesso":"85%","motivo":"ANALISI SPECIFICA per questa azienda con riferimento all'attività concreta e ai dati reali","domanda_broker":"domanda CHIRURGICA specifica per questo tipo di attività"}
+{"polizza":"nome","tipo":"responsabilita_da_verificare"|"settoriale"|"raccomandata","stato":"da_verificare","probabilita_possesso":"non nota","motivo":"ANALISI SPECIFICA per questa azienda con riferimento all'attività concreta e ai dati reali, senza affermare coperture attive o non attive","domanda_broker":"domanda CHIRURGICA specifica per questo tipo di attività"}
 
-Ordina: prima "probabilmente_no", poi "da_verificare", poi "ce_lha".
+Ordina per priorità consulenziale: responsabilità legali/contrattuali da verificare, rischi operativi, opportunità di benchmark.
 RISPONDI SOLO CON IL JSON ARRAY.`
 
   try {
@@ -1480,6 +1526,7 @@ export async function POST(req: NextRequest) {
   // Detect if query is a P.IVA (11 digits)
   const cleanQuery = query.replace(/^IT/i, '').replace(/\s/g, '')
   const isPiva = /^\d{11}$/.test(cleanQuery)
+  const skipFreeCameraleForDirectPiva = isPiva && isOpenApiPrimary()
 
   let result: Record<string, unknown> = {}
   const fonti: string[] = []
@@ -1607,7 +1654,9 @@ export async function POST(req: NextRequest) {
   // ─── Step 0: P.IVA diretta → CompanyReports.it (gratuito) per nome REALE, OpenAPI ULTIMO ───
   if (isPiva) {
     result.partita_iva = cleanQuery
-    console.log(`[COMPANY-LOOKUP] P.IVA query: "${cleanQuery}" — CompanyReports FIRST (free), OpenAPI LAST`)
+    console.log(`[COMPANY-LOOKUP] P.IVA query: "${cleanQuery}" — ${skipFreeCameraleForDirectPiva ? 'OpenAPI primary, skip free camerale pre-scrapes' : 'CompanyReports FIRST (free), OpenAPI LAST'}`)
+
+    if (!skipFreeCameraleForDirectPiva) {
 
     // CompanyReports.it FIRST — free scraping, gives company name + financial data
     if (cleanQuery.length === 11) {
@@ -1714,6 +1763,7 @@ export async function POST(req: NextRequest) {
           }
         } catch { /* Tavily quick search failed */ }
       }
+    }
     }
   }
 
@@ -2095,11 +2145,15 @@ export async function POST(req: NextRequest) {
   // Tavily/Gemini/GPT for those same fields, saving credits. Contacts/social/insurance still run.
   // ★ OpenAPI è fonte PRIMARIA: se ha dato ragione_sociale + ATECO + fatturato → skip fonti gratuite
   // per dati aziendali. Titolare può venire da shareholders (IT-advanced) o managers (IT-stakeholders).
+  const hasOpenApiRegistrySource = fonti.some(f => /OpenAPI\.it/i.test(f)) || Boolean((result as any).openapi_id)
   const oaFonte = String((result as any).fatturato_fonte || '')
   const openApiRich = Boolean(
-    result.ragione_sociale && result.codice_ateco && result.fatturato &&
-    /openapi/i.test(oaFonte)
+    hasOpenApiRegistrySource &&
+    result.ragione_sociale &&
+    result.partita_iva &&
+    (result.codice_ateco || result.forma_giuridica || result.stato_attivita || result.citta || result.sede_legale || /openapi/i.test(oaFonte))
   )
+  let openApiCameraleAvailable = openApiRich
   // Titolare da OpenAPI — verificato separatamente perché potrebbe mancare per micro-imprese
   const openApiTitolare = Boolean(
     result.titolare && (result as any).titolare_fonte && /openapi/i.test(String((result as any).titolare_fonte))
@@ -2162,6 +2216,7 @@ export async function POST(req: NextRequest) {
   if (isPiva && result.ragione_sociale && (!result.sito || !result.telefono)) {
     const mapsCity = (result.citta || queryCityHint || '') as string
     const mapsName = String(result.ragione_sociale)
+    const mapsPiva = String(result.partita_iva || cleanQuery).replace(/\D/g, '')
     console.log(`[COMPANY-LOOKUP] Step 1a4: Maps for P.IVA query — searching "${mapsName}" city="${mapsCity}"`)
     try {
       const mapsRes = await fetch(`${backendUrl}/search-maps-single`, {
@@ -2176,13 +2231,24 @@ export async function POST(req: NextRequest) {
         const lead = leads[0]
         if (lead && typeof lead === 'object') {
           console.log(`[COMPANY-LOOKUP] Step 1a4: Maps found "${lead.name}" — sito=${lead.website || 'N/A'}, tel=${lead.phone || 'N/A'}`)
-          if (lead.website && !result.sito) result.sito = lead.website
-          if (lead.phone && !result.telefono) { result.telefono = lead.phone; result.telefono_fonte = 'Google Maps' }
-          if (lead.address && !result.indirizzo) result.indirizzo = lead.address
-          if (lead.category && !result.categoria) result.categoria = lead.category
-          if (lead.rating) result.rating = lead.rating
-          if (lead.reviews) result.reviews_count = lead.reviews
-          if ((result.sito || result.telefono) && !fonti.includes('Google Maps')) fonti.push('Google Maps')
+          const mapsWebsite = typeof lead.website === 'string' ? lead.website : ''
+          const mapsWebsiteVerified = mapsWebsite
+            ? await websiteContainsPivaQuick(mapsWebsite, mapsPiva)
+            : false
+          const mapsAddressVerified = addressMatchesRegistryAddress(lead.address, result.sede_legale || result.indirizzo)
+          const mapsIdentityVerified = mapsWebsiteVerified || mapsAddressVerified
+          if (!mapsIdentityVerified && (lead.website || lead.phone || lead.address)) {
+            console.log(`[COMPANY-LOOKUP] Step 1a4: REJECTED Maps contacts/site — website/address do not confirm queried P.IVA ${mapsPiva}`)
+          }
+          if (mapsIdentityVerified) {
+            if (lead.website && !result.sito) result.sito = lead.website
+            if (lead.phone && !result.telefono) { result.telefono = lead.phone; result.telefono_fonte = mapsWebsiteVerified ? 'Google Maps (P.IVA verificata su sito)' : 'Google Maps (indirizzo verificato)' }
+            if (lead.address && !result.indirizzo) result.indirizzo = lead.address
+            if (lead.category && !result.categoria) result.categoria = lead.category
+            if (lead.rating) result.rating = lead.rating
+            if (lead.reviews) result.reviews_count = lead.reviews
+            if ((result.sito || result.telefono) && !fonti.includes('Google Maps')) fonti.push('Google Maps')
+          }
         }
       }
     } catch (e: any) { console.log(`[COMPANY-LOOKUP] Step 1a4: Maps error: ${e?.message}`) }
@@ -2417,7 +2483,7 @@ export async function POST(req: NextRequest) {
     const matchWords = distinctiveWords.length > 0 ? distinctiveWords : compWords
 
     // Helper: try a Tavily query, return first hostname that passes filters
-    const tryTavily = async (tQuery: string, requireNameMatch: boolean): Promise<string | null> => {
+    const tryTavily = async (tQuery: string, mode: 'name' | 'piva'): Promise<string | null> => {
       try {
         const tRes = await fetch('https://api.tavily.com/search', {
           method: 'POST',
@@ -2432,6 +2498,17 @@ export async function POST(req: NextRequest) {
           try {
             const h = new URL(r.url).hostname.replace(/^www\./, '').toLowerCase()
             if (EXCLUDE_RE.test(h)) continue
+            if (mode === 'piva') {
+              const resultText = `${r.title || ''} ${r.content || ''} ${r.url || ''}`
+              if (pivaForSite && !resultText.replace(/\D/g, '').includes(pivaForSite)) {
+                const verified = await websiteContainsPivaQuick(r.url, pivaForSite)
+                if (!verified) {
+                  console.log(`[COMPANY-LOOKUP] Step 2c: REJECT "${h}" — Tavily/P.IVA result does not expose queried P.IVA ${pivaForSite}`)
+                  continue
+                }
+              }
+              return r.url.split('/').slice(0, 3).join('/')
+            }
             // Enforce hostname-name match for BOTH name and P.IVA queries.
             // A page mentioning a P.IVA may link to unrelated websites (e.g. peteglia.com for G.E.M Di Gorgone Marco).
             // Only skip name matching if we have NO company name tokens at all.
@@ -2456,7 +2533,7 @@ export async function POST(req: NextRequest) {
     if (!result.sito && pivaForSite.length === 11) {
       const pivaQuery = `"${pivaForSite}" sito ufficiale azienda contatti`
       console.log(`[COMPANY-LOOKUP] Step 2c: Tavily search by P.IVA "${pivaForSite}"`)
-      const fromPiva = await tryTavily(pivaQuery, false)
+      const fromPiva = await tryTavily(pivaQuery, 'piva')
       if (fromPiva) {
         result.sito = fromPiva
         console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(P.IVA) found website: ${result.sito}`)
@@ -2467,7 +2544,7 @@ export async function POST(req: NextRequest) {
     if (!result.sito) {
       const nameQuery = cityForSite ? `"${compNameForSite}" ${cityForSite} sito ufficiale` : `"${compNameForSite}" sito ufficiale`
       console.log(`[COMPANY-LOOKUP] Step 2c: Tavily search by name "${nameQuery}"`)
-      const fromName = await tryTavily(nameQuery, true)
+      const fromName = await tryTavily(nameQuery, 'name')
       if (fromName) {
         result.sito = fromName
         console.log(`[COMPANY-LOOKUP] Step 2c: Tavily(name) found website: ${result.sito}`)
@@ -2554,7 +2631,8 @@ export async function POST(req: NextRequest) {
         const previousDigits = result.telefono ? String(result.telefono).replace(/\D/g, '').slice(-9) : ''
         const websiteDigits = landline.number.replace(/\D/g, '').slice(-9)
         const weakExistingPhone = !telFonte || /openapi|registro|lead.?registry|companyreports|fatturato|tavily|gemini|unknown/i.test(telFonte)
-        if (!result.telefono || websitePivaVerified || weakExistingPhone) {
+        const existingPhoneFromSite = /sito ufficiale/i.test(telFonte)
+        if (!result.telefono || websitePivaVerified || weakExistingPhone || !existingPhoneFromSite) {
           if (result.telefono && previousDigits && previousDigits !== websiteDigits) {
             console.log(`[COMPANY-LOOKUP] Step 2c: Telefono sito ufficiale prevale su "${result.telefono}" (fonte: ${telFonte || 'unknown'})`)
           }
@@ -2564,9 +2642,13 @@ export async function POST(req: NextRequest) {
         }
       }
       // Cellulare: cerca tipo='mobile'
-      if (!result.cellulare) {
-        const mobile = deep.phones.find(p => p.type === 'mobile')
-        if (mobile) {
+      const mobile = deep.phones.find(p => p.type === 'mobile')
+      if (mobile) {
+        const celFonte = String((result as any).cellulare_fonte || '').toLowerCase()
+        if (!result.cellulare || websitePivaVerified || !/sito ufficiale/i.test(celFonte)) {
+          if (result.cellulare && String(result.cellulare).replace(/\D/g, '').slice(-9) !== mobile.number.replace(/\D/g, '').slice(-9)) {
+            console.log(`[COMPANY-LOOKUP] Step 2c: Cellulare sito ufficiale prevale su "${result.cellulare}" (fonte: ${celFonte || 'unknown'})`)
+          }
           result.cellulare = mobile.number
           ;(result as any).cellulare_fonte = 'Sito ufficiale azienda'
           console.log(`[COMPANY-LOOKUP] Step 2c: Cellulare from website (${mobile.page}): ${mobile.number}`)
@@ -2680,7 +2762,8 @@ export async function POST(req: NextRequest) {
               const digits = auditTel.replace(/\D/g, '').replace(/^(39|0039)/, '')
               const isMobile = digits.startsWith('3') && digits.length >= 9
               if (isMobile) {
-                if (!result.cellulare) {
+                const celFonte = String((result as any).cellulare_fonte || '').toLowerCase()
+                if (!result.cellulare || !/sito ufficiale/i.test(celFonte)) {
                   result.cellulare = auditTel
                   ;(result as any).cellulare_fonte = 'Sito ufficiale (Playwright JS render)'
                   console.log(`[COMPANY-LOOKUP] Step 2c: Cellulare from /audit-url: ${auditTel}`)
@@ -2691,7 +2774,8 @@ export async function POST(req: NextRequest) {
                   ;(result as any).tutti_cellulari = tuttiCel
                 }
               } else {
-                if (!result.telefono) {
+                const telFonte = String((result as any).telefono_fonte || '').toLowerCase()
+                if (!result.telefono || !/sito ufficiale/i.test(telFonte)) {
                   result.telefono = auditTel
                   result.telefono_fonte = 'Sito ufficiale (Playwright JS render)'
                   console.log(`[COMPANY-LOOKUP] Step 2c: Telefono fisso from /audit-url: ${auditTel}`)
@@ -2716,7 +2800,7 @@ export async function POST(req: NextRequest) {
 
     // If P.IVA was discovered, call CompanyReports.it for financial data
     const discoveredPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
-    if (discoveredPiva.length === 11) {
+    if (!openApiCameraleAvailable && discoveredPiva.length === 11) {
       console.log(`[COMPANY-LOOKUP] Step 2c: Calling CompanyReports.it for P.IVA ${discoveredPiva} (authoritative bilancio data)`)      
       const crData = await scrapeCompanyReports(discoveredPiva)
       if (crData) {
@@ -2740,7 +2824,7 @@ export async function POST(req: NextRequest) {
   // ── Step 2d: ALWAYS verify financial data via CompanyReports.it when P.IVA is known ──
   // Even if Step 2c didn't run (e.g. no website scraping needed), financial data from lead-registry may be wrong
   const knownPiva = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
-  if (leadRegistryDone && knownPiva.length === 11 && !fonti.some(f => f.includes('CompanyReports'))) {
+  if (!openApiCameraleAvailable && leadRegistryDone && knownPiva.length === 11 && !fonti.some(f => f.includes('CompanyReports'))) {
     console.log(`[COMPANY-LOOKUP] Step 2d: Verifying financial data via CompanyReports.it for P.IVA ${knownPiva}`)  
     const crVerify = await scrapeCompanyReports(knownPiva)
     if (crVerify) {
@@ -2764,7 +2848,7 @@ export async function POST(req: NextRequest) {
   // valore precedente (es. Tavily/Gemini hallucinations su omonime).
   // Bug visto: CAREL S.r.l. → AI estraeva 26 dipendenti (era CAREL S.p.A. multinazionale)
   // mentre FatturatoItalia per P.IVA 01334000997 dice "1 dipendente" (giusto).
-  if (knownPiva.length === 11 && !fonti.some(f => f.includes('fatturatoitalia'))) {
+  if (!openApiCameraleAvailable && knownPiva.length === 11 && !fonti.some(f => f.includes('fatturatoitalia'))) {
     console.log(`[COMPANY-LOOKUP] Step 2e: Verifying financial data via FatturatoItalia.it for P.IVA ${knownPiva}`)
     try {
       const fiVerify = await scrapeFatturatoItalia(knownPiva)
@@ -2970,7 +3054,7 @@ export async function POST(req: NextRequest) {
   // ALWAYS run: it's a free HTTP scrape (no Tavily/OpenAI) and is THE most accurate source
   // for financial data. If lead-registry returned hallucinated values, this corrects them.
   const pivaForCR = (result.partita_iva || '') as string
-  if (pivaForCR && pivaForCR.length === 11) {
+  if (!openApiCameraleAvailable && pivaForCR && pivaForCR.length === 11) {
     console.log(`[COMPANY-LOOKUP] Step 3b: Scraping CompanyReports.it for P.IVA ${pivaForCR}`)
     const crData = await scrapeCompanyReports(pivaForCR)
     if (crData) {
@@ -3096,7 +3180,7 @@ export async function POST(req: NextRequest) {
   const telFonteOuter = String((result as any).telefono_fonte || '').toLowerCase()
   const telefonoFromMapsOuter = telFonteOuter.includes('google maps') || telFonteOuter.includes('maps')
   const telefonoUnverified = !result.telefono || telefonoFromMapsOuter || telFonteOuter.includes('tavily')
-  if ((!leadRegistryDone || telefonoUnverified) && searchCompanyName && tavilyKey && openaiKey && !pivaOnlyNoName) {
+  if (!openApiCameraleAvailable && (!leadRegistryDone || telefonoUnverified) && searchCompanyName && tavilyKey && openaiKey && !pivaOnlyNoName) {
     const companyName = searchCompanyName
     const city = (result.citta || '') as string
     const piva = (result.partita_iva || '') as string
@@ -3582,7 +3666,7 @@ JSON:
     }
 
     // ── After ufficiocamerale: if we NOW have P.IVA, try CompanyReports.it ──
-    if (result.partita_iva && (!result.fatturato || !result.dipendenti)) {
+    if (!isOpenApiPrimary() && result.partita_iva && (!result.fatturato || !result.dipendenti)) {
       const pivaStr = String(result.partita_iva).replace(/\D/g, '')
       if (pivaStr.length === 11) {
         console.log(`[COMPANY-LOOKUP] P.IVA found (${pivaStr}) — trying CompanyReports.it`)
@@ -3669,6 +3753,7 @@ JSON:
             const srcLabel = oaEarly.live_calls > 0 ? 'OpenAPI.it (Registro Imprese)' : 'OpenAPI.it (cache)'
             if (!fonti.includes(srcLabel)) fonti.push(srcLabel)
             openApiDone = true
+            openApiCameraleAvailable = true
             console.log(`[COMPANY-LOOKUP] EARLY OpenAPI complete — cost=€${oaEarly.cost_incurred_eur.toFixed(3)}, fatt=${oaEarly.fatturato ?? 'n/a'}, dip=${oaEarly.dipendenti ?? 'n/a'}, titolare=${oaEarly.titolare_best?.nomeCompleto ?? 'n/a'}`)
           } else {
             console.log(`[COMPANY-LOOKUP] EARLY OpenAPI: REJECTED — name "${oaEarly.ragione_sociale}" doesn't match "${queryCompanyName}"`)
@@ -3682,12 +3767,13 @@ JSON:
     // Update openApiRich flag after early enrichment
     const oaFonteUpdated = String((result as any).fatturato_fonte || '')
     const openApiRichNow = Boolean(
-      result.ragione_sociale && result.codice_ateco && result.fatturato &&
-      /openapi/i.test(oaFonteUpdated)
+      openApiCameraleAvailable ||
+      (result.ragione_sociale && result.partita_iva &&
+        (result.codice_ateco || result.forma_giuridica || result.stato_attivita || result.citta || result.sede_legale || /openapi/i.test(oaFonteUpdated)))
     )
 
     // ── Search 2: Bilancio / dati finanziari (fatturato, dipendenti, utile, costo personale) ──
-    if ((openApiRich || openApiRichNow) && result.fatturato && result.dipendenti) {
+    if (openApiRich || openApiRichNow) {
       console.log(`[COMPANY-LOOKUP] Search 2 (bilancio): SKIPPED (openApiRich)`)
     } else if (!result.fatturato || !result.dipendenti) {
       // ★ Targeted per-site queries (Tavily ignores OR operator)
@@ -4648,7 +4734,7 @@ JSON:
   const openApiTitolare4b = Boolean(result.titolare && (result as any).titolare_fonte && /openapi/i.test(String((result as any).titolare_fonte)))
   if ((openApiTitolare || openApiTitolare4b) && result.titolare) {
     console.log(`[COMPANY-LOOKUP] Step 4b: SKIPPED (openApiTitolare — titolare certificato da OpenAPI)`)
-  } else if ((result.ragione_sociale || queryCompanyName) && tavilyKey && openaiKey) {
+  } else if (!openApiCameraleAvailable && (result.ragione_sociale || queryCompanyName) && tavilyKey && openaiKey) {
     let compName4b = String(queryCompanyName || result.ragione_sociale).replace(/\s*(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|srl|srls|spa|sas|snc)\s*\.?\s*$/i, '').trim()
     const city4b = (result.citta || queryCityHint || '') as string
     // Strip city from company name — ragione_sociale often ends with city (e.g., "STANDBY CONSORZIO milano")
@@ -4840,7 +4926,7 @@ JSON:
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ business_name: companyNameNow, city: mapsCity, max_results: 1 }),
-          signal: AbortSignal.timeout(200000),
+          signal: AbortSignal.timeout(openApiCameraleAvailable ? 15000 : 200000),
         }).catch(() => null)
         if (mapsRes && mapsRes.ok) {
           const mapsData = await mapsRes.json().catch(() => null) as any
@@ -4862,13 +4948,23 @@ JSON:
             if (!mapsNameValid) {
               console.log(`[COMPANY-LOOKUP] Round 2a: Maps REJECTED "${lead.name}" — no shared tokens with "${companyNameNow}" (our: [${ourTokens.join(',')}], maps: [${mapsTokens.join(',')}])`)
             } else {
-              if (!result.telefono && lead.phone) { result.telefono = lead.phone; result.telefono_fonte = 'Google Maps' }
-              if (!result.sito && lead.website) result.sito = lead.website
-              if (!result.indirizzo && lead.address) result.indirizzo = lead.address
-              if (!result.categoria && lead.category) result.categoria = lead.category
-              if (!result.rating && typeof lead.rating === 'number') result.rating = lead.rating
-              if (!result.reviews_count && typeof lead.reviews_count === 'number') result.reviews_count = lead.reviews_count
-              if (!fonti.includes('Google Maps')) fonti.push('Google Maps')
+              const mapsPivaRound2 = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+              const needsPivaVerifiedMaps = isPiva && mapsPivaRound2.length === 11
+              const mapsWebsiteRound2 = typeof lead.website === 'string' ? lead.website : ''
+              const mapsWebsiteVerifiedRound2 = mapsWebsiteRound2 ? await websiteContainsPivaQuick(mapsWebsiteRound2, mapsPivaRound2) : false
+              const mapsAddressVerifiedRound2 = addressMatchesRegistryAddress(lead.address, result.sede_legale || result.indirizzo)
+              const mapsVerifiedRound2 = !needsPivaVerifiedMaps || mapsWebsiteVerifiedRound2 || mapsAddressVerifiedRound2
+              if (!mapsVerifiedRound2) {
+                console.log(`[COMPANY-LOOKUP] Round 2a: Maps contacts/site REJECTED — website/address do not confirm queried P.IVA ${mapsPivaRound2}`)
+              } else {
+                if (!result.telefono && lead.phone) { result.telefono = lead.phone; result.telefono_fonte = mapsWebsiteVerifiedRound2 ? 'Google Maps (P.IVA verificata su sito)' : mapsAddressVerifiedRound2 ? 'Google Maps (indirizzo verificato)' : 'Google Maps' }
+                if (!result.sito && lead.website) result.sito = lead.website
+                if (!result.indirizzo && lead.address) result.indirizzo = lead.address
+                if (!result.categoria && lead.category) result.categoria = lead.category
+                if (!result.rating && typeof lead.rating === 'number') result.rating = lead.rating
+                if (!result.reviews_count && typeof lead.reviews_count === 'number') result.reviews_count = lead.reviews_count
+                if (!fonti.includes('Google Maps')) fonti.push('Google Maps')
+              }
             }
           }
         }
@@ -4913,13 +5009,21 @@ JSON:
           if (pivaDigitsForPhone && ('0' + digits) === pivaDigitsForPhone) return true
           return false
         }
-        if (!result.telefono) {
-          const landline = deep.phones.find(p => p.type === 'landline' && !isLikelyPiva(p.number))
-          if (landline) { result.telefono = landline.number; result.telefono_fonte = 'Sito ufficiale azienda' }
+        const landline = deep.phones.find(p => p.type === 'landline' && !isLikelyPiva(p.number))
+        if (landline) {
+          const telFonte = String((result as any).telefono_fonte || '').toLowerCase()
+          if (!result.telefono || !/sito ufficiale/i.test(telFonte)) {
+            result.telefono = landline.number
+            result.telefono_fonte = 'Sito ufficiale azienda'
+          }
         }
-        if (!result.cellulare) {
-          const mobile = deep.phones.find(p => p.type === 'mobile' && !isLikelyPiva(p.number))
-          if (mobile) { result.cellulare = mobile.number; (result as any).cellulare_fonte = 'Sito ufficiale azienda' }
+        const mobile = deep.phones.find(p => p.type === 'mobile' && !isLikelyPiva(p.number))
+        if (mobile) {
+          const celFonte = String((result as any).cellulare_fonte || '').toLowerCase()
+          if (!result.cellulare || !/sito ufficiale/i.test(celFonte)) {
+            result.cellulare = mobile.number
+            ;(result as any).cellulare_fonte = 'Sito ufficiale azienda'
+          }
         }
         if (!result.email) {
           const personalEmail = deep.emails.find(e => e.type === 'personal') || deep.emails.find(e => e.type === 'generic')
@@ -4958,7 +5062,7 @@ JSON:
     }
 
     // Round 2c: CompanyReports.it (if we now have P.IVA but still miss financial data)
-    if (result.partita_iva && (!result.fatturato || !result.dipendenti)) {
+    if (!openApiCameraleAvailable && result.partita_iva && (!result.fatturato || !result.dipendenti)) {
       const pivaStr = String(result.partita_iva).replace(/\D/g, '')
       if (pivaStr.length === 11 && !fonti.includes('CompanyReports.it')) {
         console.log(`[COMPANY-LOOKUP] Round 2c: CompanyReports.it with P.IVA ${pivaStr}`)
@@ -5018,7 +5122,9 @@ JSON:
   const telFonte5a = String((result as any).telefono_fonte || '').toLowerCase()
   // Only Tavily is weak — Maps is reliable (name-matched), site is validated by Step 6e
   const telWeak5a = telFonte5a.includes('tavily')
+  let directoryPhoneSearchAttempted = false
   if ((!result.telefono || telWeak5a) && compNameForPhone.length >= 3 && process.env.TAVILY_API_KEY) {
+    directoryPhoneSearchAttempted = true
     // Try reteimprese first (most reliable), then paginegialle, then paginebianche
     // Build BOTH exact-match ("full name") AND relaxed (just distinctive tokens) queries.
     // The quoted query works for common names; the relaxed query catches acronyms like G.E.M
@@ -5045,12 +5151,16 @@ JSON:
       // Address + company surname → very specific
       addrQueries5a.push(`"${addrStreet5a}" ${relaxedTokens5a[0]} ${cityForPhone} site:reteimprese.it`)
     }
+    const pivaDigits5a = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
     const phoneQueries = [
+      ...(pivaDigits5a.length === 11 ? [`"${pivaDigits5a}" telefono site:reteimprese.it`] : []),
       `"${compNameForPhone}" ${cityForPhone} telefono site:reteimprese.it`,
       ...(relaxedQuery5a ? [`${relaxedQuery5a} site:reteimprese.it`] : []),
       ...addrQueries5a,
+      ...(pivaDigits5a.length === 11 ? [`"${pivaDigits5a}" telefono site:paginegialle.it`] : []),
       `"${compNameForPhone}" ${cityForPhone} telefono contatti site:paginegialle.it`,
       ...(relaxedQuery5a ? [`${relaxedQuery5a} site:paginegialle.it`] : []),
+      ...(pivaDigits5a.length === 11 ? [`"${pivaDigits5a}" telefono site:paginebianche.it`] : []),
       `"${compNameForPhone}" ${cityForPhone} telefono site:paginebianche.it`,
     ]
     // PER-RESULT extraction: only from Tavily results whose title/URL match company name
@@ -5081,6 +5191,7 @@ JSON:
           const url5a = String(tavRes5a.url || '').toLowerCase()
           const content5a = String(tavRes5a.content || '')
           const contentLow5a = content5a.toLowerCase()
+          const contentHasPiva5a = pivaDigits5a.length === 11 && content5a.replace(/\D/g, '').includes(pivaDigits5a)
           // ★ ANTI-OMONIMIA: reject results whose title belongs to a DIFFERENT company in a DIFFERENT city.
           // Category pages (e.g. "Impianti condizionamento aria Milano") are OK — they list multiple companies
           // and include the target city. But "Officine Meccaniche a Appiano Gentile" is clearly a different
@@ -5089,7 +5200,7 @@ JSON:
           const titleHasCompanyToken = pgTokens5a.some(t => title5a.includes(t))
           const titleHasCity = city5aLow.length >= 3 && title5a.includes(city5aLow)
           const addrOk5a = addr5a && addr5a.length >= 8 && contentLow5a.includes(addr5a)
-          if (!titleHasCompanyToken && !titleHasCity && !addrOk5a) {
+          if (!titleHasCompanyToken && !titleHasCity && !addrOk5a && !contentHasPiva5a) {
             console.log(`[COMPANY-LOOKUP] Step 5a: SKIP result — title "${tavRes5a.title}" has no company token and no target city "${cityForPhone}"`)
             continue
           }
@@ -5099,7 +5210,7 @@ JSON:
             const ph = phM[0].trim()
             const phIdx = phM.index
             const win5a = contentLow5a.slice(Math.max(0, phIdx - 300), phIdx + 50)
-            const nameNear = pgTokens5a.some(t => win5a.includes(t)) || addrOk5a
+            const nameNear = pgTokens5a.some(t => win5a.includes(t)) || addrOk5a || contentHasPiva5a
             if (!nameNear) continue
             const digits = ph.replace(/\D/g, '')
             const core = digits.startsWith('39') ? digits.slice(2) : digits
@@ -5264,6 +5375,7 @@ JSON:
           const sourceLabel = oa.live_calls > 0 ? 'OpenAPI.it (Registro Imprese)' : 'OpenAPI.it (cache)'
           if (!fonti.includes(sourceLabel)) fonti.push(sourceLabel)
           openApiDone = true
+          openApiCameraleAvailable = true
           console.log(`[COMPANY-LOOKUP] Step 5c: OpenAPI CATCH-UP complete — cost=€${oa.cost_incurred_eur.toFixed(3)}, fatt=${oa.fatturato ?? 'n/a'}, dip=${oa.dipendenti ?? 'n/a'}`)
         }
       } else {
@@ -5664,8 +5776,15 @@ JSON:
         const mapsRecLead = mapsRecLeads[0]
         if (mapsRecLead && mapsRecLead.website) {
           console.log(`[COMPANY-LOOKUP] Step 6e++: Maps found "${mapsRecLead.name}" → site=${mapsRecLead.website}`)
+          const mapsPivaRec = result.partita_iva ? String(result.partita_iva).replace(/\D/g, '') : ''
+          const mapsRecWebsiteVerified = await websiteContainsPivaQuick(String(mapsRecLead.website), mapsPivaRec)
+          const mapsRecAddressVerified = addressMatchesRegistryAddress(mapsRecLead.address, result.sede_legale || result.indirizzo)
+          if (isPiva && mapsPivaRec.length === 11 && !mapsRecWebsiteVerified && !mapsRecAddressVerified) {
+            console.log(`[COMPANY-LOOKUP] Step 6e++: Maps recovery REJECTED — website/address do not confirm queried P.IVA ${mapsPivaRec}`)
+            throw new Error('maps recovery rejected by P.IVA verification')
+          }
           result.sito = mapsRecLead.website
-          if (mapsRecLead.phone && !result.telefono) { result.telefono = mapsRecLead.phone; (result as any).telefono_fonte = 'Google Maps' }
+          if (mapsRecLead.phone && !result.telefono) { result.telefono = mapsRecLead.phone; (result as any).telefono_fonte = mapsRecWebsiteVerified ? 'Google Maps (P.IVA verificata su sito)' : mapsRecAddressVerified ? 'Google Maps (indirizzo verificato)' : 'Google Maps' }
           if (mapsRecLead.address && !result.indirizzo) result.indirizzo = mapsRecLead.address
           if (!fonti.includes('Google Maps')) fonti.push('Google Maps')
           // Scrape the recovered site for contacts, email, social
@@ -5687,10 +5806,12 @@ JSON:
             for (const ph of (recDeep.phones || [])) {
               const digits = String(ph.number).replace(/\D/g, '')
               const core = digits.startsWith('39') ? digits.slice(2) : digits
-              if (/^0\d{8,10}$/.test(core) && !result.telefono) {
+              const telFonte = String((result as any).telefono_fonte || '').toLowerCase()
+              const celFonte = String((result as any).cellulare_fonte || '').toLowerCase()
+              if (/^0\d{8,10}$/.test(core) && (!result.telefono || !/sito/i.test(telFonte))) {
                 result.telefono = ph.number; (result as any).telefono_fonte = 'sito_ufficiale'
               }
-              if (/^3\d{8,9}$/.test(core) && !result.cellulare) {
+              if (/^3\d{8,9}$/.test(core) && (!result.cellulare || !/sito/i.test(celFonte))) {
                 result.cellulare = ph.number; (result as any).cellulare_fonte = 'sito_ufficiale'
               }
             }
@@ -5710,7 +5831,7 @@ JSON:
   // ─── Step 6e+: Reteimprese phone RECOVERY after wrong-site phone was cleared ───
   // If Step 6e just cleared the phone (because the site was wrong), we need to find the
   // correct phone from a reliable directory. This ONLY runs when phone was lost due to site removal.
-  if (!result.telefono && process.env.TAVILY_API_KEY) {
+  if (!result.telefono && process.env.TAVILY_API_KEY && !directoryPhoneSearchAttempted) {
     const compNameForPhoneRecovery = String(result.ragione_sociale || queryCompanyName || '').trim()
     const cityForPhoneRecovery = String(result.citta || queryCityHint || '').trim()
     if (compNameForPhoneRecovery.length >= 3) {
@@ -5897,7 +6018,7 @@ JSON:
     result.nome = queryCompanyName
   }
 
-  // ─── Step 7: Analisi assicurativa — polizze mancanti / gap ───
+  // ─── Step 7: Analisi assicurativa — aree da verificare ───
   if (hasAnyCompanySignalBeforeFinal) {
     result.fonti = [...new Set(fonti)]
 
@@ -6518,6 +6639,43 @@ JSON:
       }
     }
 
+    const blockedContactEmailDomains = new Set([
+      'visura.pro', 'ufficiocamerale.it', 'registroaziende.it', 'companyreports.it', 'fatturatoitalia.it',
+      'reteimprese.it', 'paginegialle.it', 'paginebianche.it', 'misterimprese.it', 'italiaonline.it',
+      'actaliscertymail.it', 'arubapec.it', 'legalmail.it', 'pec.it', 'pecimprese.it', 'postecert.it',
+      'sicurezzapostale.it', 'registerpec.it', 'mypec.eu', 'cert.legalmail.it', 'infocert.it', 'namirial.it',
+      'casellapec.com', 'casellapec.it', 'pec.aruba.it', 'open.legalmail.it', 'pec.cciaa.it',
+    ])
+    const companyForContactEmail = String(result.ragione_sociale || queryCompanyName || query || '').toLowerCase().replace(/[^a-z0-9à-ù\s]/gi, ' ')
+    const isBlockedContactEmail = (value: unknown): boolean => {
+      const emailValue = String(value || '').trim().toLowerCase()
+      const emailDomain = emailValue.split('@')[1]?.replace(/^www\./, '')
+      if (!emailDomain) return true
+      const domainBase = emailDomain.split('.')[0].replace(/[^a-z0-9]/g, '')
+      if (domainBase.length >= 5 && companyForContactEmail.includes(domainBase)) return false
+      if (blockedContactEmailDomains.has(emailDomain)) return true
+      return Array.from(blockedContactEmailDomains).some(d => emailDomain.endsWith(`.${d}`))
+    }
+    if (result.email && isBlockedContactEmail(result.email)) {
+      console.log(`[COMPANY-LOOKUP] FINAL VALIDATION: CLEARED provider/source email "${result.email}"`)
+      delete result.email
+      delete (result as any).email_fonte
+    }
+    if (Array.isArray((result as any).tutte_email)) {
+      const filteredEmails = ((result as any).tutte_email as any[])
+        .filter(e => e?.email && !isBlockedContactEmail(e.email))
+        .filter((e, idx, arr) => arr.findIndex(x => String(x?.email || '').toLowerCase() === String(e?.email || '').toLowerCase()) === idx)
+      if (filteredEmails.length !== ((result as any).tutte_email as any[]).length) {
+        console.log(`[COMPANY-LOOKUP] FINAL VALIDATION: filtered provider/source emails ${((result as any).tutte_email as any[]).length} → ${filteredEmails.length}`)
+      }
+      if (filteredEmails.length > 0) {
+        ;(result as any).tutte_email = filteredEmails
+        if (!result.email) result.email = String(filteredEmails[0].email).toLowerCase()
+      } else {
+        delete (result as any).tutte_email
+      }
+    }
+
     // ── FINAL GATE: anti-homonym P.IVA validation ──
     // Split query tokens into NAME tokens (must appear in ragione_sociale) and GEO tokens
     // (city/municipality — must appear in citta/sede_legale/provincia, NOT in ragione_sociale).
@@ -6634,7 +6792,7 @@ JSON:
       const tk = process.env.TAVILY_API_KEY
       const ragForUC = (result.ragione_sociale || result.nome_commerciale || queryCompanyName || '') as string
       const needsUcData = !result.pec || !result.rea || !result.data_costituzione || !result.capitale_sociale
-      if (tk && needsUcData && (result.partita_iva || ragForUC)) {
+      if (!openApiCameraleAvailable && tk && needsUcData && (result.partita_iva || ragForUC)) {
         const ucKey = result.partita_iva ? String(result.partita_iva) : ragForUC
         // IMPORTANT: NON aggiungere "REA PEC" alla query — disturba il matching Tavily
         // (queste parole appaiono in TUTTE le pagine ufficiocamerale come label di campo).

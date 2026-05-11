@@ -6,18 +6,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import CtaLink from '@/components/CtaLink'
 
 const queries = [
-  'aziende edili Milano senza RC',
-  'studi legali Napoli senza D&O',
-  'ristoranti Roma senza RCT/O',
-  'trasportatori Torino flotta scoperta',
-  'commercialisti Bologna senza RC professionale',
+  'aziende edili Milano verifica RC',
+  'studi legali Napoli verifica D&O',
+  'ristoranti Roma verifica RCT/O',
+  'trasportatori Torino verifica flotta',
+  'commercialisti Bologna verifica RC professionale',
 ]
 
 const demoLeads = [
-  { nome: 'Edilizia Rossi Srl', citta: 'Milano', score: 92, problems: ['NO RC', 'NO D&O'], tel: '02 8595 ****', email: 'info@edilizi...', hasWebsite: true },
-  { nome: 'Trasporti Centrali Spa', citta: 'Milano', score: 78, problems: ['FLOTTA SCOPERTA', 'NO CYBER'], tel: '347 123 ****', email: 'marco@trasp...', hasWebsite: true },
-  { nome: 'Studio Legale Bianchi', citta: 'Milano', score: 71, problems: ['NO RC PROF', 'NO KEY MAN'], tel: '02 4567 ****', email: 'avv@studio...', hasWebsite: true },
-  { nome: 'Tech Solutions Srl', citta: 'Milano', score: 65, problems: ['NO CYBER', 'NO D&O'], tel: '340 987 ****', email: 'info@techso...', hasWebsite: true },
+  { nome: 'Edilizia Rossi Srl', citta: 'Milano', score: 92, problems: ['RC DA VERIFICARE', 'D&O DA VERIFICARE'], tel: '02 8595 ****', email: 'info@edilizi...', hasWebsite: true },
+  { nome: 'Trasporti Centrali Spa', citta: 'Milano', score: 78, problems: ['FLOTTA DA VERIFICARE', 'CYBER DA VERIFICARE'], tel: '347 123 ****', email: 'marco@trasp...', hasWebsite: true },
+  { nome: 'Studio Legale Bianchi', citta: 'Milano', score: 71, problems: ['RC PROF DA VERIFICARE', 'KEY PERSON DA VERIFICARE'], tel: '02 4567 ****', email: 'avv@studio...', hasWebsite: true },
+  { nome: 'Tech Solutions Srl', citta: 'Milano', score: 65, problems: ['CYBER DA VERIFICARE', 'D&O DA VERIFICARE'], tel: '340 987 ****', email: 'info@techso...', hasWebsite: true },
 ]
 
 function TypingText({ texts }: { texts: string[] }) {
@@ -221,7 +221,7 @@ export default function HeroSection() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <span className="text-xs font-semibold text-indigo-600 font-['DM_Sans']">
-              47.293 aziende analizzate oggi — gap assicurativi identificati
+              47.293 aziende analizzate oggi — aree assicurative qualificate
             </span>
           </motion.div>
 
@@ -236,8 +236,8 @@ export default function HeroSection() {
 
           {/* Subtitle */}
           <p className="text-lg sm:text-xl text-slate-500 font-['DM_Sans'] max-w-2xl mx-auto mb-10 leading-relaxed">
-            CKB analizza milioni di aziende italiane, identifica i gap assicurativi reali
-            e ti consegna prospect qualificati con la proposta già pronta.
+            CKB analizza milioni di aziende italiane, qualifica aree assicurative da verificare
+            e ti consegna prospect con proposta consulenziale già pronta.
           </p>
 
           {/* CTA row */}

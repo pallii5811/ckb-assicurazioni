@@ -10,12 +10,12 @@ const faqs = [
     a: 'I dati provengono da fonti ufficiali: Camera di Commercio, Registro Imprese, ATECO, VIES e directory pubbliche italiane. Aggregati e arricchiti dal nostro motore di intelligence in tempo reale.',
   },
   {
-    q: 'Come vengono identificati i gap assicurativi?',
-    a: "Incrociamo codice ATECO, fatturato, numero dipendenti, forma giuridica e rischio territoriale con le coperture obbligatorie e raccomandate per quel settore. L'AI evidenzia le polizze mancanti o insufficienti.",
+    q: 'Come vengono identificate le aree assicurative da verificare?',
+    a: "Incrociamo codice ATECO, fatturato, numero dipendenti, forma giuridica e rischio territoriale con responsabilità e coperture tipiche del settore. L'AI evidenzia aree da verificare in call, non conclusioni sul portafoglio già attivo.",
   },
   {
     q: 'Come funzionano i crediti?',
-    a: 'Un credito equivale a un prospect estratto con profilo completo (dati aziendali, contatti, gap analysis). Le ricerche a vuoto non consumano crediti.',
+    a: 'Un credito equivale a un prospect estratto con profilo completo (dati aziendali, contatti, checklist assicurativa). Le ricerche a vuoto non consumano crediti.',
   },
   {
     q: "Posso cancellare l'abbonamento?",
@@ -27,7 +27,7 @@ const faqs = [
   },
   {
     q: 'Come funziona il Pitch AI?',
-    a: "Analizziamo i gap assicurativi specifici dell'azienda (polizze mancanti, rischi settoriali, esposizione territoriale) e generiamo una proposta commerciale personalizzata. Non è un template — è un messaggio costruito sui dati reali dell'azienda.",
+    a: "Analizziamo aree assicurative da verificare, rischi settoriali ed esposizione territoriale e generiamo una proposta commerciale personalizzata. Non è un template — è un messaggio costruito sui dati reali disponibili dell'azienda.",
   },
   {
     q: 'Funziona per qualsiasi tipo di polizza?',

@@ -621,7 +621,7 @@ function WorkforceCard({ data, compact }: { data: WorkforceData; compact?: boole
 
       {data.probableCCNL && data.probableCCNL.length > 0 && (
         <div className="mb-3">
-          <div className="text-[10px] font-semibold text-foreground mb-1">CCNL probabili</div>
+          <div className="text-[10px] font-semibold text-foreground mb-1">CCNL da verificare</div>
           {data.probableCCNL.slice(0, 2).map((c, i) => (
             <div key={i} className="text-xs border border-border p-1.5 rounded-lg mb-1">
               <div className="font-semibold text-foreground">{c.code}</div>

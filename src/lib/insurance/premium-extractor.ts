@@ -223,7 +223,7 @@ export function generateOpportunities(
         `Stima sulla base del fatturato (proxy dimensione sede)`,
       ),
       priority: 3,
-      rationale: 'Polizza base per protezione sede. Spesso obbligatoria per mutui/finanziamenti.',
+      rationale: 'Polizza base per protezione sede; eventuali vincoli da mutui o finanziamenti vanno verificati.',
       category: 'asset',
     })
   }
@@ -237,12 +237,12 @@ export function generateOpportunities(
           ? { min: 4000, mid: 8000, max: 18000 }
           : { min: 1500, mid: 3500, max: 8000 },
         'IVASS Bollettino RC 2023',
-        atecoLetter === 'Q' ? 'RC Sanitaria obbligatoria L.24/2017' : 'RC Professionale settoriale',
+        atecoLetter === 'Q' ? 'RC sanitaria da verificare nel perimetro L.24/2017' : 'RC professionale/E&O settoriale da verificare',
       ),
       priority: atecoLetter === 'Q' ? 5 : 4,
       rationale: atecoLetter === 'Q'
-        ? 'OBBLIGATORIA per strutture sanitarie ex L.24/2017'
-        : `Settore ${atecoLetter}: RC Professionale spesso obbligatoria per albo`,
+        ? 'Da verificare per strutture/professionisti sanitari nel perimetro L.24/2017'
+        : `Settore ${atecoLetter}: RC professionale/E&O da verificare su albo, contratti e responsabilità verso clienti`,
       category: 'liability',
     })
   }

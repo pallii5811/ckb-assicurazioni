@@ -5,9 +5,9 @@ import { motion } from 'framer-motion'
 import CtaLink from '@/components/CtaLink'
 
 const comparisons = [
-  { label: 'Qualità dei prospect', cold: 'Lista acquistata, dati vecchi', ckb: 'Profilati con gap assicurativi reali' },
+  { label: 'Qualità dei prospect', cold: 'Lista acquistata, dati vecchi', ckb: 'Profilati con aree assicurative da verificare' },
   { label: 'Tempo per 10 prospect', cold: '3-4 ore di ricerca manuale', ckb: 'Meno di 2 minuti' },
-  { label: 'Conosci i gap?', cold: 'No — parli al buio', ckb: 'Gap analysis + rischio territoriale' },
+  { label: 'Sai cosa verificare?', cold: 'No — parli al buio', ckb: 'Checklist consulenziale + rischio territoriale' },
   { label: 'Proposta personalizzata', cold: 'La scrivi tu da zero', ckb: 'Generata con AI + dati reali' },
   { label: 'Contatto titolare', cold: 'Spesso centralino', ckb: 'Cellulare verificato + email + PEC' },
   { label: 'Tasso di risposta', cold: '1-3%', ckb: '10-20%' },

@@ -46,9 +46,9 @@ export default function ArsenalSection() {
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center mb-5 shadow-lg">
                   <Radar size={22} className="text-white" />
                 </div>
-                <h3 className="font-['Syne'] text-xl font-bold text-slate-900 mb-2">Gap Analysis Assicurativa</h3>
+                <h3 className="font-['Syne'] text-xl font-bold text-slate-900 mb-2">Checklist Assicurativa</h3>
                 <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed mb-4">
-                  Vedi istantaneamente quali polizze mancano: RC, D&O, Cyber, Infortuni, Incendio. Per ogni azienda, in tempo reale.
+                  Vedi istantaneamente quali aree verificare: RC, D&O, Cyber, Infortuni, Incendio. Per ogni azienda, in tempo reale.
                 </p>
                 <div className="flex gap-1.5 flex-wrap">
                   {['RC Prodotti', 'D&O', 'Cyber Risk', 'Incendio', 'Infortuni', 'Welfare'].map(tag => (
@@ -68,7 +68,7 @@ export default function ArsenalSection() {
                   <div key={item.label} className="flex items-center justify-between py-1.5 px-2.5 rounded bg-white border border-slate-50">
                     <span className="text-[11px] font-medium text-slate-600 font-['DM_Sans']">{item.label}</span>
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${item.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                      {item.ok ? '✓' : '✗'}
+                      {item.ok ? '✓' : 'CHECK'}
                     </span>
                   </div>
                 ))}
@@ -142,7 +142,7 @@ export default function ArsenalSection() {
                 </div>
                 <h3 className="font-['Syne'] text-xl font-bold text-slate-900 mb-2">Pitch AI Personalizzato</h3>
                 <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed">
-                  Una proposta scritta su misura per ogni azienda, basata sui gap assicurativi reali. Oggetto, corpo e CTA. Copia, incolla, manda.
+                  Una proposta scritta su misura per ogni azienda, basata su dati reali e aree assicurative da verificare. Oggetto, corpo e CTA. Copia, incolla, manda.
                 </p>
               </div>
               {/* Mini pitch preview */}
@@ -152,7 +152,7 @@ export default function ArsenalSection() {
                   <span className="text-[10px] font-bold text-slate-500 font-['DM_Sans']">PITCH GENERATO</span>
                 </div>
                 <div className="text-[11px] text-slate-600 font-['DM_Sans'] leading-relaxed italic">
-                  &quot;Buongiorno Dott. Bianchi, dall'analisi di Tecnofer emerge che mancano copertura D&O e Cyber Risk. Con €3.2M di fatturato e 45 dipendenti...&quot;
+                  &quot;Buongiorno Dott. Bianchi, per Tecnofer D&O e Cyber Risk risultano aree da verificare. Con €3.2M di fatturato e 45 dipendenti...&quot;
                 </div>
                 <div className="flex gap-2 mt-3">
                   <span className="text-[9px] font-bold text-white bg-violet-500 px-2.5 py-1 rounded-lg">Copia</span>
@@ -176,7 +176,7 @@ export default function ArsenalSection() {
             </div>
             <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-2">Rischio Territoriale</h3>
             <p className="text-sm text-slate-500 font-['DM_Sans'] leading-relaxed mb-3">
-              Mappa il rischio per zona: alluvioni, terremoti, grandine. Le aziende più esposte sono le più facili da chiudere.
+              Mappa il rischio per zona: alluvioni, terremoti, grandine. Le aziende più esposte hanno verifiche property più urgenti da qualificare.
             </p>
             <div className="flex items-center gap-1">
               {[1,2,3,4].map(i => (
@@ -218,7 +218,7 @@ export default function ArsenalSection() {
           >
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-600 to-slate-800 opacity-0 group-hover:opacity-100 transition-opacity" />
             <h3 className="font-['Syne'] text-lg font-bold text-slate-900 mb-3">Risk Score</h3>
-            <p className="text-xs text-slate-500 font-['DM_Sans'] leading-relaxed mb-3">Ogni azienda con un risk score 0-100: più alto = più scoperta = più urgente.</p>
+            <p className="text-xs text-slate-500 font-['DM_Sans'] leading-relaxed mb-3">Ogni azienda con un risk score 0-100: più alto = verifiche più prioritarie da qualificare.</p>
             <div className="flex items-end gap-1.5">
               {[45, 58, 72, 87, 64, 91, 53].map((v, i) => (
                 <div key={i} className="flex-1 rounded-t" style={{

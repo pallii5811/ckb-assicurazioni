@@ -50,13 +50,14 @@ interface ProspectionLead {
   stazioneAppaltante: string
   importoAggiudicato: number
   dataAggiudicazione?: string
+  dataFontePubblicazione?: string
   categoria: 'lavori' | 'servizi' | 'forniture' | 'unknown'
   cauzioneProvvisoriaStimata: number
   cauzioneDefinitivaStimata: number
   decennalePostumaStimata?: number
   premioAnnuoCauzioneStimato: { min: number; mid: number; max: number }
   fonteUrl?: string
-  /** Score 0-100: più alto = più valore commerciale per assicuratore */
+  /** Score 0-95: più alto = più valore commerciale per assicuratore */
   priorityScore: number
 }
 
@@ -122,6 +123,7 @@ interface GptGara {
   importo_eur?: number | string | null
   data_aggiudicazione?: string | null
   categoria?: string | null
+  territorio?: string | null
   fonte_url?: string
 }
 
@@ -156,7 +158,12 @@ async function gptExtractMultiGare(
               `- Regione: ${filters.region || 'tutte'}\n` +
               `- Provincia: ${filters.province || 'tutte'}\n` +
               `- Importo min: ${filters.importoMin || 0}\n` +
-              `- Importo max: ${filters.importoMax || 'nessun limite'}\n\n` +
+              `- Importo max: ${filters.importoMax || 'nessun limite'}\n` +
+              `REGOLE DI QUALITÀ:\n` +
+              `- Se regione/provincia sono indicate, estrai solo gare dove territorio, stazione appaltante o testo fonte citano chiaramente quell'area.\n` +
+              `- Se la categoria è diversa da all, estrai solo gare coerenti con quella categoria.\n` +
+              `- Scarta accordi quadro nazionali o lotti fuori territorio se il filtro geografico non è verificabile.\n` +
+              `- Scarta dati senza aggiudicatario, importo o fonte pubblica.\n\n` +
               `CONTESTO (risultati ANAC/GU):\n${context.slice(0, 16000)}\n\n` +
               `Estrai TUTTE le aggiudicazioni distinct presenti, max 30, nello schema:\n` +
               `{ "aggiudicazioni": [\n` +
@@ -168,6 +175,7 @@ async function gptExtractMultiGare(
               `    "importo_eur": number,\n` +
               `    "data_aggiudicazione": "YYYY-MM-DD" | "YYYY" | null,\n` +
               `    "categoria": "lavori"|"servizi"|"forniture"|null,\n` +
+              `    "territorio": "string|null (regione/provincia/comune se presente)",\n` +
               `    "fonte_url": "string"\n` +
               `  }\n` +
               `]}\n` +
@@ -201,50 +209,117 @@ async function gptExtractMultiGare(
  * Costruisce la query Tavily a partire dai filtri.
  * Strategia: combinare keyword di settore + zona + soglia importo.
  */
-function buildQuery(filters: RequestBody): string {
-  const parts: string[] = []
+function buildQueries(filters: RequestBody): string[] {
+  const currentYear = new Date().getFullYear()
+  const minDate = new Date()
+  minDate.setMonth(minDate.getMonth() - (filters.monthsBack || 12))
+  const yearTokens: string[] = []
+  for (let year = currentYear; year >= minDate.getFullYear(); year -= 1) {
+    yearTokens.push(String(year))
+  }
+  const years = yearTokens.join(' OR ')
+  const geo = [filters.region, filters.province ? `provincia ${filters.province}` : null].filter(Boolean).join(' ')
+  const keyword = filters.keyword?.trim() ? `"${filters.keyword.trim()}"` : ''
+  const importo = filters.importoMin && filters.importoMin >= 100_000 ? `importo ${filters.importoMin.toLocaleString('it-IT')}` : ''
 
-  // Categoria
+  let categoryText = 'gara appalto pubblico aggiudicatario'
   switch (filters.category) {
     case 'lavori':
-      parts.push('aggiudicazione "lavori" OR "opere pubbliche" OR "costruzione"')
+      categoryText = 'aggiudicazione lavori opere pubbliche costruzione aggiudicatario'
       break
     case 'servizi':
-      parts.push('aggiudicazione "servizi" OR "appalto servizi"')
+      categoryText = 'aggiudicazione servizi appalto servizi aggiudicatario'
       break
     case 'forniture':
-      parts.push('aggiudicazione "forniture" OR "appalto fornitura"')
+      categoryText = 'aggiudicazione forniture appalto fornitura aggiudicatario'
       break
-    default:
-      parts.push('aggiudicazione gara appalto pubblico')
   }
 
-  // Custom keyword
-  if (filters.keyword && filters.keyword.trim()) {
-    parts.push(`"${filters.keyword.trim()}"`)
-  }
+  return Array.from(new Set([
+    ['site:gazzettaufficiale.it/eli/id', String(currentYear), categoryText, geo, keyword, 'avviso aggiudicazione appalto importo', years].filter(Boolean).join(' '),
+    ['site:gazzettaufficiale.it/atto/contratti', categoryText, geo, keyword, 'avviso di aggiudicazione appalto importo', years].filter(Boolean).join(' '),
+    ['site:serviziocontrattipubblici.it', categoryText, geo, keyword, 'aggiudicatario importo', years].filter(Boolean).join(' '),
+    [categoryText, geo, keyword, importo, years].filter(Boolean).join(' '),
+  ].filter(Boolean)))
+}
 
-  // Regione/provincia
-  if (filters.region) {
-    parts.push(filters.region)
-  }
-  if (filters.province) {
-    parts.push(`provincia di ${filters.province}`)
-  }
+function buildQuery(filters: RequestBody): string {
+  return buildQueries(filters)[0] || 'aggiudicazione gara appalto pubblico Italia'
+}
 
-  // Importo (soglie tipiche)
-  if (filters.importoMin && filters.importoMin >= 100_000) {
-    parts.push(`importo superiore €${filters.importoMin.toLocaleString('it-IT')}`)
-  }
+function normalizeText(value: unknown): string {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
 
-  // Recency
-  if (filters.monthsBack && filters.monthsBack <= 12) {
-    parts.push('2025 OR 2024')
-  } else if (filters.monthsBack && filters.monthsBack <= 24) {
-    parts.push('2024 OR 2025 OR 2023')
-  }
+function extractYear(value: unknown): number | null {
+  const match = String(value || '').match(/\b(20\d{2})\b/)
+  if (!match) return null
+  const year = Number(match[1])
+  return Number.isFinite(year) ? year : null
+}
 
-  return parts.join(' ').trim() || 'aggiudicazione gara appalto pubblico Italia'
+function parsePublicTenderDate(value: unknown): Date | null {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  const iso = raw.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/)
+  if (iso) {
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const it = raw.match(/\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b/)
+  if (it) {
+    const d = new Date(Number(it[3]), Number(it[2]) - 1, Number(it[1]))
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  return null
+}
+
+function parseSourcePublicationDate(url: unknown): Date | null {
+  const raw = String(url || '')
+  const pathDate = raw.match(/\/(?:id|gu)\/(20\d{2})\/(\d{1,2})\/(\d{1,2})\//)
+  if (pathDate) {
+    const d = new Date(Number(pathDate[1]), Number(pathDate[2]) - 1, Number(pathDate[3]))
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const queryDate = raw.match(/dataPubblicazioneGazzetta=(20\d{2})(\d{2})(\d{2})/)
+  if (queryDate) {
+    const d = new Date(Number(queryDate[1]), Number(queryDate[2]) - 1, Number(queryDate[3]))
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  return null
+}
+
+function formatDateIso(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+const PROVINCE_ALIASES: Record<string, string[]> = {
+  MI: ['milano', 'milanese', 'citta metropolitana di milano'],
+  MB: ['monza', 'brianza', 'monza e brianza'],
+  BG: ['bergamo', 'bergamasca'],
+  BS: ['brescia', 'bresciana'],
+  CO: ['como'],
+  CR: ['cremona'],
+  LC: ['lecco'],
+  LO: ['lodi'],
+  MN: ['mantova'],
+  PV: ['pavia'],
+  SO: ['sondrio'],
+  VA: ['varese'],
+  TO: ['torino', 'torinese', 'citta metropolitana di torino'],
+  RM: ['roma', 'romana', 'citta metropolitana di roma'],
+  NA: ['napoli', 'napoletana', 'citta metropolitana di napoli'],
+}
+
+function matchesProvince(text: string, province: string): boolean {
+  const normalizedText = normalizeText(text)
+  const normalizedProvince = normalizeText(province)
+  if (normalizedProvince.length <= 2) {
+    const codeMatch = new RegExp(`\\b${normalizedProvince}\\b`, 'i').test(normalizedText)
+    const aliases = PROVINCE_ALIASES[province.toUpperCase()] || []
+    return codeMatch || aliases.some((alias) => normalizedText.includes(normalizeText(alias)))
+  }
+  return normalizedText.includes(normalizedProvince)
 }
 
 /** Calcola priority score 0-100 basato su importo, settore e completezza dati */
@@ -266,11 +341,11 @@ function calcPriorityScore(lead: Omit<ProspectionLead, 'priorityScore'>): number
 
   // Completezza dati (max 25 punti)
   if (lead.partitaIva) score += 10
-  if (lead.dataAggiudicazione) score += 5
+  if (lead.dataAggiudicazione || lead.dataFontePubblicazione) score += 5
   if (lead.fonteUrl) score += 5
   if (lead.decennalePostumaStimata) score += 5  // bonus decennale
 
-  return Math.min(100, score)
+  return Math.min(95, score)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -311,10 +386,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const warnings: string[] = []
 
   // ── BUILD QUERY ──
-  const query = buildQuery(filters)
+  const queries = buildQueries(filters)
+  const query = queries.join(' | ') || buildQuery(filters)
 
   // ── TAVILY SEARCH ──
-  const results = await tavilySearchAnac(query, Math.min(filters.maxResults || 20, 15))
+  const searchBatches = await Promise.all(
+    queries.slice(0, 4).map((q) => tavilySearchAnac(q, Math.min(filters.maxResults || 20, 10))),
+  )
+  const seenUrls = new Set<string>()
+  const results = searchBatches.flat().filter((result) => {
+    const url = String((result as { url?: unknown }).url || '')
+    if (!url) return true
+    if (seenUrls.has(url)) return false
+    seenUrls.add(url)
+    return true
+  }).slice(0, 20)
   if (results.length === 0) {
     return NextResponse.json({
       found: false,
@@ -356,8 +442,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // ── BUILD LEADS ──
   const leads: ProspectionLead[] = []
+  const currentYear = new Date().getFullYear()
+  const monthsBack = filters.monthsBack || 12
+  const minDate = new Date()
+  minDate.setMonth(minDate.getMonth() - monthsBack)
+  const minYear = currentYear - Math.ceil(monthsBack / 12)
   for (const ag of extracted) {
     if (!ag.ragione_sociale || typeof ag.ragione_sociale !== 'string') continue
+    const stazioneAppaltante = String(ag.stazione_appaltante || '').trim()
+    const fonteUrl = String(ag.fonte_url || '').trim()
+    if (!fonteUrl) continue
+    if (!stazioneAppaltante || /^(non specificata|n\.?d\.?|null|undefined)$/i.test(stazioneAppaltante)) continue
 
     // Importo deve essere un numero ragionevole
     let importo = 0
@@ -372,6 +467,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Filtra per importo se specificato
     if (filters.importoMin && importo < filters.importoMin) continue
     if (filters.importoMax && importo > filters.importoMax) continue
+
+    const tenderDate = parsePublicTenderDate(ag.data_aggiudicazione)
+    const sourceDate = parseSourcePublicationDate(fonteUrl)
+    const referenceDate = tenderDate || sourceDate
+    if (referenceDate !== null && referenceDate < minDate) continue
+    if (monthsBack <= 6 && referenceDate === null) continue
+    const year = referenceDate === null ? extractYear(ag.data_aggiudicazione) : null
+    if (referenceDate === null && year !== null && year < minYear) continue
+
+    const territoryText = normalizeText(`${ag.territorio || ''} ${ag.oggetto || ''} ${ag.stazione_appaltante || ''}`)
+    if (filters.province) {
+      if (!matchesProvince(territoryText, filters.province)) continue
+    } else if (filters.region && !territoryText.includes(normalizeText(filters.region))) {
+      continue
+    }
 
     // Categoria normalizzata
     const cat = String(ag.categoria || '').toLowerCase()
@@ -394,25 +504,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const cauzioniData = estimateCauzioneFromGara(garaRaw)
     if (!cauzioniData) continue
 
-    // Premio annuo ramo cauzioni stimato: 0.5%–2.5% sull'importo aggiudicato.
-    // Aliquote tecniche IVASS Bollettino 2023.
-    const premioMin = Math.round(importo * 0.005)
-    const premioMid = Math.round(importo * 0.010)
-    const premioMax = Math.round(importo * 0.025)
+    const cauzioneDefinitiva = cauzioniData.cauzioneDefinitivaStimata
+    const premioMin = Math.round(cauzioneDefinitiva * 0.005)
+    const premioMid = Math.round(cauzioneDefinitiva * 0.010)
+    const premioMax = Math.round(cauzioneDefinitiva * 0.025)
 
     const partial: Omit<ProspectionLead, 'priorityScore'> = {
       ragioneSociale: ag.ragione_sociale,
       partitaIva: ag.partita_iva && /^\d{11}$/.test(String(ag.partita_iva)) ? String(ag.partita_iva) : undefined,
       garaOggetto: ag.oggetto || '(oggetto non specificato)',
-      stazioneAppaltante: ag.stazione_appaltante || '(non specificata)',
+      stazioneAppaltante,
       importoAggiudicato: importo,
       dataAggiudicazione: ag.data_aggiudicazione || undefined,
+      dataFontePubblicazione: sourceDate ? formatDateIso(sourceDate) : undefined,
       categoria,
       cauzioneProvvisoriaStimata: cauzioniData.cauzioneProvvisoriaStimata,
       cauzioneDefinitivaStimata: cauzioniData.cauzioneDefinitivaStimata,
       decennalePostumaStimata: cauzioniData.decennaleEdilizia,
       premioAnnuoCauzioneStimato: { min: premioMin, mid: premioMid, max: premioMax },
-      fonteUrl: ag.fonte_url,
+      fonteUrl,
     }
 
     const lead: ProspectionLead = {
@@ -437,6 +547,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (finalLeads.length === 0) {
     warnings.push('Le aggiudicazioni trovate non rispettano i filtri applicati. Prova a allargare i criteri.')
+  } else {
+    warnings.push('Lead e benchmark da verificare sulla fonte pubblica: cauzioni, postuma e premi non indicano obblighi automatici né polizze attive/assenti.')
   }
 
   return NextResponse.json({

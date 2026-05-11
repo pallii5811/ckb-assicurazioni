@@ -10,7 +10,7 @@ const tabs = [
     label: 'Ricerca AI',
     icon: Search,
     headline: 'Scrivi in italiano. Trova in secondi.',
-    description: 'Basta digitare "trasportatori Veneto senza D&O" e il nostro motore NLP interpreta settore, territorio e gap assicurativi in tempo reale.',
+    description: 'Basta digitare "trasportatori Veneto verifica D&O" e il nostro motore NLP interpreta settore, territorio e aree assicurative in tempo reale.',
     accent: 'indigo',
   },
   {
@@ -18,7 +18,7 @@ const tabs = [
     label: 'Analisi Rischio',
     icon: Radar,
     headline: 'Radiografia assicurativa completa.',
-    description: 'Per ogni azienda analizziamo ATECO, fatturato, dipendenti, rischio territoriale, forma giuridica e coperture mancanti.',
+    description: 'Per ogni azienda analizziamo ATECO, fatturato, dipendenti, rischio territoriale, forma giuridica e aree assicurative da verificare.',
     accent: 'cyan',
   },
   {
@@ -26,7 +26,7 @@ const tabs = [
     label: 'Pitch AI',
     icon: Sparkles,
     headline: 'La proposta perfetta, scritta per te.',
-    description: "L'AI analizza i gap assicurativi dell'azienda e genera una proposta commerciale personalizzata. Copia, incolla, invia.",
+    description: "L'AI analizza le aree assicurative da verificare e genera una proposta commerciale personalizzata. Copia, incolla, invia.",
     accent: 'violet',
   },
   {
@@ -34,7 +34,7 @@ const tabs = [
     label: 'Score AI',
     icon: BarChart3,
     headline: 'Sai chi chiamare per primo.',
-    description: 'Ogni azienda riceve un risk score 0-100 basato sui gap assicurativi e sul profilo di rischio. Prioritizza le più scoperte.',
+    description: 'Ogni azienda riceve una priorità consulenziale basata su dati pubblici e profilo di rischio. Prioritizza le verifiche più rilevanti.',
     accent: 'emerald',
   },
   {
@@ -60,14 +60,14 @@ function SearchMockup() {
     <div className="space-y-3">
       <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         <Search size={16} className="text-slate-400" />
-        <span className="text-sm text-slate-800 font-['DM_Sans'] font-medium">trasportatori Veneto senza D&O</span>
+        <span className="text-sm text-slate-800 font-['DM_Sans'] font-medium">trasportatori Veneto verifica D&O</span>
         <div className="ml-auto bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-lg">Cerca</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: 'Settore', value: 'Trasporti', color: 'bg-indigo-50 text-indigo-700' },
           { label: 'Territorio', value: 'Veneto', color: 'bg-blue-50 text-blue-700' },
-          { label: 'Gap', value: 'No D&O', color: 'bg-red-50 text-red-700' },
+          { label: 'Verifica', value: 'D&O', color: 'bg-red-50 text-red-700' },
         ].map(f => (
           <div key={f.label} className={`${f.color} rounded-lg px-3 py-2 text-center`}>
             <div className="text-[10px] opacity-60 font-['DM_Sans']">{f.label}</div>
@@ -78,7 +78,7 @@ function SearchMockup() {
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
         <div className="text-[10px] text-slate-400 font-['DM_Sans'] mb-2 uppercase tracking-wider font-semibold">Interpretazione AI</div>
         <div className="text-xs text-slate-600 font-['DM_Sans'] leading-relaxed">
-          ✓ Settore: <strong>autotrasporti</strong> · Territorio: <strong>Veneto</strong> · Gap: <strong>polizza D&O assente</strong>
+          ✓ Settore: <strong>autotrasporti</strong> · Territorio: <strong>Veneto</strong> · Area: <strong>D&O da verificare</strong>
         </div>
       </div>
     </div>
@@ -112,7 +112,7 @@ function AuditMockup() {
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
               item.status ? 'bg-emerald-50 text-emerald-600' : item.severity === 'high' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
             }`}>
-              {item.status ? '✓ OK' : '✗ ASSENTE'}
+              {item.status ? '✓ VERIFICATO' : 'DA VERIFICARE'}
             </span>
           )}
         </div>
@@ -133,17 +133,17 @@ function PitchMockup() {
         <div>
           <div className="text-[10px] text-slate-400 font-['DM_Sans'] mb-1">OGGETTO</div>
           <div className="text-xs font-semibold text-slate-800 font-['DM_Sans']">
-            Analisi rischio Logistica Nord — 3 gap assicurativi critici
+            Analisi rischio Logistica Nord — 3 aree assicurative da verificare
           </div>
         </div>
         <div className="h-px bg-slate-100" />
         <div className="text-xs text-slate-600 font-['DM_Sans'] leading-relaxed">
           <p>Buongiorno Dott. Verdi,</p>
-          <p className="mt-2">ho analizzato il profilo di rischio di <strong>Logistica Nord S.r.l.</strong> e ho individuato:</p>
+          <p className="mt-2">ho analizzato il profilo di rischio di <strong>Logistica Nord S.r.l.</strong> e ho individuato tre aree da verificare:</p>
           <ul className="mt-2 space-y-1 list-disc pl-4">
-            <li>Manca la <strong>polizza D&O</strong> — con 78 dipendenti il rischio patrimoniale per gli amministratori è elevato</li>
-            <li>Assente <strong>copertura Cyber Risk</strong> — nel settore trasporti i dati logistici sono un target frequente</li>
-            <li>Nessuna <strong>polizza Infortuni collettiva</strong> — il settore ha indice di sinistrosità sopra la media</li>
+            <li><strong>D&O</strong> — da verificare su amministratori, deleghe, massimali ed esclusioni</li>
+            <li><strong>Cyber Risk</strong> — da qualificare su dati logistici, backup e continuità operativa</li>
+            <li><strong>Infortuni/RCO</strong> — da verificare su dipendenti, mansioni e portafoglio attivo</li>
           </ul>
           <p className="mt-2">Posso prepararle una proposta su misura. Le va un confronto di 15 minuti?</p>
         </div>
@@ -169,7 +169,7 @@ function ScoreMockup() {
         {[
           { label: 'Aziende', value: '127', sub: 'in questa ricerca' },
           { label: 'Risk score', value: '72', sub: 'medio' },
-          { label: 'Gap critici', value: '34', sub: 'score > 75' },
+          { label: 'Verifiche critiche', value: '34', sub: 'score > 75' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-lg border border-slate-100 p-3 text-center">
             <div className="text-lg font-bold text-slate-800 font-['Syne']">{s.value}</div>

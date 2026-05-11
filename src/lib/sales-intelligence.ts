@@ -123,16 +123,16 @@ export function calculateSalesScore(
 
   // ── Settore ad alto rischio (max 10 punti) ──
   if (/costruzion|edili|cantier/.test(cat)) { score += 10; motivazioni.push('Settore edile: alto fabbisogno assicurativo') }
-  else if (/medic|dentist|clinic|farmaci|veterinar/.test(cat)) { score += 10; motivazioni.push('Settore sanitario: RC obbligatoria') }
+  else if (/medic|dentist|clinic|farmaci|veterinar/.test(cat)) { score += 10; motivazioni.push('Settore sanitario: RC/malpractice da verificare') }
   else if (/trasport|logistic|autotrasport/.test(cat)) { score += 8; motivazioni.push('Trasporti: RC vettoriale + flotta') }
   else if (/manifatt|produzion|industr/.test(cat)) { score += 8; motivazioni.push('Manifattura: RC prodotti + property') }
-  else if (/avvocat|commerciali|notai|architett|ingegner/.test(cat)) { score += 7; motivazioni.push('Professionista: RC professionale obbligatoria') }
+  else if (/avvocat|commerciali|notai|architett|ingegner/.test(cat)) { score += 7; motivazioni.push('Attività professionale: RC/E&O da qualificare') }
   else if (/ristorant|hotel|albergo|bar |food/.test(cat)) { score += 5; motivazioni.push('Ristorazione/Hospitality: RC + property') }
   else if (/aliment|panif|macellar/.test(cat)) { score += 6; motivazioni.push('Alimentare: RC prodotti + igiene') }
 
   // ── Gap assicurativi rilevati (max 15 punti) ──
-  if (gapCount >= 5) { score += 15; motivazioni.push(`${gapCount} gap assicurativi: forte opportunità di vendita`) }
-  else if (gapCount >= 3) { score += 10; motivazioni.push(`${gapCount} gap assicurativi`) }
+  if (gapCount >= 5) { score += 15; motivazioni.push(`${gapCount} segnali assicurativi da verificare`) }
+  else if (gapCount >= 3) { score += 10; motivazioni.push(`${gapCount} segnali assicurativi da verificare`) }
   else if (gapCount >= 1) { score += 5 }
 
   // ── Trigger commerciali (max 10 punti) ──

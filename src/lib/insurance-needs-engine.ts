@@ -55,6 +55,9 @@ export interface FinancialIntelligence {
   years_analyzed: number
   latest_year: number | null
   oldest_year: number | null
+  latest_revenue_year: number | null
+  oldest_revenue_year: number | null
+  latest_profit_year: number | null
 }
 
 export interface TitolareIntelligence {
@@ -231,7 +234,7 @@ function enrichNeedForBroker(need: InsuranceNeedRecommendation, ctx: BrokerConte
   const decisionMaker = ctx.titolare || need.target
   const byNeed: Record<string, string | null> = {
     key_man_microimpresa: ctx.titolare
-      ? `Persona chiave identificata (${decisionMaker}) + struttura micro: leva reale su quanti giorni l’azienda regge senza il titolare operativo.`
+      ? `Struttura micro + referente registrato (${decisionMaker}): leva reale solo dopo verifica di chi presidia operatività, clienti e continuità aziendale.`
       : null,
     rc_commercio_prodotti_tutela: ctx.sectorText
       ? `Attività commerciale rilevata (ATECO ${need.evidence_ids.includes('ateco') ? 'verificato' : 'stimato'}): leva reale su RC prodotti, incaricati e tutela legale.`
@@ -300,9 +303,14 @@ function computeFinancialIntelligence(profile: InsuranceNeedsSourceProfile): Fin
     .sort((a, b) => b.anno - a.anno)
   if (storico.length === 0) return null
 
-  const revenues = storico.map(b => b.fatturato).filter((v): v is number => typeof v === 'number' && v > 0)
-  const latestRev = revenues[0] ?? null
-  const oldestRev = revenues[revenues.length - 1] ?? null
+  const revenueEntries = storico
+    .filter(b => typeof b.fatturato === 'number' && b.fatturato > 0)
+    .map(b => ({ anno: b.anno, fatturato: b.fatturato as number }))
+  const revenues = revenueEntries.map(b => b.fatturato)
+  const latestRev = revenueEntries[0]?.fatturato ?? null
+  const oldestRev = revenueEntries[revenueEntries.length - 1]?.fatturato ?? null
+  const latestRevenueYear = revenueEntries[0]?.anno ?? null
+  const oldestRevenueYear = revenueEntries[revenueEntries.length - 1]?.anno ?? null
   let revTrend: FinancialIntelligence['revenue_trend'] = null
   let revTrendPct: number | null = null
   if (latestRev !== null && oldestRev !== null && oldestRev > 0 && revenues.length >= 2) {
@@ -311,8 +319,12 @@ function computeFinancialIntelligence(profile: InsuranceNeedsSourceProfile): Fin
     revTrend = pct > 10 ? 'crescita' : pct < -10 ? 'declino' : 'stabile'
   }
 
-  const profits = storico.map(b => b.utile).filter((v): v is number => typeof v === 'number')
-  const latestProfit = profits[0] ?? null
+  const profitEntries = storico
+    .filter(b => typeof b.utile === 'number')
+    .map(b => ({ anno: b.anno, utile: b.utile as number }))
+  const profits = profitEntries.map(b => b.utile)
+  const latestProfit = profitEntries[0]?.utile ?? null
+  const latestProfitYear = profitEntries[0]?.anno ?? null
   const profitStatus: FinancialIntelligence['profit_status'] = latestProfit !== null ? (latestProfit >= 0 ? 'positivo' : 'negativo') : null
 
   const pn = hasReliableNetWorth(profile, latestProfit) ? parseNumber(profile.patrimonio_netto, true, true) : null
@@ -354,6 +366,9 @@ function computeFinancialIntelligence(profile: InsuranceNeedsSourceProfile): Fin
     years_analyzed: storico.length,
     latest_year: storico[0]?.anno ?? null,
     oldest_year: storico[storico.length - 1]?.anno ?? null,
+    latest_revenue_year: latestRevenueYear,
+    oldest_revenue_year: oldestRevenueYear,
+    latest_profit_year: latestProfitYear,
   }
 }
 
@@ -460,11 +475,13 @@ function computeTriggerAlerts(
   // Fatturato in declino — da storico bilanci verificato
   if (fin?.revenue_trend === 'declino' && fin.revenue_trend_pct !== null) {
     const absPct = Math.abs(fin.revenue_trend_pct)
+    const fromYear = fin.oldest_revenue_year ?? fin.oldest_year ?? 'N/D'
+    const toYear = fin.latest_revenue_year ?? fin.latest_year ?? 'N/D'
     alerts.push({
       id: 'fatturato_declino',
       type: 'red_flag',
       severity: absPct > 25 ? 'critico' : 'alto',
-      title: `Fatturato in declino ${fin.revenue_trend_pct}% (${fin.oldest_year}→${fin.latest_year})`,
+      title: `Fatturato in calo ${fin.revenue_trend_pct}% (${fromYear}→${toYear})`,
       description: `Il fatturato è passato da €${new Intl.NumberFormat('it-IT').format(fin.oldest_revenue || 0)} a €${new Intl.NumberFormat('it-IT').format(fin.latest_revenue || 0)}. Il segnale suggerisce di qualificare in call se l'azienda sta riducendo costi, marginalità o commesse.`,
       action: 'Aprire con revisione portafoglio in ottica efficienza: premi, duplicazioni, franchigie, scoperti e tutela legale contrattuale.',
       evidence_ids: ['storico_bilanci', 'fatturato'],
@@ -473,12 +490,14 @@ function computeTriggerAlerts(
 
   // Fatturato in crescita — opportunità
   if (fin?.revenue_trend === 'crescita' && fin.revenue_trend_pct !== null && fin.revenue_trend_pct > 20) {
+    const fromYear = fin.oldest_revenue_year ?? fin.oldest_year ?? 'N/D'
+    const toYear = fin.latest_revenue_year ?? fin.latest_year ?? 'N/D'
     alerts.push({
       id: 'fatturato_crescita',
       type: 'opportunita',
       severity: 'alto',
-      title: `Fatturato in crescita +${fin.revenue_trend_pct}% (${fin.oldest_year}→${fin.latest_year})`,
-      description: `Crescita significativa del fatturato: massimali RC, valori assicurati, business interruption e cyber vanno riallineati all'esposizione attuale se erano stati impostati su dimensioni precedenti.`,
+      title: `Fatturato cresciuto +${fin.revenue_trend_pct}% (${fromYear}→${toYear})`,
+      description: `Il fatturato disponibile nello storico è passato da €${new Intl.NumberFormat('it-IT').format(fin.oldest_revenue || 0)} a €${new Intl.NumberFormat('it-IT').format(fin.latest_revenue || 0)}. È un segnale utile per verificare se massimali RC, valori assicurati, business interruption e cyber sono ancora coerenti con l'esposizione attuale.`,
       action: 'Audit massimali e valori assicurati con focus su adeguamento a fatturato attuale, commesse, beni e dati gestiti.',
       evidence_ids: ['storico_bilanci', 'fatturato'],
     })
@@ -491,7 +510,7 @@ function computeTriggerAlerts(
       type: 'red_flag',
       severity: 'alto',
       title: `Ultimo bilancio in perdita (€${new Intl.NumberFormat('it-IT').format(fin.latest_profit)})`,
-      description: `L'esercizio ${fin.latest_year} chiude in perdita. Il dato rende prioritario qualificare tensione finanziaria, garanzie personali, esposizione verso soci/creditori e contenziosi contrattuali.`,
+      description: `L'esercizio ${fin.latest_profit_year ?? fin.latest_year ?? 'N/D'} chiude in perdita. Il dato rende prioritario qualificare tensione finanziaria, garanzie personali, esposizione verso soci/creditori e contenziosi contrattuali.`,
       action: 'Prioritizzare D&O, tutela legale contrattuale e verifica garanzie personali/fideiussioni prima di proporre cross-sell non essenziali.',
       evidence_ids: ['utile_netto', 'storico_bilanci'],
     })
@@ -503,9 +522,9 @@ function computeTriggerAlerts(
       id: 'solvibilita_bassa',
       type: 'red_flag',
       severity: 'alto',
-      title: `Solvibilità bassa: PN copre solo il ${Math.round(fin.solvency_ratio * 100)}% del totale attivo`,
-      description: `Il patrimonio netto è una frazione minima del totale attivo: possibile sottocapitalizzazione o leva finanziaria elevata. In call va qualificata l'eventuale presenza di garanzie personali o fideiussioni.`,
-      action: 'Chiedere esplicitamente se esistono fideiussioni o garanzie personali. Se sì, aprire tema Key Man, TCM e protezione famiglia/soci.',
+      title: `Patrimonializzazione contenuta: PN pari al ${Math.round(fin.solvency_ratio * 100)}% del totale attivo`,
+      description: `Il rapporto patrimonio netto/totale attivo è contenuto. È un segnale contabile da qualificare con debiti, liquidità, garanzie personali, affidamenti e andamento corrente prima di trarre conclusioni sulla solidità finanziaria.`,
+      action: 'Chiedere se esistono fideiussioni, garanzie personali o affidamenti bancari. Se emergono esposizioni personali, aprire tema Key Man, TCM e protezione soci/famiglia.',
       evidence_ids: ['patrimonio_netto', 'totale_attivo'],
     })
   }
@@ -857,14 +876,16 @@ export function buildInsuranceNeedsProfile({
   })
 
   const isCapitalCompany = /SRL|SPA|SRLS/.test(legalForm)
+  const isIndividualBusiness = /\bDI\b|DITTA|INDIVID/.test(legalForm)
   const isPeopleCompany = /SNC|SAS/.test(legalForm)
   const isMicroCompany = employees !== null ? employees <= 3 : /micro/i.test(classificationText)
   const descText = String(profile.descrizione_ateco || '').toLowerCase()
+  const isInformationTechnology = /^(62|63)/.test(atecoDigits) || hasAny(descText, [/software/, /informat/, /\bict\b/, /digitale/, /cloud/, /hosting/, /saas/])
   const isPlantInstallation = /^432/.test(atecoDigits) || hasAny(descText, [/installazione.*impiant/, /impianti elettrici/, /impianti idraulici/])
   const isConstruction = !isPlantInstallation && (mandatoryPolicies.includes('car/ear') || hasAny(sectorText, [/costruzion/, /edili/, /cantier/, /ristruttur/]))
   const isHealthcare = mandatoryPolicies.includes('sanitaria') || hasAny(sectorText, [/medic/, /dentist/, /clinic/, /veterinar/, /farmaci/])
   const isProfessionalAteco = /^(69|70|71|72|73|74|75)/.test(atecoDigits)
-  const isProfessional = !isConstruction && !isHealthcare && (
+  const isProfessional = !isInformationTechnology && !isConstruction && !isHealthcare && (
     isProfessionalAteco || hasAny(sectorText, [/avvocat/, /commerciali/, /notai/, /architett/, /ingegner/, /consulen/, /profession/])
   )
   const isTransport = mandatoryPolicies.includes('vettoriale') || hasAny(sectorText, [/trasport/, /logistic/, /autotrasport/, /magazzin/])
@@ -894,18 +915,24 @@ export function buildInsuranceNeedsProfile({
   }
 
   if (isMicroCompany && profile.titolare && hasOperationalScaleEvidence) {
+    const keyTarget = isIndividualBusiness
+      ? String(profile.titolare)
+      : 'Soci / amministratore / figure operative da identificare'
     pushNeed(needs, {
       id: 'key_man_microimpresa',
       product: 'Key Man / Infortuni titolare / diaria da fermo attività',
-      target: String(profile.titolare),
+      target: keyTarget,
       priority: 'alta',
-      confidence: employees !== null ? 'alta' : 'media',
-      sales_reason: `${profile.titolare} è il referente operativo identificato e la struttura risulta micro: il tema non è “vendere infortuni”, ma quantificare continuità operativa e giorni di autonomia se la persona chiave si ferma.`,
-      why_now: revenue !== null ? `Fatturato verificato ${fmtMoneyValue(revenue)}: la diaria/Key Man può essere dimensionata su numeri reali.` : 'Prima del prodotto, il consulente può mappare sostituibilità del titolare, costi fissi e autonomia finanziaria.',
+      confidence: isIndividualBusiness && employees !== null ? 'alta' : 'media',
+      sales_reason: isIndividualBusiness
+        ? `${profile.titolare} risulta referente/titolare e la struttura è micro: il tema è quantificare continuità operativa e giorni di autonomia se la persona chiave si ferma.`
+        : `La struttura risulta micro e ${profile.titolare} è una persona registrata nel profilo pubblico: il ruolo operativo non va presunto, va verificato in call su soci, amministratori e figure tecniche/commerciali.`
+      ,
+      why_now: revenue !== null ? `Fatturato verificato ${fmtMoneyValue(revenue)}: diaria/Key Man possono essere dimensionate come benchmark dopo aver identificato la persona operativa reale.` : 'Prima del prodotto, il consulente deve mappare sostituibilità, costi fissi e autonomia finanziaria.',
       evidence_ids: ['titolare', ...(employees !== null ? ['dipendenti'] : []), ...(revenue !== null ? ['fatturato'] : [])],
     })
-    commercialReasons.push('Micro impresa con persona chiave identificata: leva Key Man molto forte')
-    nextQuestions.push(`${profile.titolare} lavora operativamente ogni giorno o ha una struttura che può sostituirlo?`)
+    commercialReasons.push('Micro impresa: leva Key Man forte solo dopo verifica della persona operativa reale')
+    nextQuestions.push(isIndividualBusiness ? `${profile.titolare} lavora operativamente ogni giorno o ha una struttura che può sostituirlo?` : 'Chi tra soci, amministratori o figure tecniche presidia operatività, clienti e continuità aziendale?')
   }
 
   if (isPeopleCompany) {
@@ -925,15 +952,29 @@ export function buildInsuranceNeedsProfile({
   if (isProfessional) {
     pushNeed(needs, {
       id: 'rc_professionale',
-      product: 'RC Professionale',
-      target: 'Professionista / studio / titolare',
+      product: 'RC Professionale / E&O',
+      target: 'Amministratore / professionista responsabile / studio',
       priority: 'immediata',
       confidence: atecoEstimated ? 'media' : 'alta',
-      sales_reason: 'L’attività rilevata rientra tra quelle per cui la RC professionale è il primo tavolo di vendita da aprire.',
-      why_now: 'È il bisogno più aderente al servizio erogato dall’azienda.',
+      sales_reason: 'L’attività rilevata eroga prestazioni/servizi professionali: RC professionale o E&O sono il primo tavolo da aprire, distinguendo obbligo di albo da responsabilità contrattuale.',
+      why_now: 'È il bisogno più aderente al servizio erogato: errori, omissioni, danni patrimoniali, tutela legale e clausole contrattuali da verificare.',
       evidence_ids: ['ateco', ...(facts.some((f) => f.id === 'forma_giuridica') ? ['forma_giuridica'] : [])],
     })
-    commercialReasons.push('Settore professionale: prodotto principale chiaro e facilmente spiegabile')
+    commercialReasons.push('Servizi professionali: leva RC/E&O concreta da qualificare su attività, albo e contratti')
+  }
+
+  if (isInformationTechnology) {
+    pushNeed(needs, {
+      id: 'technology_eo',
+      product: 'RC Professionale ICT / Technology E&O',
+      target: 'Amministratore / responsabile tecnico / referente commerciale',
+      priority: 'immediata',
+      confidence: atecoEstimated ? 'media' : 'alta',
+      sales_reason: 'ATECO/descrizione coerenti con software o servizi ICT: il primo tavolo ad alto valore è responsabilità per errori software, ritardi progetto, malfunzionamenti, perdita dati e danni patrimoniali ai clienti.',
+      why_now: 'Da verificare contratti, SLA, penali, responsabilità privacy, ambienti gestiti, backup e limiti della RC generale eventualmente già presente.',
+      evidence_ids: ['ateco', ...(hasWebsite ? ['website'] : []), ...(revenue !== null ? ['fatturato'] : [])],
+    })
+    commercialReasons.push('ICT/software: leva primaria su Technology E&O, contratti, SLA, dati e cyber')
   }
 
   if (isHealthcare) {
@@ -1058,17 +1099,17 @@ export function buildInsuranceNeedsProfile({
     nextQuestions.push('Applicate un CCNL con sanità integrativa o avete già un piano welfare?')
   }
 
-  if (hasWebsite && (isHealthcare || isProfessional || (employees !== null && employees >= 5) || (revenue !== null && revenue >= 300_000))) {
+  if (hasWebsite && (isHealthcare || isProfessional || isInformationTechnology || (employees !== null && employees >= 5) || (revenue !== null && revenue >= 300_000))) {
     pushNeed(needs, {
       id: 'cyber_risk',
       product: 'Cyber Risk',
       target: 'Titolare / amministratore / IT / privacy',
-      priority: isHealthcare || isProfessional || (revenue !== null && revenue >= 1_000_000) ? 'alta' : 'media',
+      priority: isHealthcare || isProfessional || isInformationTechnology || (revenue !== null && revenue >= 1_000_000) ? 'alta' : 'media',
       confidence: 'media',
-      sales_reason: hasWebsite && (isHealthcare || isProfessional)
+      sales_reason: hasWebsite && (isHealthcare || isProfessional || isInformationTechnology)
         ? 'Sito verificato + settore con dati cliente/sensibili: cyber da qualificare su GDPR, backup, ransomware e responsabilità privacy.'
         : 'Presenza web + scala aziendale sufficiente: cyber da qualificare su email, dati clienti, pagamenti, backup e fermo IT.',
-      why_now: isHealthcare || isProfessional ? 'Il settore rende la gestione del dato una leva consulenziale primaria.' : 'Non è cyber generico: parte da sito, dipendenti/fatturato e processi digitali da verificare.',
+      why_now: isHealthcare || isProfessional || isInformationTechnology ? 'Il settore rende la gestione del dato una leva consulenziale primaria.' : 'Non è cyber generico: parte da sito, dipendenti/fatturato e processi digitali da verificare.',
       evidence_ids: ['website', ...(employees !== null ? ['dipendenti'] : []), ...(revenue !== null ? ['fatturato'] : [])],
     })
   }

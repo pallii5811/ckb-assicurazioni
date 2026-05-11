@@ -2475,7 +2475,7 @@ JSON:
         if (!p || typeof p !== 'object') return p
         const pol = String(p.polizza || '').toLowerCase()
         const motivo = String(p.motivo || '')
-        if (p.priorita === 'obbligatoria' && !/inail|rc auto|rca|responsabilità civile professionale obbligatoria|rc professionale obbligatoria/i.test(pol)) {
+        if (p.priorita === 'obbligatoria' && !/inail|rc auto|rca/i.test(pol)) {
           p.priorita = 'critica'
         }
         if (/responsabilità civile professionale|rc professionale/i.test(pol) && !/avvocat|commercialist|medic|ingegner|architett|geometr|intermediar|consulent/i.test(`${role} ${settoreAz} ${atecoDesc}`.toLowerCase())) {
